@@ -17,6 +17,8 @@ import {
 } from "@/lib/spreadsheet-import";
 import { parseCategory, parseStatus } from "@/lib/legal-import";
 import { parseAspectType, parseSituation } from "@/lib/aspect-import";
+import { parseDecimal, parsePeriod, formatQuantity } from "@/lib/co2";
+import { formatDate } from "@/lib/format";
 import { ASPECT_TYPE_LABEL, COMPLIANCE_STATUS_LABEL, LEGAL_CATEGORY_LABEL, SITUATION_LABEL } from "@/lib/labels";
 
 type Sheet = { name: string; rows: unknown[][] };
@@ -35,6 +37,14 @@ const PREVIEW: Record<PreviewKind, (raw: string, row: ImportRow) => string | nul
     return s ? SITUATION_LABEL[s] : null;
   },
   aspectType: (raw, row) => ASPECT_TYPE_LABEL[parseAspectType(raw, row.aspect)],
+  period: (raw) => {
+    const p = parsePeriod(raw);
+    return p ? (p.start === p.end ? formatDate(p.start) : `${formatDate(p.start)} t/m ${formatDate(p.end)}`) : null;
+  },
+  decimal: (raw) => {
+    const n = parseDecimal(raw);
+    return n.value === null ? null : formatQuantity(n.value);
+  },
   yesNo: (raw) => {
     const b = parseYesNo(raw);
     return b === null ? null : b ? "Ja" : "Nee";

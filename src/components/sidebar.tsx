@@ -22,15 +22,13 @@ const NAV: { title?: string; items: NavItem[] }[] = [
       { href: "/audits", label: "Audits" },
       { href: "/wetgeving", label: "Wet- en regelgeving" },
       { href: "/milieuaspecten", label: "Milieuaspecten" },
+      { href: "/co2", label: "CO2-prestatieladder" },
       { href: "/acties", label: "Acties" },
     ],
   },
   {
     title: "Binnenkort",
-    items: [
-      { href: "#", label: "CO2", soon: true },
-      { href: "#", label: "Directiebeoordeling", soon: true },
-    ],
+    items: [{ href: "#", label: "Directiebeoordeling", soon: true }],
   },
   { title: "Instellingen", items: [{ href: "/beheer", label: "Stamgegevens" }] },
 ];

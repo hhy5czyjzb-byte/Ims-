@@ -6,22 +6,23 @@ Integraal managementsysteem (IMS) voor alle certificeringen van Rouwmaat Groep (
 
 ## Status (versie 0.1, fase 1)
 
-| Module                                                                                                                                      | Status                                        |
-| ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Lokale modus zonder inloggen (fase 1), met "Bekijken als" voor de andere rollen                                                             | ✅                                            |
-| Inloggen met Microsoft 365 (Entra ID), rollen uit Entra ID-groepen                                                                          | ✅ gebouwd, nog niet gekoppeld (fase 2)       |
-| Normenbeheer: normen, eisen/hoofdstukken, dekking met bewijs                                                                                | ✅                                            |
-| Processen: proceskaart per discipline, processtappen, RACI, koppelingen                                                                     | ✅                                            |
-| Documentbeheer: verwijzingen naar SharePoint, sync via Graph, koppelingen                                                                   | ✅ (sync nog te testen met echte bibliotheek) |
-| Risico's en kansen (incl. RI&E): 5×5-matrix vóór/na maatregelen, filters, acties, CSV-export                                                | ✅                                            |
-| Audits (intern, extern, klant): planning, checklist per norm, bevindingen met opvolging, planning over de certificatiecyclus                | ✅                                            |
-| Wet- en regelgeving: register met compliancestatus, toetsingen (evaluatie naleving), acties, Excel-import met kolommen koppelen, CSV-export | ✅                                            |
-| Milieuaspecten: register met scoring (F × E × O), significantie (instelbare drempel), acties, Excel-import, CSV-export                      | ✅                                            |
-| Acties en verbeterpunten                                                                                                                    | ✅                                            |
-| Dashboard                                                                                                                                   | ✅ eenvoudige versie                          |
-| Stamgegevens (locaties, disciplines, functies) en logboek (audit trail)                                                                     | ✅                                            |
-| Datamodel voor leveranciers en stakeholders                                                                                                 | ✅ in database, schermen volgen               |
-| CO2, directiebeoordeling, …                                                                                                                 | ⏳ volgende fasen                             |
+| Module                                                                                                                                                                                                        | Status                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Lokale modus zonder inloggen (fase 1), met "Bekijken als" voor de andere rollen                                                                                                                               | ✅                                            |
+| Inloggen met Microsoft 365 (Entra ID), rollen uit Entra ID-groepen                                                                                                                                            | ✅ gebouwd, nog niet gekoppeld (fase 2)       |
+| Normenbeheer: normen, eisen/hoofdstukken, dekking met bewijs                                                                                                                                                  | ✅                                            |
+| Processen: proceskaart per discipline, processtappen, RACI, koppelingen                                                                                                                                       | ✅                                            |
+| Documentbeheer: verwijzingen naar SharePoint, sync via Graph, koppelingen                                                                                                                                     | ✅ (sync nog te testen met echte bibliotheek) |
+| Risico's en kansen (incl. RI&E): 5×5-matrix vóór/na maatregelen, filters, acties, CSV-export                                                                                                                  | ✅                                            |
+| Audits (intern, extern, klant): planning, checklist per norm, bevindingen met opvolging, planning over de certificatiecyclus                                                                                  | ✅                                            |
+| Wet- en regelgeving: register met compliancestatus, toetsingen (evaluatie naleving), acties, Excel-import met kolommen koppelen, CSV-export                                                                   | ✅                                            |
+| Milieuaspecten: register met scoring (F × E × O), significantie (instelbare drempel), acties, Excel-import, CSV-export                                                                                        | ✅                                            |
+| CO2-prestatieladder: energiedragers met emissiefactoren (met ingangsdatum), verbruik per periode/discipline/locatie/materieel, footprint scope 1-2-3, doelstellingen en maatregelen, Excel-import, CSV-export | ✅                                            |
+| Acties en verbeterpunten                                                                                                                                                                                      | ✅                                            |
+| Dashboard                                                                                                                                                                                                     | ✅ eenvoudige versie                          |
+| Stamgegevens (locaties, disciplines, functies) en logboek (audit trail)                                                                                                                                       | ✅                                            |
+| Datamodel voor leveranciers en stakeholders                                                                                                                                                                   | ✅ in database, schermen volgen               |
+| Directiebeoordeling, …                                                                                                                                                                                        | ⏳ volgende fasen                             |
 
 ## Snel starten (lokaal, laptop)
 

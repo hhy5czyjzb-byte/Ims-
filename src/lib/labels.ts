@@ -7,6 +7,7 @@ import type {
   AuditType,
   ChecklistResult,
   ComplianceStatus,
+  EnergyCategory,
   FindingClass,
   FindingStatus,
   LegalCategory,
@@ -61,6 +62,7 @@ export const ACTION_SOURCE_LABEL: Record<ActionSource, string> = {
   RISK: "Risico / kans",
   COMPLIANCE: "Wet- en regelgeving",
   ENVIRONMENTAL_ASPECT: "Milieuaspect",
+  CO2_REDUCTION: "CO2-reductie",
   NONCONFORMITY: "Afwijking",
   MANAGEMENT_REVIEW: "Directiebeoordeling",
   COMPLAINT: "Klacht",
@@ -216,6 +218,22 @@ export const SITUATION_CLASS: Record<OperatingSituation, string> = {
   NORMAL: "bg-neutral-100 text-neutral-700",
   ABNORMAL: "bg-amber-100 text-amber-800",
   EMERGENCY: "bg-brand-red text-white",
+};
+
+export const ENERGY_CATEGORY_LABEL: Record<EnergyCategory, string> = {
+  FUEL: "Brandstof",
+  ELECTRICITY: "Elektriciteit",
+  GAS: "Gas",
+  HEAT: "Warmte",
+  TRAVEL: "Zakelijk reizen",
+  TRANSPORT: "Transport door derden",
+  OTHER: "Overig",
+};
+
+export const SCOPE_LABEL: Record<1 | 2 | 3, string> = {
+  1: "Scope 1 — directe emissies (eigen brandstof, gas)",
+  2: "Scope 2 — ingekochte elektriciteit en warmte",
+  3: "Scope 3 — overige indirecte emissies",
 };
 
 export function options<T extends string>(labels: Record<T, string>) {

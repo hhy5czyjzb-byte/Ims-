@@ -10,6 +10,7 @@ import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
 import { riskCode } from "@/lib/risk";
 import { legalCode } from "@/lib/compliance";
 import { aspectCode } from "@/lib/aspects";
+import { formatKg } from "@/lib/co2";
 import { findingCode } from "@/lib/audit-plan";
 import { ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
 import { Badge, Disclosure, PageHeader } from "@/components/ui";
@@ -42,6 +43,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
       risk: true,
       legalRequirement: true,
       environmentalAspect: true,
+      reductionTarget: true,
       finding: { include: { audit: true } },
     },
   });
@@ -138,6 +140,17 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
                     Bevinding {findingCode(action.finding.audit.number, action.finding.number)}
                   </Link>{" "}
                   — {action.finding.audit.title}
+                </dd>
+              </>
+            )}
+            {action.reductionTarget && (
+              <>
+                <dt className="text-neutral-500">CO2-doelstelling</dt>
+                <dd>
+                  <Link href={`/co2/doelstellingen/${action.reductionTarget.id}`}>{action.reductionTarget.title}</Link>
+                  {action.expectedReductionKg && (
+                    <div className="text-xs text-neutral-500">Verwachte reductie: {formatKg(Number(action.expectedReductionKg))} per jaar</div>
+                  )}
                 </dd>
               </>
             )}

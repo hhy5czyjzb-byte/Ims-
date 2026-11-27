@@ -68,3 +68,22 @@ test("buildRows: getallen F/E/O genormaliseerd, verplichte velden", () => {
   ]);
   assert.equal(warnings.length, 2);
 });
+
+test("buildRows: decimale getallen en periodes uit Excel", async () => {
+  const { buildRows: build } = await import("./spreadsheet-import");
+  const fields = [
+    { key: "q", label: "Hoeveelheid", kind: "decimal" as const, hints: [] },
+    { key: "p", label: "Periode", kind: "period" as const, hints: [] },
+  ];
+  const rows = [
+    ["q", "p"],
+    [123.456, new Date(Date.UTC(2026, 2, 1))],
+    ["1.234,5", new Date(Date.UTC(2026, 2, 15))],
+    [7, "Q2 2026"],
+  ];
+  assert.deepEqual(build(rows, 0, { q: 0, p: 1 }, fields).rows, [
+    { rowNumber: 2, q: "123,456", p: "2026-03" },
+    { rowNumber: 3, q: "1.234,5", p: "2026-03-15" },
+    { rowNumber: 4, q: "7", p: "Q2 2026" },
+  ]);
+});

@@ -21,6 +21,8 @@ import { residual } from "@/lib/risk";
 import { auditCode } from "@/lib/audit-plan";
 import { complianceSummary, legalCode } from "@/lib/compliance";
 import { aspectCode } from "@/lib/aspects";
+import { formatTonnes, formatPct } from "@/lib/co2";
+import { loadFactors, loadFootprint, targetStatus } from "@/lib/co2-data";
 
 export const metadata = { title: "Dashboard" };
 
@@ -121,6 +123,15 @@ export default async function DashboardPage() {
     if (res.score >= 10) highResidual++;
     if (r.reviewDate && r.reviewDate < today) reviewOverdue++;
   }
+
+  // CO2: lopend jaar (t/m vandaag) en vorig jaar, plus status van de doelstellingen.
+  const co2Factors = await loadFactors();
+  const [co2Now, co2Prev, co2Targets] = await Promise.all([
+    loadFootprint(today.getFullYear(), "jaar", {}, co2Factors),
+    loadFootprint(today.getFullYear() - 1, "jaar", {}, co2Factors),
+    prisma.reductionTarget.findMany({ where: { active: true }, orderBy: { targetYear: "asc" }, take: 4 }),
+  ]);
+  const co2TargetRows = await Promise.all(co2Targets.map(async (t) => ({ t, s: await targetStatus(t, co2Factors) })));
 
   const legalSummary = complianceSummary(legalStatuses.map((l) => l.status));
 
@@ -304,7 +315,9 @@ export default async function DashboardPage() {
               )}
             </>
           )}
-          <p className="mt-3 border-t border-dashed border-neutral-200 pt-2 text-xs text-neutral-400">Binnenkort: CO2, certificaten en keuringen.</p>
+          <p className="mt-3 border-t border-dashed border-neutral-200 pt-2 text-xs text-neutral-400">
+            Binnenkort: certificaten, keuringen en directiebeoordeling.
+          </p>
         </section>
       </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -425,6 +438,80 @@ export default async function DashboardPage() {
                     <span>{ASPECT_TYPE_LABEL[t]}</span>
                     <span className="tabular-nums">{sigAspects.filter((a) => a.aspectType === t).length}</span>
                   </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <section className="card lg:col-span-2">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2>CO2-footprint</h2>
+            <Link href="/co2" className="text-sm">
+              CO2-prestatieladder →
+            </Link>
+          </div>
+          {co2Now.rows.length === 0 && co2Prev.rows.length === 0 ? (
+            <p className="text-sm text-neutral-500">
+              Nog geen energieverbruik vastgelegd. <Link href="/co2/verbruik">Verbruik invoeren</Link>
+            </p>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th className="text-right">Scope 1</th>
+                  <th className="text-right">Scope 2</th>
+                  <th className="text-right">Scope 3</th>
+                  <th className="text-right">Totaal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { label: `${today.getFullYear() - 1}`, fp: co2Prev },
+                  { label: `${today.getFullYear()} (t/m vandaag)`, fp: co2Now },
+                ].map(({ label, fp }) => (
+                  <tr key={label}>
+                    <td className="whitespace-nowrap">{label}</td>
+                    {([1, 2, 3] as const).map((sc) => (
+                      <td key={sc} className="text-right tabular-nums">
+                        {formatTonnes(fp.byScope[sc])}
+                      </td>
+                    ))}
+                    <td className="text-right font-semibold tabular-nums">{formatTonnes(fp.totalKg)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {co2Now.missingFactor + co2Prev.missingFactor > 0 && (
+            <p className="mt-2 text-xs text-amber-700">
+              {co2Now.missingFactor + co2Prev.missingFactor} verbruiksregel(s) zonder emissiefactor tellen niet mee.{" "}
+              <Link href="/co2/factoren">Emissiefactoren</Link>
+            </p>
+          )}
+        </section>
+        <section className="card">
+          <h2 className="mb-3">CO2-doelstellingen</h2>
+          {co2TargetRows.length === 0 ? (
+            <p className="text-sm text-neutral-500">Nog geen doelstellingen.</p>
+          ) : (
+            <ul className="space-y-3 text-sm">
+              {co2TargetRows.map(({ t, s }) => (
+                <li key={t.id}>
+                  <Link href={`/co2/doelstellingen/${t.id}`}>{t.title}</Link>
+                  {s.latestFull ? (
+                    <>
+                      <ProgressBar value={Number(t.reductionPct) > 0 ? (Math.max(0, s.latestFull.actualPct) / Number(t.reductionPct)) * 100 : 0} />
+                      <div className={`text-xs ${s.latestFull.onTrack ? "text-green-700" : "text-brand-red"}`}>
+                        {s.latestFull.year}: {formatPct(s.latestFull.actualPct)} van {Number(t.reductionPct)} % ·{" "}
+                        {s.latestFull.onTrack ? "op koers" : "achter op schema"}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-neutral-400">Nog geen volledig jaar na het basisjaar</div>
+                  )}
                 </li>
               ))}
             </ul>

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { can, canAssessLegal, canEditAction, canEditRisk, roleFromGroups } from "./rbac";
+import { can, canAssessLegal, canEditAction, canEditConsumption, canEditRisk, roleFromGroups } from "./rbac";
 
 const cfg = { qhse: "g-qhse", directie: "g-dir", middenkader: "g-mk" };
 
@@ -47,4 +47,11 @@ test("canAssessLegal: QHSE altijd, middenkader alleen als eigenaar, directie nie
   assert.equal(canAssessLegal({ id: "u1", role: "MIDDENKADER" }, { ownerId: "u1" }), true);
   assert.equal(canAssessLegal({ id: "u2", role: "MIDDENKADER" }, { ownerId: "u1" }), false);
   assert.equal(canAssessLegal({ id: "u1", role: "DIRECTIE" }, { ownerId: "u1" }), false);
+});
+
+test("canEditConsumption: QHSE altijd, middenkader eigen invoer, directie niet", () => {
+  assert.equal(canEditConsumption({ id: "x", role: "QHSE" }, { createdById: "u1" }), true);
+  assert.equal(canEditConsumption({ id: "u1", role: "MIDDENKADER" }, { createdById: "u1" }), true);
+  assert.equal(canEditConsumption({ id: "u2", role: "MIDDENKADER" }, { createdById: "u1" }), false);
+  assert.equal(canEditConsumption({ id: "u1", role: "DIRECTIE" }, { createdById: "u1" }), false);
 });

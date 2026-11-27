@@ -221,7 +221,11 @@ export default async function AspectDetailPage({ params }: { params: Promise<{ i
             ))}
           </LinkList>
         </div>
-        {a.co2Relevant && <p className="mt-3 text-xs text-neutral-400">CO2-relevant: wordt meegenomen in de CO2-module zodra die er is.</p>}
+        {a.co2Relevant && (
+          <p className="mt-3 text-xs text-neutral-500">
+            CO2-relevant: het bijbehorende energieverbruik leg je vast in de <Link href="/co2/verbruik">CO2-module</Link>.
+          </p>
+        )}
       </section>
 
       {canEdit && linkOptions && (

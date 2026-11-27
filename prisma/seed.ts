@@ -259,6 +259,23 @@ async function main() {
     await prisma.jobFunction.upsert({ where: { name }, update: {}, create: { name } });
   }
 
+  // Energiedragers voor de CO2-prestatieladder — zónder emissiefactoren: QHSE voert de actuele
+  // factoren in vanuit CO2emissiefactoren.nl (in de demodata staan voorbeeldwaarden).
+  console.log("Seed: energiedragers…");
+  const CARRIERS: { name: string; unit: string; category: "FUEL" | "GAS" | "ELECTRICITY" | "TRAVEL"; defaultScope: number; aliases?: string }[] = [
+    { name: "Diesel (B7)", unit: "liter", category: "FUEL", defaultScope: 1, aliases: "diesel, gasolie, B7" },
+    { name: "HVO100", unit: "liter", category: "FUEL", defaultScope: 1, aliases: "HVO, HVO 100" },
+    { name: "Benzine (E10)", unit: "liter", category: "FUEL", defaultScope: 1, aliases: "benzine, euro95, E10" },
+    { name: "Aardgas", unit: "m3", category: "GAS", defaultScope: 1, aliases: "gas" },
+    { name: "Propaan", unit: "liter", category: "GAS", defaultScope: 1, aliases: "LPG" },
+    { name: "Elektriciteit (grijs)", unit: "kWh", category: "ELECTRICITY", defaultScope: 2, aliases: "elektriciteit, stroom, grijze stroom" },
+    { name: "Elektriciteit (groen, NL wind)", unit: "kWh", category: "ELECTRICITY", defaultScope: 2, aliases: "groene stroom, windstroom" },
+    { name: "Zakelijke km privéauto", unit: "km", category: "TRAVEL", defaultScope: 3, aliases: "declaratiekilometers, privé auto km" },
+  ];
+  for (const [i, c] of CARRIERS.entries()) {
+    await prisma.energyCarrier.upsert({ where: { name: c.name }, update: {}, create: { ...c, sortOrder: (i + 1) * 10 } });
+  }
+
   // Lokale modus (geen Microsoft 365): de lokale gebruiker (QHSE) en testgebruikers voor "Bekijken als".
   const localMode = process.env.AUTH_MODE === "local" || (process.env.AUTH_MODE !== "entra" && !process.env.AZURE_AD_CLIENT_ID);
   if (localMode) {
@@ -282,6 +299,7 @@ async function main() {
     await seedDemoAudits();
     await seedDemoLegal();
     await seedDemoAspects();
+    await seedDemoCo2();
   }
   console.log("Seed klaar.");
 }
@@ -909,6 +927,145 @@ async function seedDemoAspects() {
       },
     });
   }
+}
+
+/**
+ * Voorbeelddata CO2. LET OP: de emissiefactoren hieronder zijn VOORBEELDWAARDEN om de app te verkennen,
+ * niet de officiële actuele lijst. Vervang ze door de waarden van CO2emissiefactoren.nl.
+ */
+async function seedDemoCo2() {
+  if (await prisma.energyConsumption.findFirst({ where: { description: { endsWith: "(voorbeeld)" } } })) return;
+  const qhse = await prisma.user.findFirst({ where: { role: "QHSE" } });
+  const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
+  const carrier = async (name: string) => prisma.energyCarrier.findUniqueOrThrow({ where: { name } });
+  const disc = async (name: string) => (await prisma.discipline.findUniqueOrThrow({ where: { name } })).id;
+  const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
+  const diesel = await carrier("Diesel (B7)");
+  const stroom = await carrier("Elektriciteit (grijs)");
+  const gas = await carrier("Aardgas");
+  const km = await carrier("Zakelijke km privéauto");
+  const DEMO = "VOORBEELDWAARDE — vervangen door de actuele lijst van CO2emissiefactoren.nl";
+  const factors: [string, number][] = [
+    [diesel.id, 3.262],
+    [stroom.id, 0.45],
+    [gas.id, 2.085],
+    [km.id, 0.195],
+  ];
+  for (const [carrierId, factor] of factors) {
+    await prisma.emissionFactor.upsert({
+      where: { carrierId_validFrom: { carrierId, validFrom: new Date(Date.UTC(2020, 0, 1)) } },
+      update: {},
+      create: { carrierId, factor, validFrom: new Date(Date.UTC(2020, 0, 1)), source: DEMO },
+    });
+  }
+
+  const shovel = await prisma.equipment.create({
+    data: {
+      name: "Shovel (voorbeeld)",
+      code: "DEMO-SH-01",
+      type: "shovel",
+      defaultCarrierId: diesel.id,
+      disciplineId: await disc("Afvalrecycling"),
+      locationId: groenlo.id,
+    },
+  });
+  const mixer = await prisma.equipment.create({
+    data: {
+      name: "Truckmixer (voorbeeld)",
+      code: "DEMO-TM-01",
+      type: "truckmixer",
+      defaultCarrierId: diesel.id,
+      disciplineId: await disc("Beton"),
+      locationId: groenlo.id,
+    },
+  });
+  const plant = await prisma.equipment.create({
+    data: {
+      name: "Menginstallatie (voorbeeld)",
+      code: "DEMO-MI-01",
+      type: "installatie",
+      defaultCarrierId: stroom.id,
+      disciplineId: await disc("Beton"),
+      locationId: groenlo.id,
+    },
+  });
+
+  // Maandelijks verbruik 2024 t/m de vorige maand; licht dalende trend voor diesel.
+  const now = new Date();
+  const rows: Parameters<typeof prisma.energyConsumption.create>[0]["data"][] = [];
+  for (let y = 2024; y <= now.getUTCFullYear(); y++) {
+    for (let m = 0; m < 12; m++) {
+      if (y === now.getUTCFullYear() && m >= now.getUTCMonth()) break;
+      const start = new Date(Date.UTC(y, m, 1));
+      const end = new Date(Date.UTC(y, m + 1, 0));
+      const trend = 1 - (y - 2024) * 0.06;
+      const winter = [0, 1, 2, 10, 11].includes(m) ? 1 : 0.25;
+      const base = { periodStart: start, periodEnd: end, locationId: groenlo.id, createdById: qhse?.id };
+      rows.push({
+        ...base,
+        carrierId: diesel.id,
+        quantity: Math.round(2400 * trend),
+        equipmentId: shovel.id,
+        disciplineId: shovel.disciplineId,
+        description: "Tankpas shovel (voorbeeld)",
+      });
+      rows.push({
+        ...base,
+        carrierId: diesel.id,
+        quantity: Math.round(3100 * trend),
+        equipmentId: mixer.id,
+        disciplineId: mixer.disciplineId,
+        description: "Tankpas truckmixer (voorbeeld)",
+      });
+      rows.push({
+        ...base,
+        carrierId: stroom.id,
+        quantity: Math.round(18000 * (1 - (y - 2024) * 0.03)),
+        equipmentId: plant.id,
+        disciplineId: plant.disciplineId,
+        description: "Energienota (voorbeeld)",
+      });
+      rows.push({ ...base, carrierId: gas.id, quantity: Math.round(900 * winter), description: "Gasnota kantoor (voorbeeld)" });
+      rows.push({ ...base, carrierId: km.id, quantity: 1500, createdById: mk?.id, description: "Declaraties (voorbeeld)" });
+    }
+  }
+  for (const data of rows) await prisma.energyConsumption.create({ data });
+
+  const target = await prisma.reductionTarget.create({
+    data: {
+      title: "Scope 1: −25 % in 2030 t.o.v. 2024 (voorbeeld)",
+      scope: 1,
+      baseYear: 2024,
+      targetYear: 2030,
+      reductionPct: 25,
+      description: "Vooral door minder en schonere diesel.",
+    },
+  });
+  await prisma.reductionTarget.create({
+    data: { title: "Totale uitstoot: −15 % in 2028 t.o.v. 2024 (voorbeeld)", baseYear: 2024, targetYear: 2028, reductionPct: 15 },
+  });
+  await prisma.action.createMany({
+    data: [
+      {
+        title: "Shovel vervangen door elektrische shovel (voorbeeld)",
+        source: "CO2_REDUCTION",
+        reductionTargetId: target.id,
+        expectedReductionKg: 60000,
+        ownerId: mk?.id,
+        createdById: qhse?.id,
+        deadline: new Date(Date.UTC(now.getUTCFullYear() + 1, 5, 30)),
+      },
+      {
+        title: "Training Het Nieuwe Rijden voor chauffeurs (voorbeeld)",
+        source: "CO2_REDUCTION",
+        reductionTargetId: target.id,
+        expectedReductionKg: 8000,
+        ownerId: qhse?.id,
+        createdById: qhse?.id,
+        status: "IN_PROGRESS",
+      },
+    ],
+  });
 }
 
 main()

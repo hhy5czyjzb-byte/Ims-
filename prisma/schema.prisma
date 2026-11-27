@@ -47,6 +47,7 @@ model User {
   ownedAspects             EnvironmentalAspect[]  @relation("AspectOwner")
   createdAspects           EnvironmentalAspect[]  @relation("AspectCreatedBy")
   settingsChanged          AppSetting[]
+  createdConsumptions      EnergyConsumption[]
   createdRisks             Risk[]                 @relation("RiskCreatedBy")
   ownedStakeholders        Stakeholder[]          @relation("StakeholderOwner")
   raciAssignments          RaciAssignment[]
@@ -68,6 +69,8 @@ model Location {
   risks                Risk[]
   legalRequirements    LegalRequirement[]
   environmentalAspects EnvironmentalAspect[]
+  equipment            Equipment[]
+  energyConsumptions   EnergyConsumption[]
   audits               Audit[]
 }
 
@@ -85,6 +88,9 @@ model Discipline {
   risks                Risk[]
   legalRequirements    LegalRequirement[]
   environmentalAspects EnvironmentalAspect[]
+  equipment            Equipment[]
+  energyConsumptions   EnergyConsumption[]
+  reductionTargets     ReductionTarget[]
   audits               Audit[]
   suppliers            Supplier[]
 }
@@ -443,6 +449,7 @@ enum ActionSource {
   RISK
   COMPLIANCE
   ENVIRONMENTAL_ASPECT
+  CO2_REDUCTION
   NONCONFORMITY
   MANAGEMENT_REVIEW
   COMPLAINT
@@ -476,6 +483,9 @@ model Action {
   legalRequirement      LegalRequirement?    @relation(fields: [legalRequirementId], references: [id], onDelete: SetNull)
   environmentalAspectId String?
   environmentalAspect   EnvironmentalAspect? @relation(fields: [environmentalAspectId], references: [id], onDelete: SetNull)
+  reductionTargetId     String?
+  reductionTarget       ReductionTarget?     @relation(fields: [reductionTargetId], references: [id], onDelete: SetNull)
+  expectedReductionKg   Decimal?             @db.Decimal(14, 2) // verwachte CO2-reductie per jaar (kg), bij CO2-maatregelen
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 
@@ -730,4 +740,114 @@ model AppSetting {
   updatedAt   DateTime @updatedAt
   updatedById String?
   updatedBy   User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+// ─────────────────────────────────────────────────────────────
+// CO2-prestatieladder: energiedragers, emissiefactoren, verbruik, doelstellingen
+// ─────────────────────────────────────────────────────────────
+
+enum EnergyCategory {
+  FUEL
+  ELECTRICITY
+  GAS
+  HEAT
+  TRAVEL
+  TRANSPORT
+  OTHER
+}
+
+/// Energiedrager / emissiebron, bijv. "Diesel (B7)", "Elektriciteit grijs", "Aardgas".
+model EnergyCarrier {
+  id           String         @id @default(cuid())
+  name         String         @unique
+  aliases      String? // alternatieve namen (komma-gescheiden), voor herkenning bij import
+  unit         String // liter, kWh, m3, km, kg, GJ
+  category     EnergyCategory @default(OTHER)
+  defaultScope Int            @default(1) // 1, 2 of 3
+  active       Boolean        @default(true)
+  sortOrder    Int            @default(0)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  factors      EmissionFactor[]
+  consumptions EnergyConsumption[]
+  equipment    Equipment[]
+}
+
+/// Emissiefactor (kg CO2-equivalent per eenheid), geldig vanaf een datum. De berekening gebruikt de factor die gold bij het verbruik.
+model EmissionFactor {
+  id        String        @id @default(cuid())
+  carrierId String
+  carrier   EnergyCarrier @relation(fields: [carrierId], references: [id], onDelete: Cascade)
+  factor    Decimal       @db.Decimal(12, 6) // kg CO2e per eenheid
+  validFrom DateTime
+  source    String? // bijv. "CO2emissiefactoren.nl, lijst januari 2026"
+  notes     String?
+  createdAt DateTime      @default(now())
+
+  @@unique([carrierId, validFrom])
+}
+
+/// Materieel (voertuigen, machines, installaties).
+model Equipment {
+  id               String         @id @default(cuid())
+  name             String
+  code             String?        @unique // kenteken / machinenummer
+  type             String? // bijv. shovel, vrachtwagen, generator
+  defaultCarrierId String?
+  defaultCarrier   EnergyCarrier? @relation(fields: [defaultCarrierId], references: [id], onDelete: SetNull)
+  disciplineId     String?
+  discipline       Discipline?    @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  locationId       String?
+  location         Location?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  active           Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  consumptions EnergyConsumption[]
+}
+
+/// Verbruik van een energiedrager over een periode (begin t/m eind, inclusief).
+model EnergyConsumption {
+  id           String        @id @default(cuid())
+  externalRef  String?       @unique // kenmerk uit het bronbestand; gebruikt bij herimport
+  carrierId    String
+  carrier      EnergyCarrier @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  quantity     Decimal       @db.Decimal(18, 4) // in de eenheid van de energiedrager
+  periodStart  DateTime
+  periodEnd    DateTime
+  scope        Int? // afwijkende scope (anders die van de energiedrager)
+  description  String? // bijv. factuurnummer, leverancier
+  disciplineId String?
+  discipline   Discipline?   @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  locationId   String?
+  location     Location?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  equipmentId  String?
+  equipment    Equipment?    @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdBy    User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([periodStart])
+  @@index([carrierId])
+}
+
+/// Reductiedoelstelling, bijv. "Scope 1: −20 % in 2030 t.o.v. 2024".
+model ReductionTarget {
+  id           String      @id @default(cuid())
+  title        String
+  description  String?
+  scope        Int? // 1, 2, 3 of leeg = totaal
+  baseYear     Int
+  baselineKg   Decimal?    @db.Decimal(16, 2) // handmatig basisjaar (anders berekend uit het verbruik)
+  targetYear   Int
+  reductionPct Decimal     @db.Decimal(6, 2)
+  disciplineId String?
+  discipline   Discipline? @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  measures Action[]
 }

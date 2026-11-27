@@ -4,10 +4,10 @@
  * Module-specifieke velden en herkenning staan in o.a. legal-import.ts en aspect-import.ts.
  */
 
-export type FieldKind = "text" | "date" | "int";
+export type FieldKind = "text" | "date" | "int" | "decimal" | "period";
 
 /** Hoe de wizard een waarde in het voorbeeld toont (vertaling naar de waarde die wordt opgeslagen). */
-export type PreviewKind = "legalStatus" | "aspectSituation" | "aspectType" | "yesNo" | "legalCategory";
+export type PreviewKind = "legalStatus" | "aspectSituation" | "aspectType" | "yesNo" | "legalCategory" | "period" | "decimal";
 
 export type ImportField = { key: string; label: string; required?: boolean; hints: string[]; kind?: FieldKind; preview?: PreviewKind };
 
@@ -176,6 +176,21 @@ export function buildRows(rows: unknown[][], headerRow: number, mapping: Mapping
         const n = parseIntCell(value);
         if (n.invalid) warnings.push(`Rij ${i + 1}: "${cellText(value)}" (${f.label}) is geen getal — overgeslagen`);
         if (n.value !== null) row[f.key] = String(n.value);
+      } else if (f.kind === "decimal") {
+        // Getallen uit Excel exact doorgeven (met decimale komma), tekst ongewijzigd; de server leest beide met parseDecimal.
+        if (typeof value === "number" && Number.isFinite(value)) row[f.key] = String(value).replace(".", ",");
+        else {
+          const t = cellText(value);
+          if (t) row[f.key] = t;
+        }
+      } else if (f.kind === "period") {
+        // Een Excel-datum op de 1e van de maand (bijv. weergegeven als "mrt-26") staat voor die hele maand.
+        if (value instanceof Date && !isNaN(value.getTime()))
+          row[f.key] = value.getUTCDate() === 1 ? value.toISOString().slice(0, 7) : value.toISOString().slice(0, 10);
+        else {
+          const t = cellText(value);
+          if (t) row[f.key] = t;
+        }
       } else {
         const t = cellText(value);
         if (t) row[f.key] = t;

@@ -16,6 +16,8 @@ export const PERMISSIONS = {
   "audits.edit": ["QHSE"],
   "legal.edit": ["QHSE"],
   "aspects.edit": ["QHSE"],
+  "co2.manage": ["QHSE"],
+  "co2.enter": ["QHSE", "MIDDENKADER"],
   "auditlog.view": ["QHSE"],
 } as const satisfies Record<string, readonly Role[]>;
 
@@ -43,6 +45,12 @@ export function canEditRisk(user: { id: string; role: Role }, risk: { ownerId: s
 export function canAssessLegal(user: { id: string; role: Role }, req: { ownerId: string | null }): boolean {
   if (can(user.role, "legal.edit")) return true;
   return user.role === "MIDDENKADER" && req.ownerId === user.id;
+}
+
+/** Mag deze gebruiker een verbruiksregel wijzigen? QHSE altijd; middenkader alleen eigen invoer. */
+export function canEditConsumption(user: { id: string; role: Role }, c: { createdById: string | null }): boolean {
+  if (can(user.role, "co2.manage")) return true;
+  return can(user.role, "co2.enter") && c.createdById === user.id;
 }
 
 /**
