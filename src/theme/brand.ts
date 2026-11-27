@@ -26,12 +26,19 @@ export const brand = {
     color: "/brand/logo-kleur.png",
     white: "/brand/logo-wit.png",
   },
-  /** Kleuren voor de risicomatrix (laag → zeer hoog). */
+  /** Kleuren voor de risicomatrix (laag → zeer hoog); zeer hoog = Rouwmaat-rood. */
   riskColors: {
     low: "#3fa34d",
     medium: "#f2c12e",
     high: "#f08a24",
     veryHigh: "#e30613",
+  },
+  /** Kansenmatrix: hoe hoger de score, hoe aantrekkelijker (groener). */
+  opportunityColors: {
+    low: "#e5e7eb",
+    medium: "#bfe3c4",
+    high: "#5fb36b",
+    veryHigh: "#2e7d32",
   },
 } as const;
 

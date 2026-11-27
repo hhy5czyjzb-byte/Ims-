@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { can, canEditAction } from "@/lib/rbac";
 import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
+import { riskCode } from "@/lib/risk";
 import { ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
 import { Badge, Disclosure, PageHeader } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -133,7 +134,11 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
             {action.risk && (
               <>
                 <dt className="text-neutral-500">Risico</dt>
-                <dd>{action.risk.title}</dd>
+                <dd>
+                  <Link href={`/risicos/${action.risk.id}`}>
+                    {riskCode(action.risk.number, action.risk.type)} {action.risk.title}
+                  </Link>
+                </dd>
               </>
             )}
           </dl>

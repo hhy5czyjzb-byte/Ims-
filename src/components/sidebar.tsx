@@ -16,13 +16,13 @@ const NAV: { title?: string; items: NavItem[] }[] = [
       { href: "/normen", label: "Normenbeheer" },
       { href: "/processen", label: "Processen" },
       { href: "/documenten", label: "Documentbeheer" },
+      { href: "/risicos", label: "Risico's en kansen" },
       { href: "/acties", label: "Acties" },
     ],
   },
   {
     title: "Binnenkort",
     items: [
-      { href: "#", label: "Risico's en kansen", soon: true },
       { href: "#", label: "Audits", soon: true },
       { href: "#", label: "Wet- en regelgeving", soon: true },
       { href: "#", label: "Milieuaspecten", soon: true },

@@ -50,19 +50,22 @@ public/brand                logo's (tijdelijk uit huisstijlblad; vervangen door 
 7. **Ontwikkel-login** (`AUTH_DEV_LOGIN=true`) is er alleen voor fase 1 op de laptop. Uitgeschakeld zodra `NODE_ENV=production`, ongeacht de variabele. Seed maakt dan testgebruikers `*@ims.local`.
 8. **Huisstijl centraal.** Kleuren in `brand.ts` én `globals.css` (`brand.test.ts` bewaakt dat ze gelijk blijven). Gebruik Tailwind-klassen `bg-brand-red`, `text-brand-red-dark`, `bg-brand-grey-light`, enz. Lettertype Fira Sans via `@fontsource` (werkt offline). Dezelfde `brand.ts` wordt later gebruikt voor de PowerPoint-directiebeoordeling en Teams/Outlook-meldingen.
 
+9. **Risico's en kansen** (`src/app/(app)/risicos`). Score = kans × effect (1–25), klassen laag 1–4 / middel 5–9 / hoog 10–14 / zeer hoog 15–25 (`src/lib/risk.ts`). Risico's op een rode schaal, kansen op een groene schaal (hoger = aantrekkelijker). _Restrisico_ = beoordeling na maatregelen, of de bruto score zolang die ontbreekt (`residual()`); "na" vereist kans én effect. Codes `R-001` / `K-001` uit `Risk.number`. Categorie `SAFETY` = arbo/RI&E. Rechten: KAM alles; middenkader maakt aan en wijzigt eigen risico's (eigenaar/aanmaker); directie leest. Maatregelen worden acties met bron `RISK` en `riskId`. Filters staan in `src/lib/risk-filters.ts` en worden gedeeld met de CSV-export (`/risicos/export`, Excel-NL: puntkomma, BOM, formule-injectie geneutraliseerd). Matrixcel- en klassefilters werken op de positie in de matrix en worden in code toegepast (niet in SQL); de export negeert die twee.
+10. **Formulieren** verzenden via `onSubmit` + transition (zie `src/components/form.tsx`), níet via de `action`-prop: React 19 wist anders het formulier ook bij een foutmelding. Bij succes wordt het formulier gereset.
+
 ## Conventies
 
 - Code-identifiers Engels, alle UI-tekst Nederlands. Nieuwe enums krijgen labels in `src/lib/labels.ts`.
 - Datums: opslaan als UTC, tonen met `formatDate` (Europe/Amsterdam).
 - Geen geheimen in code of commits; alleen in `.env` (zie `.env.example`).
-- Na schemawijziging: `npm run db:migrate -- --name <korte-naam>` en de migratie committen.
+- Na schemawijziging: `npm run db:migrate -- --name <korte-naam>` en de migratie committen. Weigert `migrate dev` niet-interactief (waarschuwing), genereer dan de SQL met `prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url <lege db> --script`, controleer die, zet hem in een nieuwe map onder `prisma/migrations/` en pas toe met `npm run db:deploy`.
 - Voor commit: `npm run format && npm run lint && npm run typecheck && npm test && npm run build`.
 - Testen in de browser: `SEED_DEMO=true npm run db:seed`, `npm run dev`, inloggen via de ontwikkel-login als KAM/Middenkader/Directie.
 
 ## Fasering en open punten
 
 - **Fase 1** (nu): lokaal op de laptop van Eelco, lokale database. **Fase 2**: Azure (EU), Entra ID-login voor pilotgroep, daarna middenkader. Test- en productieomgeving gescheiden.
-- Volgende modules (datamodel deels klaar): risico's en kansen (5×5-matrix, `src/lib/risk.ts`), audits met bevindingen, wet- en regelgeving (Excel-import), milieuaspecten (Excel-import), CO2-module, leveranciersbeoordeling, stakeholders/context, directiebeoordeling (pptx in huisstijl), keuringen, toolbox/LMRA, klachten, KPI's, noodsituaties, MoC, communicatieplan, certificaten- en vergunningenarchief, normmatrix, herinneringen via Teams/Outlook, MCP-server (alleen-lezen, namens de gebruiker, gelogd).
+- Volgende modules (datamodel deels klaar): audits met bevindingen, wet- en regelgeving (Excel-import), milieuaspecten (Excel-import), CO2-module, leveranciersbeoordeling, stakeholders/context, directiebeoordeling (pptx in huisstijl), keuringen, toolbox/LMRA, klachten, KPI's, noodsituaties, MoC, communicatieplan, certificaten- en vergunningenarchief, normmatrix, herinneringen via Teams/Outlook, MCP-server (alleen-lezen, namens de gebruiker, gelogd).
 - Middenkader "eigen afdeling inzien": nu ziet iedereen alles (alleen-lezen buiten eigen acties). Afdelings-/disciplinefilter per gebruiker nog uitwerken (bijv. via Entra-groepen per discipline).
 - Open in de specificatie: exacte BRL-nummers grondbank/granulaat, welke VCA-onderdelen, hosting/ERP-koppeling.
 - Officiële logo-SVG van marketing vervangen in `public/brand`.

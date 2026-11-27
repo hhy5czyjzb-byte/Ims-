@@ -56,7 +56,10 @@ export function formToObject(formData: FormData, multi: string[] = []): Record<s
 export function parseForm<T extends z.ZodType>(schema: T, formData: FormData, multi: string[] = []): z.infer<T> {
   const result = schema.safeParse(formToObject(formData, multi));
   if (!result.success) {
-    const msg = result.error.issues.map((i) => `${i.path.join(".") || "formulier"}: ${i.message}`).join("; ");
+    // Eigen (Nederlandse) meldingen zonder technische veldnaam; standaardmeldingen mét veldnaam.
+    const msg = [...new Set(result.error.issues.map((i) => (i.code === "custom" || !i.path.length ? i.message : `${i.path.join(".")}: ${i.message}`)))].join(
+      "; ",
+    );
     throw new UserError(`Controleer de invoer — ${msg}`);
   }
   return result.data;

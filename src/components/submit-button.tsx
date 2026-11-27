@@ -2,6 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import type { ReactNode } from "react";
+import { useFormPending } from "@/components/form";
 
 export function SubmitButton({
   children,
@@ -14,7 +15,9 @@ export function SubmitButton({
   confirm?: string;
   className?: string;
 }) {
-  const { pending } = useFormStatus();
+  const status = useFormStatus();
+  const formPending = useFormPending();
+  const pending = status.pending || formPending;
   const cls = variant === "primary" ? "btn" : variant === "secondary" ? "btn-secondary" : "btn-link";
   return (
     <button

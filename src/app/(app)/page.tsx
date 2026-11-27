@@ -5,6 +5,8 @@ import { getNormCoverage } from "@/lib/coverage";
 import { formatDate } from "@/lib/format";
 import { ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
 import { Badge, PageHeader, ProgressBar, StatCard } from "@/components/ui";
+import { RiskMatrix } from "@/components/risk-matrix";
+import { residual } from "@/lib/risk";
 
 export const metadata = { title: "Dashboard" };
 
@@ -16,23 +18,40 @@ export default async function DashboardPage() {
   today.setHours(0, 0, 0, 0);
   const in30 = new Date(Date.now() + 30 * 86_400_000);
 
-  const [openCount, overdueCount, myCount, docsRevision, docsUnlinked, docsTotal, coverage, overdueList, byDiscipline, disciplines] = await Promise.all([
-    prisma.action.count({ where: OPEN }),
-    prisma.action.count({ where: { ...OPEN, deadline: { lt: today } } }),
-    prisma.action.count({ where: { ...OPEN, ownerId: user.id } }),
-    prisma.document.count({ where: { revisionDate: { lte: in30 }, removedInSource: false } }),
-    prisma.document.count({ where: { requirements: { none: {} }, processes: { none: {} }, processSteps: { none: {} } } }),
-    prisma.document.count(),
-    getNormCoverage(),
-    prisma.action.findMany({
-      where: { ...OPEN, deadline: { lt: today } },
-      orderBy: { deadline: "asc" },
-      take: 8,
-      include: { owner: { select: { name: true } } },
-    }),
-    prisma.action.groupBy({ by: ["disciplineId"], where: OPEN, _count: true }),
-    prisma.discipline.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-  ]);
+  const [openCount, overdueCount, myCount, docsRevision, docsUnlinked, docsTotal, coverage, overdueList, byDiscipline, disciplines, activeRisks] =
+    await Promise.all([
+      prisma.action.count({ where: OPEN }),
+      prisma.action.count({ where: { ...OPEN, deadline: { lt: today } } }),
+      prisma.action.count({ where: { ...OPEN, ownerId: user.id } }),
+      prisma.document.count({ where: { revisionDate: { lte: in30 }, removedInSource: false } }),
+      prisma.document.count({ where: { requirements: { none: {} }, processes: { none: {} }, processSteps: { none: {} } } }),
+      prisma.document.count(),
+      getNormCoverage(),
+      prisma.action.findMany({
+        where: { ...OPEN, deadline: { lt: today } },
+        orderBy: { deadline: "asc" },
+        take: 8,
+        include: { owner: { select: { name: true } } },
+      }),
+      prisma.action.groupBy({ by: ["disciplineId"], where: OPEN, _count: true }),
+      prisma.discipline.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+      prisma.risk.findMany({
+        where: { type: "RISK", status: { not: "CLOSED" } },
+        select: { likelihoodBefore: true, impactBefore: true, likelihoodAfter: true, impactAfter: true, reviewDate: true },
+      }),
+    ]);
+
+  // Restrisico's (open + beheerst): positie na maatregelen, of bruto als nog niet beoordeeld.
+  const riskCounts: Record<string, number> = {};
+  let highResidual = 0;
+  let reviewOverdue = 0;
+  for (const r of activeRisks) {
+    const res = residual(r);
+    const key = `${res.likelihood}-${res.impact}`;
+    riskCounts[key] = (riskCounts[key] ?? 0) + 1;
+    if (res.score >= 10) highResidual++;
+    if (r.reviewDate && r.reviewDate < today) reviewOverdue++;
+  }
 
   const activeNorms = coverage.filter((n) => n.active);
   const disciplineRows = [
@@ -45,7 +64,7 @@ export default async function DashboardPage() {
     <>
       <PageHeader title={`Goedendag, ${user.name.split(" ")[0]}`} description="Stand van zaken van het integraal managementsysteem." />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard label="Lopende acties" value={openCount} href="/acties" />
         <StatCard label="Deadline verstreken" value={overdueCount} tone={overdueCount ? "alert" : "ok"} href="/acties?status=verlopen" />
         <StatCard label="Mijn acties" value={myCount} href="/acties?eigenaar=mij" />
@@ -57,6 +76,13 @@ export default async function DashboardPage() {
           href="/documenten?filter=revisie"
         />
         <StatCard label="Documenten zonder koppeling" value={docsUnlinked} tone={docsUnlinked ? "alert" : "ok"} href="/documenten?filter=ongekoppeld" />
+        <StatCard
+          label="Hoge restrisico's"
+          value={highResidual}
+          hint={reviewOverdue ? `${reviewOverdue} beoordeling(en) verlopen` : "score 10 of hoger"}
+          tone={highResidual ? "alert" : "ok"}
+          href="/risicos?soort=RISK&basis=rest"
+        />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -131,15 +157,18 @@ export default async function DashboardPage() {
             </table>
           )}
         </section>
-        <section className="card border-dashed text-sm text-neutral-500">
-          <h2 className="mb-2 text-neutral-700">Binnenkort op het dashboard</h2>
-          <ul className="list-inside list-disc space-y-1">
-            <li>Auditresultaten en bevindingen per norm</li>
-            <li>CO2-footprint en reductiedoelstellingen</li>
-            <li>Compliancestatus wet- en regelgeving</li>
-            <li>Significante milieuaspecten</li>
-            <li>Verlopende certificaten en keuringen</li>
-          </ul>
+        <section className="card">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2>Restrisico&apos;s</h2>
+            <Link href="/risicos" className="text-sm">
+              Register →
+            </Link>
+          </div>
+          <RiskMatrix type="RISK" counts={riskCounts} size="sm" href={(c) => `/risicos?soort=RISK&basis=rest&cel=${c.likelihood}-${c.impact}`} />
+          <p className="mt-2 text-xs text-neutral-500">Open en beheerste risico&apos;s, na maatregelen. Klik op een cel voor de lijst.</p>
+          <p className="mt-3 border-t border-dashed border-neutral-200 pt-2 text-xs text-neutral-400">
+            Binnenkort: auditresultaten, CO2, compliance, milieuaspecten, certificaten en keuringen.
+          </p>
         </section>
       </div>
     </>

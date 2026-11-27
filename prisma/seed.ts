@@ -270,7 +270,10 @@ async function main() {
     for (const u of testUsers) await prisma.user.upsert({ where: { email: u.email }, update: {}, create: u });
   }
 
-  if (process.env.SEED_DEMO === "true") await seedDemo();
+  if (process.env.SEED_DEMO === "true") {
+    await seedDemo();
+    await seedDemoRisks();
+  }
   console.log("Seed klaar.");
 }
 
@@ -398,6 +401,138 @@ async function seedDemo() {
       },
     ],
   });
+}
+
+/** Voorbeeldrisico's en -kansen (idempotent op titel). */
+async function seedDemoRisks() {
+  const kam = await prisma.user.findFirst({ where: { role: "KAM" } });
+  const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
+  const disc = async (name: string) => (await prisma.discipline.findUniqueOrThrow({ where: { name } })).id;
+  const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
+  const process = await prisma.process.findFirst({ where: { code: "DEMO-BET-01" } });
+  const req = async (code: string, clause: string) => {
+    const norm = await prisma.norm.findUniqueOrThrow({ where: { code } });
+    return { id: (await prisma.normRequirement.findUniqueOrThrow({ where: { normId_clause: { normId: norm.id, clause } } })).id };
+  };
+  const in30 = new Date(Date.now() + 30 * 86_400_000);
+
+  const risks = [
+    {
+      type: "RISK" as const,
+      category: "SAFETY" as const,
+      title: "Blootstelling aan kwartsstof bij breken van puin (voorbeeld)",
+      cause: "Droog breken en zeven, wind",
+      consequence: "Gezondheidsschade medewerkers (silicose), klachten omgeving",
+      measures: "Watervernevelaars op breker, cabines met overdruk en filter, FFP3 bij onderhoud",
+      likelihoodBefore: 4,
+      impactBefore: 5,
+      likelihoodAfter: 2,
+      impactAfter: 4,
+      status: "CONTROLLED" as const,
+      ownerId: mk?.id,
+      disciplineId: await disc("Afvalrecycling"),
+      locationId: groenlo.id,
+      reviewDate: in30,
+      requirements: [await req("ISO 14001", "6.1.2")],
+      processes: [],
+    },
+    {
+      type: "RISK" as const,
+      category: "QUALITY" as const,
+      title: "Betonsterkte voldoet niet aan specificatie (voorbeeld)",
+      cause: "Afwijkend vochtgehalte toeslagmateriaal, fout in recept",
+      consequence: "Afkeur, herstelkosten, claim klant",
+      measures: "Vochtmeting per partij, receptcontrole, kubusproeven",
+      likelihoodBefore: 3,
+      impactBefore: 4,
+      likelihoodAfter: null,
+      impactAfter: null,
+      status: "OPEN" as const,
+      ownerId: kam?.id,
+      disciplineId: await disc("Beton"),
+      locationId: groenlo.id,
+      reviewDate: new Date(Date.now() - 3 * 86_400_000),
+      requirements: [await req("ISO 9001", "8.6")],
+      processes: process ? [{ id: process.id }] : [],
+    },
+    {
+      type: "RISK" as const,
+      category: "STRATEGIC" as const,
+      title: "Langdurige uitval menginstallatie (voorbeeld)",
+      cause: "Storing besturing, ontbreken reserveonderdelen",
+      consequence: "Leveringen niet mogelijk, omzetverlies",
+      measures: "Preventief onderhoud, kritische onderdelen op voorraad",
+      likelihoodBefore: 2,
+      impactBefore: 5,
+      likelihoodAfter: 2,
+      impactAfter: 3,
+      status: "CONTROLLED" as const,
+      ownerId: kam?.id,
+      disciplineId: await disc("Beton"),
+      locationId: null,
+      reviewDate: in30,
+      requirements: [await req("ISO 9001", "6.1")],
+      processes: process ? [{ id: process.id }] : [],
+    },
+    {
+      type: "OPPORTUNITY" as const,
+      category: "CO2" as const,
+      title: "Meer betongranulaat uit eigen recycling in nieuw beton (voorbeeld)",
+      cause: "Eigen breekinstallatie, vraag naar circulair beton",
+      consequence: "Lagere CO2-uitstoot en grondstofkosten, onderscheidend in aanbestedingen",
+      measures: "Proefmengsels, afstemming met klanten en certificatie-instelling",
+      likelihoodBefore: 4,
+      impactBefore: 4,
+      likelihoodAfter: null,
+      impactAfter: null,
+      status: "OPEN" as const,
+      ownerId: kam?.id,
+      disciplineId: await disc("Beton"),
+      locationId: null,
+      reviewDate: in30,
+      requirements: [await req("ISO 14001", "6.1.1")],
+      processes: [],
+    },
+    {
+      type: "OPPORTUNITY" as const,
+      category: "CO2" as const,
+      title: "Elektrische shovel op het recyclingterrein (voorbeeld)",
+      cause: "Vervanging bestaande shovel gepland",
+      consequence: "Minder diesel en geluid",
+      measures: null,
+      likelihoodBefore: 3,
+      impactBefore: 3,
+      likelihoodAfter: null,
+      impactAfter: null,
+      status: "OPEN" as const,
+      ownerId: mk?.id,
+      disciplineId: await disc("Afvalrecycling"),
+      locationId: groenlo.id,
+      reviewDate: null,
+      requirements: [],
+      processes: [],
+    },
+  ];
+
+  for (const { requirements, processes, ...r } of risks) {
+    if (await prisma.risk.findFirst({ where: { title: r.title } })) continue;
+    const risk = await prisma.risk.create({
+      data: { ...r, createdById: kam?.id, requirements: { connect: requirements }, processes: { connect: processes } },
+    });
+    if (r.category === "QUALITY") {
+      await prisma.action.create({
+        data: {
+          title: "Vochtmeting toeslagmateriaal per partij invoeren (voorbeeld)",
+          source: "RISK",
+          riskId: risk.id,
+          ownerId: mk?.id,
+          createdById: kam?.id,
+          disciplineId: r.disciplineId,
+          deadline: in30,
+        },
+      });
+    }
+  }
 }
 
 main()

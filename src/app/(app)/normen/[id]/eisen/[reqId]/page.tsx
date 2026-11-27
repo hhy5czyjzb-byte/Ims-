@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/rbac";
 import { flattenTree } from "@/lib/tree";
+import { riskCode } from "@/lib/risk";
 import { ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
 import { Badge, Disclosure, Field, PageHeader, Select } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -70,9 +71,13 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
             </li>
           ))}
         </Section>
-        <Section title="Risico's en kansen" empty="Nog geen risico's gekoppeld (module volgt).">
+        <Section title="Risico's en kansen" empty="Nog geen risico's of kansen gekoppeld. Koppel vanuit Risico's en kansen.">
           {req.risks.map((r) => (
-            <li key={r.id}>{r.title}</li>
+            <li key={r.id}>
+              <Link href={`/risicos/${r.id}`}>
+                {riskCode(r.number, r.type)} {r.title}
+              </Link>
+            </li>
           ))}
         </Section>
         <Section title="Acties" empty="Geen acties gekoppeld.">

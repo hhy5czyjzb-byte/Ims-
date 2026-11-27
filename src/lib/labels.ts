@@ -1,4 +1,4 @@
-import type { ActionPriority, ActionSource, ActionStatus, NormCategory, RaciType, Role } from "@prisma/client";
+import type { ActionPriority, ActionSource, ActionStatus, NormCategory, RaciType, RiskCategory, RiskStatus, RiskType, Role } from "@prisma/client";
 
 /** Nederlandse labels voor enums. */
 export const ROLE_LABEL: Record<Role, string> = {
@@ -59,6 +59,33 @@ export const RACI_CLASS: Record<RaciType, string> = {
   A: "bg-brand-red-dark text-white",
   C: "bg-brand-grey-light text-neutral-900",
   I: "bg-neutral-100 text-neutral-700 border border-neutral-300",
+};
+
+export const RISK_TYPE_LABEL: Record<RiskType, string> = {
+  RISK: "Risico",
+  OPPORTUNITY: "Kans",
+};
+
+export const RISK_CATEGORY_LABEL: Record<RiskCategory, string> = {
+  STRATEGIC: "Strategisch / bedrijfsvoering",
+  QUALITY: "Kwaliteit",
+  ENVIRONMENT: "Milieu",
+  SAFETY: "Veiligheid en gezondheid (RI&E)",
+  CO2: "CO2 / energie",
+  COMPLIANCE: "Wet- en regelgeving",
+  OTHER: "Overig",
+};
+
+export const RISK_STATUS_LABEL: Record<RiskStatus, string> = {
+  OPEN: "Open — maatregelen nodig",
+  CONTROLLED: "Beheerst",
+  CLOSED: "Afgesloten",
+};
+
+export const RISK_STATUS_CLASS: Record<RiskStatus, string> = {
+  OPEN: "bg-blue-100 text-blue-800",
+  CONTROLLED: "bg-green-100 text-green-800",
+  CLOSED: "bg-neutral-200 text-neutral-600",
 };
 
 export function options<T extends string>(labels: Record<T, string>) {

@@ -7,6 +7,8 @@ import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/rbac";
 import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { RACI_CLASS, RACI_LABEL } from "@/lib/labels";
+import { residual, riskCode } from "@/lib/risk";
+import { ScoreBadge } from "@/components/risk-matrix";
 import { Badge, Disclosure, Field, PageHeader, Select } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { CheckboxPicker } from "@/components/checkbox-picker";
@@ -27,6 +29,7 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
       owner: true,
       documents: { orderBy: { title: "asc" } },
       requirements: { include: { norm: true } },
+      risks: { where: { status: { not: "CLOSED" } }, orderBy: { number: "asc" } },
       steps: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         include: {
@@ -310,6 +313,32 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
           ))}
         </LinkedList>
       </div>
+
+      <section className="card mt-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h3 className="font-semibold">Risico&apos;s en kansen bij dit proces</h3>
+          <Link href={`/risicos?proces=${id}`} className="text-sm">
+            In het register →
+          </Link>
+        </div>
+        {process.risks.length === 0 ? (
+          <p className="text-sm text-neutral-500">Geen (open) risico&apos;s of kansen gekoppeld.</p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {process.risks.map((r) => {
+              const res = residual(r);
+              return (
+                <li key={r.id} className="flex items-center gap-2">
+                  <ScoreBadge likelihood={res.likelihood} impact={res.impact} type={r.type} />
+                  <Link href={`/risicos/${r.id}`}>
+                    {riskCode(r.number, r.type)} {r.title}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       {canEdit && lookups && (
         <div className="mt-6 grid gap-4 lg:grid-cols-2">

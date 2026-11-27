@@ -11,6 +11,8 @@ export const PERMISSIONS = {
   "masterdata.edit": ["KAM"],
   "actions.create": ["KAM", "MIDDENKADER", "DIRECTIE"],
   "actions.editAny": ["KAM"],
+  "risks.create": ["KAM", "MIDDENKADER"],
+  "risks.editAny": ["KAM"],
   "auditlog.view": ["KAM"],
 } as const satisfies Record<string, readonly Role[]>;
 
@@ -25,6 +27,13 @@ export function can(role: Role | undefined | null, permission: Permission): bool
 export function canEditAction(user: { id: string; role: Role }, action: { ownerId: string | null; createdById: string | null }): boolean {
   if (can(user.role, "actions.editAny")) return true;
   return action.ownerId === user.id || action.createdById === user.id;
+}
+
+/** Mag deze gebruiker dit risico wijzigen? KAM altijd; middenkader alleen als eigenaar of aanmaker. */
+export function canEditRisk(user: { id: string; role: Role }, risk: { ownerId: string | null; createdById: string | null }): boolean {
+  if (can(user.role, "risks.editAny")) return true;
+  if (!can(user.role, "risks.create")) return false;
+  return risk.ownerId === user.id || risk.createdById === user.id;
 }
 
 /**

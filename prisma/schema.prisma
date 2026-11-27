@@ -41,6 +41,7 @@ model User {
   ownedProcesses      Process[]            @relation("ProcessOwner")
   ownedDocuments      Document[]           @relation("DocumentOwner")
   ownedRisks          Risk[]               @relation("RiskOwner")
+  createdRisks        Risk[]               @relation("RiskCreatedBy")
   ownedStakeholders   Stakeholder[]        @relation("StakeholderOwner")
   raciAssignments     RaciAssignment[]
   supplierEvaluations SupplierEvaluation[]
@@ -251,6 +252,17 @@ enum RiskType {
   OPPORTUNITY
 }
 
+/// Soort risico; SAFETY = arbo / RI&E.
+enum RiskCategory {
+  STRATEGIC
+  QUALITY
+  ENVIRONMENT
+  SAFETY
+  CO2
+  COMPLIANCE
+  OTHER
+}
+
 enum RiskStatus {
   OPEN
   CONTROLLED
@@ -258,8 +270,10 @@ enum RiskStatus {
 }
 
 model Risk {
-  id               String      @id @default(cuid())
-  type             RiskType    @default(RISK)
+  id               String       @id @default(cuid())
+  number           Int          @unique @default(autoincrement())
+  type             RiskType     @default(RISK)
+  category         RiskCategory @default(OTHER)
   title            String
   description      String?
   cause            String?
@@ -272,6 +286,8 @@ model Risk {
   status           RiskStatus  @default(OPEN)
   ownerId          String?
   owner            User?       @relation("RiskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById      String?
+  createdBy        User?       @relation("RiskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   disciplineId     String?
   discipline       Discipline? @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
   locationId       String?
@@ -281,6 +297,7 @@ model Risk {
   updatedAt        DateTime    @updatedAt
 
   processes    Process[]         @relation("RiskProcesses")
+  
   requirements NormRequirement[] @relation("RiskRequirements")
   actions      Action[]
 }
