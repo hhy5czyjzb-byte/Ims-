@@ -19,6 +19,7 @@ import {
 } from "@/lib/labels";
 import { Badge, Disclosure, EmptyState, Field, PageHeader, ProgressBar, Select } from "@/components/ui";
 import { LegalForm } from "@/components/legal-form";
+import { LegalNav } from "@/components/legal-nav";
 import { createLegal } from "./actions";
 
 export const metadata = { title: "Wet- en regelgeving" };
@@ -70,6 +71,8 @@ export default async function LegalRegisterPage({ searchParams }: { searchParams
           </>
         }
       />
+
+      <LegalNav />
 
       <section className="card mb-6">
         <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">

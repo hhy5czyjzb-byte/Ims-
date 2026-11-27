@@ -16,6 +16,7 @@ Integraal managementsysteem (IMS) voor alle certificeringen van Rouwmaat Groep (
 | Risico's en kansen (incl. RI&E): 5×5-matrix vóór/na maatregelen, prioriteit (★ strategisch), filters, acties, Excel-import, CSV-export                                                                        | ✅                                            |
 | Audits (intern, extern, klant): planning, checklist per norm, bevindingen met opvolging, planning over de certificatiecyclus                                                                                  | ✅                                            |
 | Wet- en regelgeving: register met compliancestatus, toetsingen (evaluatie naleving), acties, Excel-import met kolommen koppelen, CSV-export                                                                   | ✅                                            |
+| Compliance-audit per vestiging: vragenbank, checklist per vestiging met oordeel en bevinding, score, acties, Excel-import en -export                                                                          | ✅                                            |
 | Milieuaspecten: register met scoring (F × E × O), significantie (instelbare drempel), acties, Excel-import, CSV-export                                                                                        | ✅                                            |
 | CO2-prestatieladder: energiedragers met emissiefactoren (met ingangsdatum), verbruik per periode/discipline/locatie/materieel, footprint scope 1-2-3, doelstellingen en maatregelen, Excel-import, CSV-export | ✅                                            |
 | Acties en verbeterpunten                                                                                                                                                                                      | ✅                                            |
@@ -59,7 +60,8 @@ Importeer in deze volgorde (elk via de knop "Importeren uit Excel"; kolommen wor
 1. **Vestigingen** — Stamgegevens → Vestigingen importeren, bestand _register wet- en regelgeving_, tabblad _Vestigingen_.
 2. **Risico's** — Risico's en kansen → Importeren, bestand _risico- en kansenregister_, tabblad _Risico's_.
 3. **Kansen** — zelfde bestand, tabblad _Kansen_.
-4. **Wet- en regelgeving** — Wet- en regelgeving → Importeren, tabblad _Register_ (koppelt de risico's uit kolom "Risicoregister", daarom als laatste).
+4. **Wet- en regelgeving** — Wet- en regelgeving → Importeren, tabblad _Register_ (koppelt de risico's uit kolom "Risicoregister", daarom na de risico's).
+5. **Auditvragen** — Wet- en regelgeving → Compliance-audit per vestiging → Importeren, tabblad _Compliance-audit_.
 
 Opnieuw importeren werkt bij (op het nummer R01/K01/W001) en maakt geen dubbele regels. Maak vooraf een back-up.
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { locationAuditCode } from "@/lib/location-audit";
 import type { ActionStatus } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -45,6 +46,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
       environmentalAspect: true,
       reductionTarget: true,
       finding: { include: { audit: true } },
+      locationAuditAnswer: { include: { audit: { include: { location: { select: { name: true } } } } } },
     },
   });
   if (!action) notFound();
@@ -161,6 +163,17 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
                   <Link href={`/milieuaspecten/${action.environmentalAspect.id}`}>
                     {aspectCode(action.environmentalAspect.number)} {action.environmentalAspect.aspect}
                   </Link>
+                </dd>
+              </>
+            )}
+            {action.locationAuditAnswer && (
+              <>
+                <dt className="text-neutral-500">Compliance-audit</dt>
+                <dd>
+                  <Link href={`/wetgeving/vestigingen/${action.locationAuditAnswer.auditId}`}>
+                    {locationAuditCode(action.locationAuditAnswer.audit.number)} {action.locationAuditAnswer.audit.location.name}
+                  </Link>
+                  <div className="text-xs text-neutral-500">{action.locationAuditAnswer.questionText}</div>
                 </dd>
               </>
             )}

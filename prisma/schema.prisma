@@ -53,6 +53,8 @@ model User {
   raciAssignments          RaciAssignment[]
   supplierEvaluations      SupplierEvaluation[]
   auditLogs                AuditLog[]
+  locationAuditsAsAuditor  LocationAudit[]        @relation("LocationAuditAuditor")
+  createdLocationAudits    LocationAudit[]        @relation("LocationAuditCreatedBy")
 }
 
 /// Vestiging/locatie: vast kenmerk in het hele systeem.
@@ -75,6 +77,7 @@ model Location {
   equipment            Equipment[]
   energyConsumptions   EnergyConsumption[]
   audits               Audit[]
+  locationAudits       LocationAudit[]
 }
 
 /// Discipline: prefab, beton, afvalrecycling, infra (uitbreidbaar).
@@ -474,6 +477,7 @@ enum ActionSource {
   COMPLIANCE
   ENVIRONMENTAL_ASPECT
   CO2_REDUCTION
+  LOCATION_AUDIT
   NONCONFORMITY
   MANAGEMENT_REVIEW
   COMPLAINT
@@ -510,6 +514,8 @@ model Action {
   reductionTargetId     String?
   reductionTarget       ReductionTarget?     @relation(fields: [reductionTargetId], references: [id], onDelete: SetNull)
   expectedReductionKg   Decimal?             @db.Decimal(14, 2) // verwachte CO2-reductie per jaar (kg), bij CO2-maatregelen
+  locationAuditAnswerId String?
+  locationAuditAnswer   LocationAuditAnswer? @relation(fields: [locationAuditAnswerId], references: [id], onDelete: SetNull)
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 
@@ -698,6 +704,8 @@ model LegalRequirement {
   actions              Action[]
   assessments          ComplianceAssessment[]
   environmentalAspects EnvironmentalAspect[]  @relation("AspectLegal")
+  complianceQuestions  ComplianceQuestion[]
+  locationAuditAnswers LocationAuditAnswer[]
 
   @@index([status])
   @@index([nextReviewDate])
@@ -904,4 +912,69 @@ model ReductionTarget {
   updatedAt    DateTime    @updatedAt
 
   measures Action[]
+}
+
+// ── Compliance-audit per vestiging ─────────────────────────────
+// Vragenbank (auditvragen, meestal gekoppeld aan een wettelijke eis) die per vestiging wordt langsgelopen.
+
+model ComplianceQuestion {
+  id                 String            @id @default(cuid())
+  question           String
+  evidenceHint       String? // bewijs om te bekijken
+  theme              String?
+  legalRequirementId String?
+  legalRequirement   LegalRequirement? @relation(fields: [legalRequirementId], references: [id], onDelete: SetNull)
+  sortOrder          Int               @default(0)
+  active             Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  answers LocationAuditAnswer[]
+
+  @@index([legalRequirementId])
+}
+
+model LocationAudit {
+  id          String      @id @default(cuid())
+  number      Int         @unique @default(autoincrement())
+  locationId  String
+  location    Location    @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  date        DateTime
+  status      AuditStatus @default(PLANNED)
+  auditorId   String?
+  auditor     User?       @relation("LocationAuditAuditor", fields: [auditorId], references: [id], onDelete: SetNull)
+  auditorText String? // auditor als tekst (bijv. extern of uit import)
+  notes       String?
+  createdById String?
+  createdBy   User?       @relation("LocationAuditCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  answers LocationAuditAnswer[]
+
+  @@index([locationId, date])
+}
+
+/// Antwoord per vraag; vraagtekst, bewijs en eis worden bij het aanmaken overgenomen (blijft bewijs, ook als de vragenbank later wijzigt).
+model LocationAuditAnswer {
+  id                 String              @id @default(cuid())
+  auditId            String
+  audit              LocationAudit       @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  questionId         String?
+  question           ComplianceQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  legalRequirementId String?
+  legalRequirement   LegalRequirement?   @relation(fields: [legalRequirementId], references: [id], onDelete: SetNull)
+  questionText       String
+  evidenceHint       String?
+  theme              String?
+  sortOrder          Int                 @default(0)
+  verdict            ComplianceStatus    @default(NOT_ASSESSED)
+  finding            String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  actions Action[]
+
+  @@unique([auditId, questionId])
+  @@index([legalRequirementId])
 }

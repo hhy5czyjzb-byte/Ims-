@@ -67,6 +67,7 @@ export const ACTION_SOURCE_LABEL: Record<ActionSource, string> = {
   COMPLIANCE: "Wet- en regelgeving",
   ENVIRONMENTAL_ASPECT: "Milieuaspect",
   CO2_REDUCTION: "CO2-reductie",
+  LOCATION_AUDIT: "Compliance-audit vestiging",
   NONCONFORMITY: "Afwijking",
   MANAGEMENT_REVIEW: "Directiebeoordeling",
   COMPLAINT: "Klacht",

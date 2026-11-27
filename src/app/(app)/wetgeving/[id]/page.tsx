@@ -9,6 +9,7 @@ import { getLegalLinkOptions } from "@/lib/legal-links";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
 import { legalDisplayCode } from "@/lib/compliance";
 import { riskDisplayCode } from "@/lib/risk";
+import { locationAuditCode } from "@/lib/location-audit";
 import {
   ACTION_PRIORITY_LABEL,
   ACTION_STATUS_CLASS,
@@ -59,6 +60,20 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
   const openActions = req.actions.filter((a) => a.status === "OPEN" || a.status === "IN_PROGRESS").length;
   const late = req.active && req.status !== "NOT_APPLICABLE" && isOverdue(req.nextReviewDate);
   const [lookups, linkOptions] = await Promise.all([getLookups(), canEdit ? getLegalLinkOptions() : Promise.resolve(null)]);
+  // Compliance-audit per vestiging: laatste oordeel per vestiging op vragen bij deze eis.
+  const locationAnswers = await prisma.locationAuditAnswer.findMany({
+    where: { legalRequirementId: id, audit: { status: { not: "CANCELLED" } } },
+    orderBy: [{ audit: { date: "desc" } }, { audit: { number: "desc" } }],
+    include: { audit: { select: { id: true, number: true, date: true, status: true, location: { select: { id: true, name: true } } } } },
+  });
+  const latestPerLocation = new Map<string, (typeof locationAnswers)[number][]>();
+  const auditForLocation = new Map<string, string>();
+  for (const a of locationAnswers) {
+    const loc = a.audit.location.id;
+    if (!auditForLocation.has(loc)) auditForLocation.set(loc, a.audit.id);
+    if (auditForLocation.get(loc) !== a.audit.id) continue;
+    latestPerLocation.set(loc, [...(latestPerLocation.get(loc) ?? []), a]);
+  }
   const history = await prisma.auditLog.findMany({
     where: { entityType: "LegalRequirement", entityId: id, action: { not: "VIEW" } },
     orderBy: { createdAt: "desc" },
@@ -258,6 +273,45 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
           )}
         </section>
       </div>
+
+      {latestPerLocation.size > 0 && (
+        <section className="card mt-4">
+          <h2 className="mb-1">Per vestiging (compliance-audit)</h2>
+          <p className="mb-3 text-sm text-neutral-600">Laatste oordeel per vestiging. Neem de uitkomst mee in de toetsing van deze eis.</p>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Vestiging</th>
+                <th>Audit</th>
+                <th>Auditvraag</th>
+                <th>Oordeel</th>
+                <th>Bevinding</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...latestPerLocation.values()].flatMap((answers) =>
+                answers.map((a) => (
+                  <tr key={a.id}>
+                    <td>{a.audit.location.name}</td>
+                    <td className="whitespace-nowrap">
+                      <Link href={`/wetgeving/vestigingen/${a.audit.id}`}>
+                        {locationAuditCode(a.audit.number)} · {formatDate(a.audit.date)}
+                      </Link>
+                    </td>
+                    <td className="text-xs">{a.questionText}</td>
+                    <td>
+                      <Badge className={COMPLIANCE_STATUS_CLASS[a.verdict]}>
+                        {a.verdict === "NOT_ASSESSED" ? "Nog niet beoordeeld" : COMPLIANCE_STATUS_LABEL[a.verdict]}
+                      </Badge>
+                    </td>
+                    <td className="text-xs whitespace-pre-line">{a.finding ?? "—"}</td>
+                  </tr>
+                )),
+              )}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       <section className="card mt-4">
         <h2 className="mb-3">Koppelingen</h2>
