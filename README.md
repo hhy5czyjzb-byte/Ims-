@@ -15,11 +15,12 @@ Integraal managementsysteem (IMS) voor alle certificeringen van Rouwmaat Groep (
 | Risico's en kansen (incl. RI&E): 5×5-matrix vóór/na maatregelen, filters, acties, CSV-export                                                | ✅                                                  |
 | Audits (intern, extern, klant): planning, checklist per norm, bevindingen met opvolging, planning over de certificatiecyclus                | ✅                                                  |
 | Wet- en regelgeving: register met compliancestatus, toetsingen (evaluatie naleving), acties, Excel-import met kolommen koppelen, CSV-export | ✅                                                  |
+| Milieuaspecten: register met scoring (F × E × O), significantie (instelbare drempel), acties, Excel-import, CSV-export                      | ✅                                                  |
 | Acties en verbeterpunten                                                                                                                    | ✅                                                  |
 | Dashboard                                                                                                                                   | ✅ eenvoudige versie                                |
 | Stamgegevens (locaties, disciplines, functies) en logboek (audit trail)                                                                     | ✅                                                  |
 | Datamodel voor leveranciers en stakeholders                                                                                                 | ✅ in database, schermen volgen                     |
-| Milieuaspecten, CO2, directiebeoordeling, …                                                                                                 | ⏳ volgende fasen                                   |
+| CO2, directiebeoordeling, …                                                                                                                 | ⏳ volgende fasen                                   |
 
 ## Snel starten (lokaal, laptop)
 

@@ -275,6 +275,7 @@ async function main() {
     await seedDemoRisks();
     await seedDemoAudits();
     await seedDemoLegal();
+    await seedDemoAspects();
   }
   console.log("Seed klaar.");
 }
@@ -758,6 +759,149 @@ async function seedDemoLegal() {
         },
       });
     }
+  }
+}
+
+/** Voorbeeldregister milieuaspecten (idempotent op activiteit + aspect). Significantie volgens de standaarddrempel 27. */
+async function seedDemoAspects() {
+  if (await prisma.environmentalAspect.findFirst({ where: { activity: { endsWith: "(voorbeeld)" } } })) return;
+  const kam = await prisma.user.findFirst({ where: { role: "KAM" } });
+  const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
+  const disc = async (name: string) => (await prisma.discipline.findUniqueOrThrow({ where: { name } })).id;
+  const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
+  const process = await prisma.process.findFirst({ where: { code: "DEMO-BET-01" } });
+  const iso14001 = await prisma.norm.findUniqueOrThrow({ where: { code: "ISO 14001" } });
+  const r612 = { id: (await prisma.normRequirement.findUniqueOrThrow({ where: { normId_clause: { normId: iso14001.id, clause: "6.1.2" } } })).id };
+  const geluid = await prisma.legalRequirement.findFirst({ where: { title: { startsWith: "Omgevingsvergunning locatie Groenlo" } } });
+  const kwarts = await prisma.risk.findFirst({ where: { title: { startsWith: "Blootstelling aan kwartsstof" } } });
+  const T = 27;
+
+  const items: {
+    activity: string;
+    aspect: string;
+    aspectType: "AIR" | "NOISE" | "SOIL" | "ENERGY" | "WASTE" | "WATER";
+    impact: string;
+    situation: "NORMAL" | "ABNORMAL" | "EMERGENCY";
+    controls: string | null;
+    f: number;
+    e: number;
+    o: number;
+    legal?: boolean;
+    stakeholder?: boolean;
+    discipline: string;
+    links?: { legal?: boolean; risk?: boolean; process?: boolean };
+  }[] = [
+    {
+      activity: "Breken van puin (voorbeeld)",
+      aspect: "Stofemissie",
+      aspectType: "AIR",
+      impact: "Luchtverontreiniging, hinder omwonenden",
+      situation: "NORMAL",
+      controls: "Watervernevelaars, snelheid op terrein beperkt",
+      f: 5,
+      e: 3,
+      o: 3,
+      stakeholder: true,
+      discipline: "Afvalrecycling",
+      links: { risk: true },
+    },
+    {
+      activity: "Breken van puin (voorbeeld)",
+      aspect: "Geluid van breker en shovels",
+      aspectType: "NOISE",
+      impact: "Geluidshinder omwonenden",
+      situation: "NORMAL",
+      controls: "Werktijden beperkt tot dagperiode",
+      f: 5,
+      e: 2,
+      o: 3,
+      discipline: "Afvalrecycling",
+      links: { legal: true },
+    },
+    {
+      activity: "Mengen betonmortel (voorbeeld)",
+      aspect: "Elektriciteitsverbruik menginstallatie",
+      aspectType: "ENERGY",
+      impact: "Uitputting fossiele brandstoffen, CO2-uitstoot",
+      situation: "NORMAL",
+      controls: null,
+      f: 5,
+      e: 2,
+      o: 2,
+      discipline: "Beton",
+      links: { process: true },
+    },
+    {
+      activity: "Reinigen truckmixers (voorbeeld)",
+      aspect: "Lozing spoelwater met cementresten",
+      aspectType: "WATER",
+      impact: "Verontreiniging oppervlaktewater (hoge pH)",
+      situation: "NORMAL",
+      controls: "Bezinkbassin, hergebruik spoelwater",
+      f: 4,
+      e: 3,
+      o: 2,
+      legal: true,
+      discipline: "Beton",
+      links: { process: true },
+    },
+    {
+      activity: "Tanken materieel (voorbeeld)",
+      aspect: "Morsen van diesel",
+      aspectType: "SOIL",
+      impact: "Bodemverontreiniging",
+      situation: "ABNORMAL",
+      controls: "Vloeistofdichte tankplaats, absorptiemiddel aanwezig",
+      f: 2,
+      e: 3,
+      o: 1,
+      discipline: "Infra",
+    },
+    {
+      activity: "Opslag olie en smeermiddelen (voorbeeld)",
+      aspect: "Lekkage bij brand",
+      aspectType: "SOIL",
+      impact: "Bodem- en waterverontreiniging",
+      situation: "EMERGENCY",
+      controls: null,
+      f: 1,
+      e: 5,
+      o: 3,
+      discipline: "Infra",
+    },
+  ];
+
+  for (const it of items) {
+    const score = it.f * it.e * it.o;
+    const legalLinked = !!(it.links?.legal && geluid);
+    const significant = score >= T || !!it.legal || legalLinked || !!it.stakeholder;
+    await prisma.environmentalAspect.create({
+      data: {
+        activity: it.activity,
+        aspect: it.aspect,
+        aspectType: it.aspectType,
+        impact: it.impact,
+        situation: it.situation,
+        controls: it.controls,
+        frequency: it.f,
+        severity: it.e,
+        extent: it.o,
+        score,
+        legalApplies: !!it.legal,
+        stakeholderConcern: !!it.stakeholder,
+        co2Relevant: it.aspectType === "ENERGY" || it.aspectType === "AIR",
+        significant,
+        ownerId: it.discipline === "Beton" ? kam?.id : mk?.id,
+        createdById: kam?.id,
+        disciplineId: await disc(it.discipline),
+        locationId: groenlo.id,
+        reviewDate: new Date(Date.now() + 180 * 86_400_000),
+        requirements: { connect: [r612] },
+        legalRequirements: legalLinked ? { connect: [{ id: geluid!.id }] } : undefined,
+        risks: it.links?.risk && kwarts ? { connect: [{ id: kwarts.id }] } : undefined,
+        processes: it.links?.process && process ? { connect: [{ id: process.id }] } : undefined,
+      },
+    });
   }
 }
 

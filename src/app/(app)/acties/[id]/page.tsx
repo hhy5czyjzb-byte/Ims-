@@ -9,6 +9,7 @@ import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
 import { riskCode } from "@/lib/risk";
 import { legalCode } from "@/lib/compliance";
+import { aspectCode } from "@/lib/aspects";
 import { findingCode } from "@/lib/audit-plan";
 import { ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
 import { Badge, Disclosure, PageHeader } from "@/components/ui";
@@ -40,6 +41,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
       requirements: { include: { norm: true } },
       risk: true,
       legalRequirement: true,
+      environmentalAspect: true,
       finding: { include: { audit: true } },
     },
   });
@@ -136,6 +138,16 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
                     Bevinding {findingCode(action.finding.audit.number, action.finding.number)}
                   </Link>{" "}
                   — {action.finding.audit.title}
+                </dd>
+              </>
+            )}
+            {action.environmentalAspect && (
+              <>
+                <dt className="text-neutral-500">Milieuaspect</dt>
+                <dd>
+                  <Link href={`/milieuaspecten/${action.environmentalAspect.id}`}>
+                    {aspectCode(action.environmentalAspect.number)} {action.environmentalAspect.aspect}
+                  </Link>
                 </dd>
               </>
             )}

@@ -19,13 +19,13 @@ const NAV: { title?: string; items: NavItem[] }[] = [
       { href: "/risicos", label: "Risico's en kansen" },
       { href: "/audits", label: "Audits" },
       { href: "/wetgeving", label: "Wet- en regelgeving" },
+      { href: "/milieuaspecten", label: "Milieuaspecten" },
       { href: "/acties", label: "Acties" },
     ],
   },
   {
     title: "Binnenkort",
     items: [
-      { href: "#", label: "Milieuaspecten", soon: true },
       { href: "#", label: "CO2", soon: true },
       { href: "#", label: "Directiebeoordeling", soon: true },
     ],

@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/format";
 import {
   ACTION_STATUS_CLASS,
   ACTION_STATUS_LABEL,
+  ASPECT_TYPE_LABEL,
   AUDIT_STATUS_CLASS,
   AUDIT_STATUS_LABEL,
   AUDIT_TYPE_CLASS,
@@ -19,6 +20,7 @@ import { RiskMatrix } from "@/components/risk-matrix";
 import { residual } from "@/lib/risk";
 import { auditCode } from "@/lib/audit-plan";
 import { complianceSummary, legalCode } from "@/lib/compliance";
+import { aspectCode } from "@/lib/aspects";
 
 export const metadata = { title: "Dashboard" };
 
@@ -45,6 +47,7 @@ export default async function DashboardPage() {
     upcomingAudits,
     legalStatuses,
     legalDue,
+    sigAspects,
     openFindings,
   ] = await Promise.all([
     prisma.action.count({ where: OPEN }),
@@ -86,6 +89,20 @@ export default async function DashboardPage() {
       orderBy: { nextReviewDate: "asc" },
       take: 8,
       select: { id: true, number: true, title: true, article: true, status: true, nextReviewDate: true, owner: { select: { name: true } } },
+    }),
+    prisma.environmentalAspect.findMany({
+      where: { active: true, significant: true },
+      orderBy: [{ score: { sort: "desc", nulls: "last" } }, { number: "asc" }],
+      select: {
+        id: true,
+        number: true,
+        activity: true,
+        aspect: true,
+        aspectType: true,
+        score: true,
+        controls: true,
+        _count: { select: { actions: { where: { status: { in: ["OPEN", "IN_PROGRESS"] } } } } },
+      },
     }),
     prisma.auditFinding.findMany({
       where: { status: "OPEN" },
@@ -148,7 +165,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <p className="mb-3 text-xs text-neutral-500">
-            Percentage normeisen waaraan bewijs (document, proces, processtap, risico of wettelijke eis) is gekoppeld.
+            Percentage normeisen waaraan bewijs (document, proces, processtap, risico, wettelijke eis of milieuaspect) is gekoppeld.
           </p>
           <table className="table">
             <tbody>
@@ -287,9 +304,7 @@ export default async function DashboardPage() {
               )}
             </>
           )}
-          <p className="mt-3 border-t border-dashed border-neutral-200 pt-2 text-xs text-neutral-400">
-            Binnenkort: CO2, milieuaspecten, certificaten en keuringen.
-          </p>
+          <p className="mt-3 border-t border-dashed border-neutral-200 pt-2 text-xs text-neutral-400">Binnenkort: CO2, certificaten en keuringen.</p>
         </section>
       </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -357,6 +372,62 @@ export default async function DashboardPage() {
                 ))}
               </ul>
             </>
+          )}
+        </section>
+      </div>
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <section className="card lg:col-span-2">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2>Significante milieuaspecten</h2>
+            <Link href="/milieuaspecten?significant=ja" className="text-sm">
+              Register →
+            </Link>
+          </div>
+          {sigAspects.length === 0 ? (
+            <p className="text-sm text-neutral-500">Geen significante milieuaspecten (of het register is nog leeg).</p>
+          ) : (
+            <table className="table">
+              <tbody>
+                {sigAspects.slice(0, 8).map((a) => (
+                  <tr key={a.id}>
+                    <td className="w-12 text-center font-semibold tabular-nums">{a.score ?? "—"}</td>
+                    <td>
+                      <Link href={`/milieuaspecten/${a.id}`}>
+                        {aspectCode(a.number)} {a.aspect}
+                      </Link>
+                      <div className="text-xs text-neutral-500">{a.activity}</div>
+                    </td>
+                    <td className="text-xs whitespace-nowrap">
+                      {a._count.actions > 0 ? (
+                        <span>{a._count.actions} open actie(s)</span>
+                      ) : a.controls ? (
+                        <span className="text-neutral-500">Beheersmaatregelen</span>
+                      ) : (
+                        <span className="font-semibold text-brand-red">Geen maatregel / actie</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {sigAspects.length > 8 && <p className="mt-2 text-xs text-neutral-500">En nog {sigAspects.length - 8} significante aspecten.</p>}
+        </section>
+        <section className="card">
+          <h2 className="mb-3">Significant per type</h2>
+          {sigAspects.length === 0 ? (
+            <p className="text-sm text-neutral-500">—</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {[...new Set(sigAspects.map((a) => a.aspectType))].map((t) => (
+                <li key={t}>
+                  <Link href={`/milieuaspecten?significant=ja&type=${t}`} className="flex justify-between text-inherit no-underline hover:no-underline">
+                    <span>{ASPECT_TYPE_LABEL[t]}</span>
+                    <span className="tabular-nums">{sigAspects.filter((a) => a.aspectType === t).length}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       </div>

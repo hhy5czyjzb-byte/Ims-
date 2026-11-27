@@ -11,7 +11,8 @@ import { logAudit } from "@/lib/audit";
 import { can, canAssessLegal } from "@/lib/rbac";
 import { addMonths, legalCode, needsAction } from "@/lib/compliance";
 import { optionalDate, optionalId, optionalText, optionalUrl, parseForm, requiredText } from "@/lib/forms";
-import { parseCategory, parseStatus, type ImportRow } from "@/lib/legal-import";
+import { parseCategory, parseStatus } from "@/lib/legal-import";
+import type { ImportResult, ImportRow } from "@/lib/spreadsheet-import";
 import { COMPLIANCE_STATUS_LABEL } from "@/lib/labels";
 
 const ids = (max: number) => z.array(z.string().min(1)).max(max);
@@ -238,8 +239,6 @@ const importRowSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
 });
-
-export type ImportResult = { error?: string; created?: number; updated?: number; skipped?: number; warnings?: string[] };
 
 /**
  * Importeer regels in het register. Bestaande eisen worden bijgewerkt op kenmerk,

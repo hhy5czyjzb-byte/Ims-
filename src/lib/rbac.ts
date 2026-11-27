@@ -15,6 +15,7 @@ export const PERMISSIONS = {
   "risks.editAny": ["KAM"],
   "audits.edit": ["KAM"],
   "legal.edit": ["KAM"],
+  "aspects.edit": ["KAM"],
   "auditlog.view": ["KAM"],
 } as const satisfies Record<string, readonly Role[]>;
 

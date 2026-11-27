@@ -23,6 +23,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { RiskMatrix, ScoreBadge } from "@/components/risk-matrix";
 import { RiskForm } from "@/components/risk-form";
 import { LegalLinkItems, legalLinkSelect } from "@/components/legal-links";
+import { AspectLinkItems, aspectLinkSelect } from "@/components/aspect-links";
 import { createRiskAction, deleteRisk, updateRisk } from "../actions";
 
 export default async function RiskDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -38,6 +39,7 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
       processes: { orderBy: { name: "asc" } },
       requirements: { include: { norm: true } },
       legalRequirements: { select: legalLinkSelect, orderBy: { number: "asc" } },
+      environmentalAspects: { select: aspectLinkSelect, orderBy: { number: "asc" } },
       actions: { orderBy: { number: "desc" }, include: { owner: { select: { name: true } } } },
     },
   });
@@ -165,6 +167,14 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
             <h2 className="mb-2">Wet- en regelgeving</h2>
             <ul className="space-y-1">
               <LegalLinkItems items={risk.legalRequirements} />
+            </ul>
+          </section>
+        )}
+        {risk.environmentalAspects.length > 0 && (
+          <section className="card text-sm lg:col-span-2">
+            <h2 className="mb-2">Milieuaspecten</h2>
+            <ul className="space-y-1">
+              <AspectLinkItems items={risk.environmentalAspects} />
             </ul>
           </section>
         )}

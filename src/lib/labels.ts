@@ -3,6 +3,7 @@ import type {
   ActionSource,
   ActionStatus,
   AuditStatus,
+  AspectType,
   AuditType,
   ChecklistResult,
   ComplianceStatus,
@@ -10,6 +11,7 @@ import type {
   FindingStatus,
   LegalCategory,
   NormCategory,
+  OperatingSituation,
   RaciType,
   RiskCategory,
   RiskStatus,
@@ -58,6 +60,7 @@ export const ACTION_SOURCE_LABEL: Record<ActionSource, string> = {
   AUDIT: "Audit",
   RISK: "Risico / kans",
   COMPLIANCE: "Wet- en regelgeving",
+  ENVIRONMENTAL_ASPECT: "Milieuaspect",
   NONCONFORMITY: "Afwijking",
   MANAGEMENT_REVIEW: "Directiebeoordeling",
   COMPLAINT: "Klacht",
@@ -186,6 +189,33 @@ export const LEGAL_CATEGORY_LABEL: Record<LegalCategory, string> = {
   ENERGY_CO2: "Energie en CO2",
   BUILDING: "Bouwen",
   OTHER: "Overig",
+};
+
+export const ASPECT_TYPE_LABEL: Record<AspectType, string> = {
+  AIR: "Lucht / stof / emissies",
+  NOISE: "Geluid",
+  SOIL: "Bodem",
+  WATER: "Water / lozingen",
+  ENERGY: "Energie / brandstof",
+  WASTE: "Afval",
+  RESOURCES: "Grondstoffen en materialen",
+  ODOUR: "Geur",
+  VIBRATION: "Trillingen",
+  LIGHT: "Licht",
+  TRANSPORT: "Transport en verkeer",
+  OTHER: "Overig",
+};
+
+export const SITUATION_LABEL: Record<OperatingSituation, string> = {
+  NORMAL: "Normaal",
+  ABNORMAL: "Abnormaal",
+  EMERGENCY: "Noodsituatie",
+};
+
+export const SITUATION_CLASS: Record<OperatingSituation, string> = {
+  NORMAL: "bg-neutral-100 text-neutral-700",
+  ABNORMAL: "bg-amber-100 text-amber-800",
+  EMERGENCY: "bg-brand-red text-white",
 };
 
 export function options<T extends string>(labels: Record<T, string>) {

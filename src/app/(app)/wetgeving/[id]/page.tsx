@@ -22,6 +22,7 @@ import { Badge, Disclosure, Field, PageHeader, Select } from "@/components/ui";
 import { Form } from "@/components/form";
 import { SubmitButton } from "@/components/submit-button";
 import { LegalForm } from "@/components/legal-form";
+import { AspectLinkItems, aspectLinkSelect } from "@/components/aspect-links";
 import { AssessmentFields } from "@/components/assessment-fields";
 import { createLegalAction, deleteLegal, recordAssessment, updateLegal } from "../actions";
 
@@ -40,6 +41,7 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
       risks: { orderBy: { number: "asc" } },
       requirements: { include: { norm: true } },
       actions: { orderBy: { number: "desc" }, include: { owner: { select: { name: true } } } },
+      environmentalAspects: { select: aspectLinkSelect, orderBy: { number: "asc" } },
       assessments: { orderBy: [{ date: "desc" }, { createdAt: "desc" }], include: { assessedBy: { select: { name: true } } } },
     },
   });
@@ -215,7 +217,8 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
 
       <section className="card mt-4">
         <h2 className="mb-3">Koppelingen</h2>
-        <div className="grid gap-4 text-sm md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 text-sm md:grid-cols-2 lg:grid-cols-5">
+          <LinkList title="Milieuaspecten">{req.environmentalAspects.length ? [<AspectLinkItems key="a" items={req.environmentalAspects} />] : []}</LinkList>
           <LinkList title="Normeisen">
             {req.requirements.map((r) => (
               <li key={r.id}>

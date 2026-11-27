@@ -10,6 +10,7 @@ import { RACI_CLASS, RACI_LABEL } from "@/lib/labels";
 import { residual, riskCode } from "@/lib/risk";
 import { ScoreBadge } from "@/components/risk-matrix";
 import { LegalLinkItems, legalLinkSelect } from "@/components/legal-links";
+import { AspectLinkItems, aspectLinkSelect } from "@/components/aspect-links";
 import { Badge, Disclosure, Field, PageHeader, Select } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { CheckboxPicker } from "@/components/checkbox-picker";
@@ -32,6 +33,7 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
       requirements: { include: { norm: true } },
       risks: { where: { status: { not: "CLOSED" } }, orderBy: { number: "asc" } },
       legalRequirements: { where: { active: true }, select: legalLinkSelect, orderBy: { number: "asc" } },
+      environmentalAspects: { where: { active: true }, select: aspectLinkSelect, orderBy: [{ significant: "desc" }, { number: "asc" }] },
       steps: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         include: {
@@ -354,6 +356,22 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
         ) : (
           <ul className="space-y-1 text-sm">
             <LegalLinkItems items={process.legalRequirements} />
+          </ul>
+        )}
+      </section>
+
+      <section className="card mt-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h3 className="font-semibold">Milieuaspecten bij dit proces</h3>
+          <Link href={`/milieuaspecten?proces=${id}`} className="text-sm">
+            In het register →
+          </Link>
+        </div>
+        {process.environmentalAspects.length === 0 ? (
+          <p className="text-sm text-neutral-500">Geen milieuaspecten gekoppeld.</p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            <AspectLinkItems items={process.environmentalAspects} />
           </ul>
         )}
       </section>

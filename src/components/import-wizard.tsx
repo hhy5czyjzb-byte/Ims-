@@ -2,16 +2,60 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { buildRows, cellText, findHeaderRow, IMPORT_FIELDS, parseCsv, parseStatus, suggestMapping, type Mapping } from "@/lib/legal-import";
-import { COMPLIANCE_STATUS_LABEL } from "@/lib/labels";
-import { importLegal, type ImportResult } from "../actions";
+import {
+  buildRows,
+  cellText,
+  findHeaderRow,
+  parseCsv,
+  parseYesNo,
+  suggestMapping,
+  type ImportField,
+  type ImportResult,
+  type ImportRow,
+  type Mapping,
+  type PreviewKind,
+} from "@/lib/spreadsheet-import";
+import { parseCategory, parseStatus } from "@/lib/legal-import";
+import { parseAspectType, parseSituation } from "@/lib/aspect-import";
+import { ASPECT_TYPE_LABEL, COMPLIANCE_STATUS_LABEL, LEGAL_CATEGORY_LABEL, SITUATION_LABEL } from "@/lib/labels";
 
 type Sheet = { name: string; rows: unknown[][] };
-
 const MAX_FILE_MB = 10;
 const EMPTY: unknown[][] = [];
 
-export function LegalImport() {
+/** Hoe een waarde wordt opgeslagen (voor het voorbeeld). `null` = niet herkend. */
+const PREVIEW: Record<PreviewKind, (raw: string, row: ImportRow) => string | null> = {
+  legalStatus: (raw) => {
+    const s = parseStatus(raw);
+    return s ? COMPLIANCE_STATUS_LABEL[s] : null;
+  },
+  legalCategory: (raw) => LEGAL_CATEGORY_LABEL[parseCategory(raw)],
+  aspectSituation: (raw) => {
+    const s = parseSituation(raw);
+    return s ? SITUATION_LABEL[s] : null;
+  },
+  aspectType: (raw, row) => ASPECT_TYPE_LABEL[parseAspectType(raw, row.aspect)],
+  yesNo: (raw) => {
+    const b = parseYesNo(raw);
+    return b === null ? null : b ? "Ja" : "Nee";
+  },
+};
+
+/**
+ * Algemene importwizard voor registers (Excel .xlsx of CSV) met kolommen koppelen.
+ * Het bestand wordt in de browser gelezen; alleen de gekoppelde kolommen gaan naar de server-actie.
+ */
+export function ImportWizard({
+  fields,
+  importAction,
+  registerHref,
+  matchHint,
+}: {
+  fields: ImportField[];
+  importAction: (rows: ImportRow[], options: { updateExisting: boolean }) => Promise<ImportResult>;
+  registerHref: string;
+  matchHint: string;
+}) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [sheets, setSheets] = useState<Sheet[]>([]);
   const [sheetIndex, setSheetIndex] = useState(0);
@@ -24,14 +68,27 @@ export function LegalImport() {
 
   const rows = useMemo(() => sheets[sheetIndex]?.rows ?? EMPTY, [sheets, sheetIndex]);
   const headers = useMemo(() => (rows[headerRow] ?? []).map((c, i) => cellText(c) || `Kolom ${i + 1}`), [rows, headerRow]);
-  const built = useMemo(() => (rows.length ? buildRows(rows, headerRow, mapping) : { rows: [], warnings: [] }), [rows, headerRow, mapping]);
+  const built = useMemo(() => {
+    if (!rows.length) return { rows: [] as ImportRow[], warnings: [] as string[] };
+    const b = buildRows(rows, headerRow, mapping, fields);
+    // Waarden die niet herkend worden (status, situatie, ja/nee) melden vóór de import.
+    for (const r of b.rows) {
+      for (const f of fields) {
+        const raw = r[f.key];
+        if (!f.preview || mapping[f.key] === undefined || raw === undefined) continue;
+        if (PREVIEW[f.preview](String(raw), r) === null)
+          b.warnings.push(`Rij ${r.rowNumber}: "${raw}" (${f.label}) niet herkend — wordt overgeslagen of standaardwaarde`);
+      }
+    }
+    return b;
+  }, [rows, headerRow, mapping, fields]);
 
   function selectSheet(list: Sheet[], index: number) {
     setSheets(list);
     setSheetIndex(index);
     const hr = findHeaderRow(list[index]?.rows ?? []);
     setHeaderRow(hr);
-    setMapping(suggestMapping((list[index]?.rows[hr] ?? []).map(cellText)));
+    setMapping(suggestMapping((list[index]?.rows[hr] ?? []).map(cellText), fields));
   }
 
   async function onFile(file: File | undefined) {
@@ -52,7 +109,6 @@ export function LegalImport() {
         const result = await readXlsxFile(file);
         const list = result.map((s) => ({ name: s.sheet, rows: s.data as unknown[][] })).filter((s) => s.rows.length > 0);
         if (!list.length) throw new Error("leeg");
-        // Kies het tabblad met de meeste rijen als startpunt.
         const best = list.reduce((bi, s, i) => (s.rows.length > list[bi].rows.length ? i : bi), 0);
         selectSheet(list, best);
       } else {
@@ -65,14 +121,11 @@ export function LegalImport() {
 
   function runImport() {
     setResult(null);
-    startTransition(async () => {
-      const res = await importLegal(built.rows, { updateExisting });
-      setResult(res);
-    });
+    startTransition(async () => setResult(await importAction(built.rows, { updateExisting })));
   }
 
-  const mappedCount = Object.keys(mapping).length;
-  const titleMapped = mapping.title !== undefined;
+  const requiredMissing = fields.filter((f) => f.required && mapping[f.key] === undefined);
+  const mappedFields = fields.filter((f) => mapping[f.key] !== undefined);
 
   return (
     <div className="space-y-6">
@@ -116,15 +169,15 @@ export function LegalImport() {
                 onChange={(e) => {
                   const hr = Math.max(0, Math.min(rows.length - 1, Number(e.target.value) - 1));
                   setHeaderRow(hr);
-                  setMapping(suggestMapping((rows[hr] ?? []).map(cellText)));
+                  setMapping(suggestMapping((rows[hr] ?? []).map(cellText), fields));
                 }}
                 className="input w-24"
               />
             </label>
-            <span className="text-xs text-neutral-500">{mappedCount} velden gekoppeld (automatisch voorgesteld op basis van de kolomkoppen)</span>
+            <span className="text-xs text-neutral-500">{mappedFields.length} velden gekoppeld (automatisch voorgesteld op basis van de kolomkoppen)</span>
           </div>
           <div className="grid gap-x-6 gap-y-2 md:grid-cols-2">
-            {IMPORT_FIELDS.map((f) => {
+            {fields.map((f) => {
               const col = mapping[f.key];
               const sample =
                 col !== undefined
@@ -134,7 +187,7 @@ export function LegalImport() {
                       .find((v) => v)
                   : undefined;
               return (
-                <label key={f.key} className="grid grid-cols-[12rem_1fr] items-center gap-2 text-sm">
+                <label key={f.key} className="grid grid-cols-[13rem_1fr] items-center gap-2 text-sm">
                   <span>
                     {f.label}
                     {f.required && <span className="text-brand-red"> *</span>}
@@ -172,8 +225,8 @@ export function LegalImport() {
       {rows.length > 0 && (
         <section className="card">
           <h2 className="mb-2">3. Controleren en importeren</h2>
-          {!titleMapped ? (
-            <p className="text-sm text-brand-red-dark">Koppel minstens de kolom &quot;Wet / regeling&quot;.</p>
+          {requiredMissing.length > 0 ? (
+            <p className="text-sm text-brand-red-dark">Koppel eerst de verplichte kolom(men): {requiredMissing.map((f) => f.label).join(", ")}.</p>
           ) : (
             <>
               <p className="mb-3 text-sm text-neutral-600">
@@ -185,7 +238,7 @@ export function LegalImport() {
                   <thead>
                     <tr>
                       <th>Rij</th>
-                      {IMPORT_FIELDS.filter((f) => mapping[f.key] !== undefined).map((f) => (
+                      {mappedFields.map((f) => (
                         <th key={f.key}>{f.label}</th>
                       ))}
                     </tr>
@@ -194,18 +247,18 @@ export function LegalImport() {
                     {built.rows.slice(0, 8).map((r) => (
                       <tr key={r.rowNumber}>
                         <td className="text-neutral-500">{r.rowNumber}</td>
-                        {IMPORT_FIELDS.filter((f) => mapping[f.key] !== undefined).map((f) => (
-                          <td key={f.key} className="max-w-64 truncate" title={r[f.key]}>
-                            {f.key === "status" ? (
-                              <>
-                                {r.status ?? ""}
-                                <span className="block text-xs text-neutral-500">→ {COMPLIANCE_STATUS_LABEL[parseStatus(r.status) ?? "NOT_ASSESSED"]}</span>
-                              </>
-                            ) : (
-                              (r[f.key] ?? "")
-                            )}
-                          </td>
-                        ))}
+                        {mappedFields.map((f) => {
+                          const raw = r[f.key] !== undefined ? String(r[f.key]) : "";
+                          const shown = f.preview && raw ? PREVIEW[f.preview](raw, r) : null;
+                          return (
+                            <td key={f.key} className="max-w-64 truncate" title={raw}>
+                              {raw}
+                              {f.preview && raw && (
+                                <span className={`block text-xs ${shown ? "text-neutral-500" : "text-amber-700"}`}>→ {shown ?? "niet herkend"}</span>
+                              )}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>
@@ -224,10 +277,8 @@ export function LegalImport() {
               <label className="mb-3 flex items-start gap-2 text-sm">
                 <input type="checkbox" checked={updateExisting} onChange={(e) => setUpdateExisting(e.target.checked)} className="mt-1" />
                 <span>
-                  Bestaande eisen bijwerken
-                  <span className="block text-xs text-neutral-500">
-                    Herkend op kenmerk, of anders op wet + artikel. Lege cellen wissen geen bestaande gegevens.
-                  </span>
+                  Bestaande regels bijwerken
+                  <span className="block text-xs text-neutral-500">{matchHint} Lege cellen wissen geen bestaande gegevens.</span>
                 </span>
               </label>
               <button type="button" className="btn" disabled={pending || built.rows.length === 0} onClick={runImport}>
@@ -243,7 +294,7 @@ export function LegalImport() {
               {result.error ?? (
                 <>
                   Import klaar: <strong>{result.created}</strong> nieuw, <strong>{result.updated}</strong> bijgewerkt, <strong>{result.skipped}</strong>{" "}
-                  overgeslagen. <Link href="/wetgeving">Naar het register →</Link>
+                  overgeslagen. <Link href={registerHref}>Naar het register →</Link>
                   {result.warnings && result.warnings.length > 0 && (
                     <ul className="mt-2 max-h-48 list-inside list-disc overflow-y-auto text-xs text-neutral-700">
                       {result.warnings.map((w, i) => (

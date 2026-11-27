@@ -7,6 +7,7 @@ import { can } from "@/lib/rbac";
 import { flattenTree } from "@/lib/tree";
 import { riskCode } from "@/lib/risk";
 import { LegalLinkItems, legalLinkSelect } from "@/components/legal-links";
+import { AspectLinkItems, aspectLinkSelect } from "@/components/aspect-links";
 import { auditCode, findingCode } from "@/lib/audit-plan";
 import { formatDate } from "@/lib/format";
 import {
@@ -38,6 +39,7 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
       risks: { orderBy: { title: "asc" } },
       actions: { orderBy: { number: "desc" } },
       legalRequirements: { select: legalLinkSelect, orderBy: { number: "asc" } },
+      environmentalAspects: { select: aspectLinkSelect, orderBy: { number: "asc" } },
       checklistItems: { include: { audit: { select: { id: true, number: true, title: true, status: true, plannedDate: true, completedDate: true } } } },
       findings: { include: { audit: { select: { id: true, number: true } } }, orderBy: { createdAt: "desc" } },
     },
@@ -96,6 +98,9 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
         </Section>
         <Section title="Wet- en regelgeving" empty="Geen wettelijke eisen gekoppeld. Koppel vanuit Wet- en regelgeving.">
           {req.legalRequirements.length > 0 && <LegalLinkItems items={req.legalRequirements} />}
+        </Section>
+        <Section title="Milieuaspecten" empty="Geen milieuaspecten gekoppeld. Koppel vanuit Milieuaspecten.">
+          {req.environmentalAspects.length > 0 && <AspectLinkItems items={req.environmentalAspects} />}
         </Section>
         <Section title="Audits" empty="Nog niet in een audit opgenomen.">
           {[...req.checklistItems]

@@ -44,6 +44,9 @@ model User {
   ownedLegalRequirements   LegalRequirement[]     @relation("LegalOwner")
   createdLegalRequirements LegalRequirement[]     @relation("LegalCreatedBy")
   complianceAssessments    ComplianceAssessment[]
+  ownedAspects             EnvironmentalAspect[]  @relation("AspectOwner")
+  createdAspects           EnvironmentalAspect[]  @relation("AspectCreatedBy")
+  settingsChanged          AppSetting[]
   createdRisks             Risk[]                 @relation("RiskCreatedBy")
   ownedStakeholders        Stakeholder[]          @relation("StakeholderOwner")
   raciAssignments          RaciAssignment[]
@@ -61,10 +64,11 @@ model Location {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  actions           Action[]
-  risks             Risk[]
-  legalRequirements LegalRequirement[]
-  audits            Audit[]
+  actions              Action[]
+  risks                Risk[]
+  legalRequirements    LegalRequirement[]
+  environmentalAspects EnvironmentalAspect[]
+  audits               Audit[]
 }
 
 /// Discipline: prefab, beton, afvalrecycling, infra (uitbreidbaar).
@@ -76,12 +80,13 @@ model Discipline {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  processes         Process[]
-  actions           Action[]
-  risks             Risk[]
-  legalRequirements LegalRequirement[]
-  audits            Audit[]
-  suppliers         Supplier[]
+  processes            Process[]
+  actions              Action[]
+  risks                Risk[]
+  legalRequirements    LegalRequirement[]
+  environmentalAspects EnvironmentalAspect[]
+  audits               Audit[]
+  suppliers            Supplier[]
 }
 
 /// Functie (bijv. Uitvoerder, KAM-coördinator) — gebruikt in RACI.
@@ -140,14 +145,15 @@ model NormRequirement {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  documents         Document[]           @relation("DocumentRequirements")
-  legalRequirements LegalRequirement[]   @relation("LegalNormRequirements")
-  processes         Process[]            @relation("ProcessRequirements")
-  processSteps      ProcessStep[]        @relation("StepRequirements")
-  risks             Risk[]               @relation("RiskRequirements")
-  actions           Action[]             @relation("ActionRequirements")
-  findings          AuditFinding[]
-  checklistItems    AuditChecklistItem[]
+  documents            Document[]            @relation("DocumentRequirements")
+  legalRequirements    LegalRequirement[]    @relation("LegalNormRequirements")
+  environmentalAspects EnvironmentalAspect[] @relation("AspectNormRequirements")
+  processes            Process[]             @relation("ProcessRequirements")
+  processSteps         ProcessStep[]         @relation("StepRequirements")
+  risks                Risk[]                @relation("RiskRequirements")
+  actions              Action[]              @relation("ActionRequirements")
+  findings             AuditFinding[]
+  checklistItems       AuditChecklistItem[]
 
   @@unique([normId, clause])
   @@index([normId, sortOrder])
@@ -174,11 +180,12 @@ model Process {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  steps             ProcessStep[]
-  documents         Document[]         @relation("ProcessDocuments")
-  requirements      NormRequirement[]  @relation("ProcessRequirements")
-  risks             Risk[]             @relation("RiskProcesses")
-  legalRequirements LegalRequirement[] @relation("LegalProcesses")
+  steps                ProcessStep[]
+  documents            Document[]            @relation("ProcessDocuments")
+  requirements         NormRequirement[]     @relation("ProcessRequirements")
+  risks                Risk[]                @relation("RiskProcesses")
+  legalRequirements    LegalRequirement[]    @relation("LegalProcesses")
+  environmentalAspects EnvironmentalAspect[] @relation("AspectProcesses")
 }
 
 model ProcessStep {
@@ -307,9 +314,10 @@ model Risk {
 
   processes Process[] @relation("RiskProcesses")
 
-  requirements      NormRequirement[]  @relation("RiskRequirements")
-  legalRequirements LegalRequirement[] @relation("LegalRisks")
-  actions           Action[]
+  requirements         NormRequirement[]     @relation("RiskRequirements")
+  legalRequirements    LegalRequirement[]    @relation("LegalRisks")
+  environmentalAspects EnvironmentalAspect[] @relation("AspectRisks")
+  actions              Action[]
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -434,6 +442,7 @@ enum ActionSource {
   AUDIT
   RISK
   COMPLIANCE
+  ENVIRONMENTAL_ASPECT
   NONCONFORMITY
   MANAGEMENT_REVIEW
   COMPLAINT
@@ -441,32 +450,34 @@ enum ActionSource {
 }
 
 model Action {
-  id                 String            @id @default(cuid())
-  number             Int               @unique @default(autoincrement())
-  title              String
-  description        String?
-  source             ActionSource      @default(MANUAL)
-  status             ActionStatus      @default(OPEN)
-  priority           ActionPriority    @default(MEDIUM)
-  ownerId            String?
-  owner              User?             @relation("ActionOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  createdById        String?
-  createdBy          User?             @relation("ActionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  deadline           DateTime?
-  completedAt        DateTime?
-  result             String?
-  disciplineId       String?
-  discipline         Discipline?       @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
-  locationId         String?
-  location           Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  riskId             String?
-  risk               Risk?             @relation(fields: [riskId], references: [id], onDelete: SetNull)
-  findingId          String?
-  finding            AuditFinding?     @relation(fields: [findingId], references: [id], onDelete: SetNull)
-  legalRequirementId String?
-  legalRequirement   LegalRequirement? @relation(fields: [legalRequirementId], references: [id], onDelete: SetNull)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  id                    String               @id @default(cuid())
+  number                Int                  @unique @default(autoincrement())
+  title                 String
+  description           String?
+  source                ActionSource         @default(MANUAL)
+  status                ActionStatus         @default(OPEN)
+  priority              ActionPriority       @default(MEDIUM)
+  ownerId               String?
+  owner                 User?                @relation("ActionOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById           String?
+  createdBy             User?                @relation("ActionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  deadline              DateTime?
+  completedAt           DateTime?
+  result                String?
+  disciplineId          String?
+  discipline            Discipline?          @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  locationId            String?
+  location              Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  riskId                String?
+  risk                  Risk?                @relation(fields: [riskId], references: [id], onDelete: SetNull)
+  findingId             String?
+  finding               AuditFinding?        @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  legalRequirementId    String?
+  legalRequirement      LegalRequirement?    @relation(fields: [legalRequirementId], references: [id], onDelete: SetNull)
+  environmentalAspectId String?
+  environmentalAspect   EnvironmentalAspect? @relation(fields: [environmentalAspectId], references: [id], onDelete: SetNull)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
 
   requirements NormRequirement[] @relation("ActionRequirements")
 
@@ -616,12 +627,13 @@ model LegalRequirement {
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
-  processes    Process[]              @relation("LegalProcesses")
-  documents    Document[]             @relation("LegalDocuments")
-  risks        Risk[]                 @relation("LegalRisks")
-  requirements NormRequirement[]      @relation("LegalNormRequirements")
-  actions      Action[]
-  assessments  ComplianceAssessment[]
+  processes            Process[]              @relation("LegalProcesses")
+  documents            Document[]             @relation("LegalDocuments")
+  risks                Risk[]                 @relation("LegalRisks")
+  requirements         NormRequirement[]      @relation("LegalNormRequirements")
+  actions              Action[]
+  assessments          ComplianceAssessment[]
+  environmentalAspects EnvironmentalAspect[]  @relation("AspectLegal")
 
   @@index([status])
   @@index([nextReviewDate])
@@ -640,4 +652,82 @@ model ComplianceAssessment {
   createdAt          DateTime         @default(now())
 
   @@index([legalRequirementId, date])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Milieuaspecten (ISO 14001 6.1.2)
+// ─────────────────────────────────────────────────────────────
+
+enum AspectType {
+  AIR
+  NOISE
+  SOIL
+  WATER
+  ENERGY
+  WASTE
+  RESOURCES
+  ODOUR
+  VIBRATION
+  LIGHT
+  TRANSPORT
+  OTHER
+}
+
+/// Normale, abnormale (bijv. opstart, onderhoud, storing) of noodsituatie.
+enum OperatingSituation {
+  NORMAL
+  ABNORMAL
+  EMERGENCY
+}
+
+/// Milieuaspect: activiteit → aspect → milieueffect, met scoring en significantie.
+model EnvironmentalAspect {
+  id                 String             @id @default(cuid())
+  number             Int                @unique @default(autoincrement())
+  externalRef        String?            @unique // kenmerk uit het (Excel-)bronregister; gebruikt bij herimport
+  activity           String // activiteit, bijv. "Breken van puin"
+  aspectType         AspectType         @default(OTHER)
+  aspect             String // aspect, bijv. "Stofemissie"
+  impact             String? // milieueffect, bijv. "Luchtverontreiniging, hinder omwonenden"
+  situation          OperatingSituation @default(NORMAL)
+  controls           String? // beheersmaatregelen
+  frequency          Int? // F: frequentie / kans 1–5
+  severity           Int? // E: ernst 1–5
+  extent             Int? // O: omvang 1–5
+  score              Int? // F × E × O, of overgenomen uit import
+  legalApplies       Boolean            @default(false) // bindende verplichting van toepassing
+  stakeholderConcern Boolean            @default(false) // belanghebbenden hebben zorgen
+  co2Relevant        Boolean            @default(false) // energie / emissies → CO2-prestatieladder
+  significant        Boolean            @default(false) // uitkomst, opgeslagen voor filteren
+  significanceManual Boolean            @default(false) // handmatig bepaald i.p.v. berekend
+  significanceReason String? // toelichting bij handmatige bepaling
+  reviewDate         DateTime? // volgende beoordeling
+  active             Boolean            @default(true)
+  ownerId            String?
+  owner              User?              @relation("AspectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById        String?
+  createdBy          User?              @relation("AspectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  disciplineId       String?
+  discipline         Discipline?        @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  locationId         String?
+  location           Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  processes         Process[]          @relation("AspectProcesses")
+  risks             Risk[]             @relation("AspectRisks")
+  legalRequirements LegalRequirement[] @relation("AspectLegal")
+  requirements      NormRequirement[]  @relation("AspectNormRequirements")
+  actions           Action[]
+
+  @@index([significant])
+}
+
+/// Instellingen die KAM in de app beheert (sleutel → waarde).
+model AppSetting {
+  key         String   @id
+  value       String
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+  updatedBy   User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
 }

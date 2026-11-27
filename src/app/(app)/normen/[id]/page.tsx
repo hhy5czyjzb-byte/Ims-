@@ -20,7 +20,18 @@ export default async function NormDetailPage({ params }: { params: Promise<{ id:
     include: {
       requirements: {
         include: {
-          _count: { select: { documents: true, processes: true, processSteps: true, risks: true, legalRequirements: true, actions: true, children: true } },
+          _count: {
+            select: {
+              documents: true,
+              processes: true,
+              processSteps: true,
+              risks: true,
+              legalRequirements: true,
+              environmentalAspects: true,
+              actions: true,
+              children: true,
+            },
+          },
         },
       },
     },

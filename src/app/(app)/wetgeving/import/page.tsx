@@ -1,7 +1,9 @@
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui";
-import { LegalImport } from "./legal-import";
+import { ImportWizard } from "@/components/import-wizard";
+import { LEGAL_IMPORT_FIELDS } from "@/lib/legal-import";
+import { importLegal } from "../actions";
 
 export const metadata = { title: "Importeren wet- en regelgeving" };
 
@@ -22,7 +24,12 @@ export default async function LegalImportPage() {
         title="Importeren uit Excel"
         description="Lees het bestaande register in. Je koppelt zelf welke kolom bij welk veld hoort; disciplines, locaties en eigenaren worden op naam herkend. Een herimport werkt bestaande eisen bij."
       />
-      <LegalImport />
+      <ImportWizard
+        fields={LEGAL_IMPORT_FIELDS}
+        importAction={importLegal}
+        registerHref="/wetgeving"
+        matchHint="Herkend op kenmerk, of anders op wet + artikel."
+      />
     </>
   );
 }

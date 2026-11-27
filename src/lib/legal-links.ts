@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getRequirementOptions } from "@/lib/lookups";
 import { riskCode } from "@/lib/risk";
+import { legalCode } from "@/lib/compliance";
 
 /** Keuzelijsten om een wettelijke eis te koppelen aan processen, documenten, risico's en normeisen. */
 export async function getLegalLinkOptions() {
@@ -15,5 +16,23 @@ export async function getLegalLinkOptions() {
     documents: documents.map((d) => ({ value: d.id, label: d.documentNumber ? `${d.documentNumber} — ${d.title}` : d.title })),
     risks: risks.map((r) => ({ value: r.id, label: `${riskCode(r.number, r.type)} ${r.title}` })),
     requirementGroups,
+  };
+}
+
+/** Keuzelijsten om een milieuaspect te koppelen (processen, risico's, wettelijke eisen, normeisen). */
+export async function getAspectLinkOptions() {
+  const [base, legal] = await Promise.all([
+    getLegalLinkOptions(),
+    prisma.legalRequirement.findMany({
+      where: { active: true },
+      orderBy: [{ title: "asc" }, { article: "asc" }],
+      select: { id: true, number: true, title: true, article: true },
+    }),
+  ]);
+  return {
+    processes: base.processes,
+    risks: base.risks,
+    requirementGroups: base.requirementGroups,
+    legal: legal.map((l) => ({ value: l.id, label: `${legalCode(l.number)} ${l.title}${l.article ? ` — ${l.article}` : ""}` })),
   };
 }

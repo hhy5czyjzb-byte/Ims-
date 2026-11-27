@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildRows, findHeaderRow, parseCategory, parseCsv, parseDateCell, parseStatus, suggestMapping } from "./legal-import";
+import { LEGAL_IMPORT_FIELDS, parseCategory, parseStatus } from "./legal-import";
+import { buildRows, findHeaderRow, parseCsv, parseDateCell, parseIntCell, parseYesNo, suggestMapping } from "./spreadsheet-import";
 
 test("suggestMapping herkent gangbare kolomkoppen", () => {
   const headers = [
@@ -17,7 +18,7 @@ test("suggestMapping herkent gangbare kolomkoppen", () => {
     "Volgende toetsing",
     "Vestiging",
   ];
-  const m = suggestMapping(headers);
+  const m = suggestMapping(headers, LEGAL_IMPORT_FIELDS);
   assert.equal(m.externalRef, 0);
   assert.equal(m.title, 1);
   assert.equal(m.article, 2);
@@ -33,7 +34,7 @@ test("suggestMapping herkent gangbare kolomkoppen", () => {
 });
 
 test("suggestMapping gebruikt een kolom maar één keer", () => {
-  const m = suggestMapping(["Wet", "Wet"]);
+  const m = suggestMapping(["Wet", "Wet"], LEGAL_IMPORT_FIELDS);
   assert.equal(m.title, 0);
   assert.equal(Object.values(m).filter((c) => c === 1).length <= 1, true);
 });
@@ -93,10 +94,25 @@ test("buildRows: koppelt kolommen, slaat lege en titelloze rijen over en waarsch
     ["", "nee", ""],
     ["Arbowet", "misschien", "Q2"],
   ];
-  const { rows: out, warnings } = buildRows(rows, 0, { title: 0, status: 1, lastReviewDate: 2 });
+  const { rows: out, warnings } = buildRows(rows, 0, { title: 0, status: 1, lastReviewDate: 2 }, LEGAL_IMPORT_FIELDS);
   assert.deepEqual(out, [
     { rowNumber: 2, title: "Bal", status: "ja", lastReviewDate: "2026-02-01" },
     { rowNumber: 5, title: "Arbowet", status: "misschien" },
   ]);
-  assert.equal(warnings.length, 3);
+  assert.equal(warnings.length, 2); // rij zonder wet + onleesbare datum (statusherkenning toont de wizard apart)
+});
+
+test("parseIntCell en parseYesNo", () => {
+  assert.deepEqual(parseIntCell("3"), { value: 3, invalid: false });
+  assert.deepEqual(parseIntCell(4), { value: 4, invalid: false });
+  assert.deepEqual(parseIntCell("3,0"), { value: 3, invalid: false });
+  assert.deepEqual(parseIntCell("hoog"), { value: null, invalid: true });
+  assert.deepEqual(parseIntCell("2,5"), { value: null, invalid: true });
+  assert.deepEqual(parseIntCell(""), { value: null, invalid: false });
+  assert.equal(parseYesNo("Ja"), true);
+  assert.equal(parseYesNo("x"), true);
+  assert.equal(parseYesNo("nee"), false);
+  assert.equal(parseYesNo("niet significant"), false);
+  assert.equal(parseYesNo(""), null);
+  assert.equal(parseYesNo("misschien"), null);
 });
