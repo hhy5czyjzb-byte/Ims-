@@ -1,0 +1,15 @@
+# Lokale PostgreSQL-database voor fase 1 (laptop). Start met: docker compose up -d
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ims
+      POSTGRES_PASSWORD: ims
+      POSTGRES_DB: ims
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ims-db:/var/lib/postgresql/data
+volumes:
+  ims-db:

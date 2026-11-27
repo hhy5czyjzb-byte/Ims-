@@ -1,0 +1,408 @@
+/**
+ * Basisvulling van de database. Idempotent: kan veilig vaker gedraaid worden.
+ *
+ *   npm run db:seed                 → normen, disciplines, locatie, functies (+ testgebruikers lokaal)
+ *   SEED_DEMO=true npm run db:seed  → idem, plus een voorbeeldproces en voorbeeldacties
+ *
+ * Normeisen: alleen de hoofdstukstructuur (High Level Structure) van ISO 9001 en
+ * ISO 14001 is ingevuld. De overige normen staan klaar zonder eisen; KAM vult die
+ * in via Normenbeheer (de normteksten zelf zijn auteursrechtelijk beschermd).
+ */
+import { PrismaClient, type NormCategory } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+type Req = [clause: string, title: string, children?: Req[]];
+
+const HLS_COMMON = {
+  context: (scope: string, system: string): Req => [
+    "4",
+    "Context van de organisatie",
+    [
+      ["4.1", "Inzicht in de organisatie en haar context"],
+      ["4.2", "Inzicht in de behoeften en verwachtingen van belanghebbenden"],
+      ["4.3", `Vaststellen van het toepassingsgebied van het ${scope}`],
+      ["4.4", system],
+    ],
+  ],
+};
+
+const ISO_9001: Req[] = [
+  HLS_COMMON.context("kwaliteitsmanagementsysteem", "Kwaliteitsmanagementsysteem en de processen ervan"),
+  [
+    "5",
+    "Leiderschap",
+    [
+      ["5.1", "Leiderschap en betrokkenheid"],
+      ["5.2", "Beleid"],
+      ["5.3", "Rollen, verantwoordelijkheden en bevoegdheden binnen de organisatie"],
+    ],
+  ],
+  [
+    "6",
+    "Planning",
+    [
+      ["6.1", "Maatregelen om risico's en kansen te behandelen"],
+      ["6.2", "Kwaliteitsdoelstellingen en planning om deze te bereiken"],
+      ["6.3", "Planning van wijzigingen"],
+    ],
+  ],
+  [
+    "7",
+    "Ondersteuning",
+    [
+      [
+        "7.1",
+        "Middelen",
+        [
+          ["7.1.1", "Algemeen"],
+          ["7.1.2", "Personen"],
+          ["7.1.3", "Infrastructuur"],
+          ["7.1.4", "Omgeving voor het uitvoeren van processen"],
+          ["7.1.5", "Middelen voor monitoren en meten"],
+          ["7.1.6", "Kennis van de organisatie"],
+        ],
+      ],
+      ["7.2", "Competentie"],
+      ["7.3", "Bewustzijn"],
+      ["7.4", "Communicatie"],
+      ["7.5", "Gedocumenteerde informatie"],
+    ],
+  ],
+  [
+    "8",
+    "Uitvoering",
+    [
+      ["8.1", "Operationele planning en beheersing"],
+      ["8.2", "Eisen voor producten en diensten"],
+      ["8.3", "Ontwerp en ontwikkeling van producten en diensten"],
+      ["8.4", "Beheersing van extern geleverde processen, producten en diensten"],
+      ["8.5", "Productie en dienstverlening"],
+      ["8.6", "Vrijgave van producten en diensten"],
+      ["8.7", "Beheersing van niet-conforme outputs"],
+    ],
+  ],
+  [
+    "9",
+    "Evaluatie van de prestaties",
+    [
+      ["9.1", "Monitoren, meten, analyseren en evalueren"],
+      ["9.2", "Interne audit"],
+      ["9.3", "Directiebeoordeling"],
+    ],
+  ],
+  [
+    "10",
+    "Verbetering",
+    [
+      ["10.1", "Algemeen"],
+      ["10.2", "Afwijkingen en corrigerende maatregelen"],
+      ["10.3", "Continue verbetering"],
+    ],
+  ],
+];
+
+const ISO_14001: Req[] = [
+  HLS_COMMON.context("milieumanagementsysteem", "Milieumanagementsysteem"),
+  [
+    "5",
+    "Leiderschap",
+    [
+      ["5.1", "Leiderschap en betrokkenheid"],
+      ["5.2", "Milieubeleid"],
+      ["5.3", "Rollen, verantwoordelijkheden en bevoegdheden binnen de organisatie"],
+    ],
+  ],
+  [
+    "6",
+    "Planning",
+    [
+      [
+        "6.1",
+        "Maatregelen om risico's en kansen te behandelen",
+        [
+          ["6.1.1", "Algemeen"],
+          ["6.1.2", "Milieuaspecten"],
+          ["6.1.3", "Bindende verplichtingen"],
+          ["6.1.4", "Planning van maatregelen"],
+        ],
+      ],
+      ["6.2", "Milieudoelstellingen en planning om deze te bereiken"],
+    ],
+  ],
+  [
+    "7",
+    "Ondersteuning",
+    [
+      ["7.1", "Middelen"],
+      ["7.2", "Competentie"],
+      ["7.3", "Bewustzijn"],
+      ["7.4", "Communicatie"],
+      ["7.5", "Gedocumenteerde informatie"],
+    ],
+  ],
+  [
+    "8",
+    "Uitvoering",
+    [
+      ["8.1", "Operationele planning en beheersing"],
+      ["8.2", "Voorbereid zijn op en reageren op noodsituaties"],
+    ],
+  ],
+  [
+    "9",
+    "Evaluatie van de prestaties",
+    [
+      [
+        "9.1",
+        "Monitoring, meting, analyse en evaluatie",
+        [
+          ["9.1.1", "Algemeen"],
+          ["9.1.2", "Evaluatie van de naleving"],
+        ],
+      ],
+      ["9.2", "Interne audit"],
+      ["9.3", "Directiebeoordeling"],
+    ],
+  ],
+  [
+    "10",
+    "Verbetering",
+    [
+      ["10.1", "Algemeen"],
+      ["10.2", "Afwijkingen en corrigerende maatregelen"],
+      ["10.3", "Continue verbetering"],
+    ],
+  ],
+];
+
+const NORMS: { code: string; name: string; version?: string; category: NormCategory; description?: string; requirements?: Req[] }[] = [
+  { code: "ISO 9001", name: "Kwaliteitsmanagementsystemen — Eisen", version: "2015", category: "QUALITY", requirements: ISO_9001 },
+  {
+    code: "ISO 14001",
+    name: "Milieumanagementsystemen — Eisen met richtlijnen voor gebruik",
+    version: "2015",
+    category: "ENVIRONMENT",
+    requirements: ISO_14001,
+  },
+  {
+    code: "CO2-prestatieladder",
+    name: "CO2-Prestatieladder (SKAO)",
+    category: "CO2",
+    description: "Eisen per niveau en invalshoek nog in te voeren door KAM.",
+  },
+  { code: "SCL", name: "Safety Culture Ladder", category: "SAFETY", description: "Eisen nog in te voeren door KAM." },
+  {
+    code: "VCA**",
+    name: "VCA** — Veiligheid, gezondheid en milieu Checklist Aannemers",
+    category: "SAFETY",
+    description: "Gedeeltelijk van toepassing; welke onderdelen is een open punt.",
+  },
+  { code: "BRL 2000", name: "BRL 2000", category: "PRODUCT", description: "Eisen nog in te voeren door KAM." },
+  { code: "BRL 7000", name: "BRL 7000", category: "PRODUCT", description: "Eisen nog in te voeren door KAM." },
+  { code: "SVMS-007", name: "SVMS-007", category: "PRODUCT", description: "Eisen nog in te voeren door KAM." },
+  { code: "SC-530", name: "Asbestcertificering SC-530 (asbestinventarisatie)", category: "SAFETY", description: "Eisen nog in te voeren door KAM." },
+  { code: "SC-540", name: "Asbestcertificering SC-540 (asbestverwijdering)", category: "SAFETY", description: "Eisen nog in te voeren door KAM." },
+  // BRL's voor grondbank en granulaat: nummers nog te bevestigen (open punt) — toevoegen via Normenbeheer.
+];
+
+const DISCIPLINES = ["Prefab", "Beton", "Afvalrecycling", "Infra"];
+const LOCATIONS = [{ name: "Groenlo", address: "Hoofdvestiging" }];
+const FUNCTIONS = [
+  "Directeur",
+  "KAM-coördinator",
+  "Bedrijfsleider",
+  "Projectleider",
+  "Werkvoorbereider",
+  "Uitvoerder",
+  "Productieleider",
+  "Ploegleider",
+  "Inkoper",
+  "Planner",
+  "Medewerker productie",
+];
+
+async function upsertRequirements(normId: string, reqs: Req[], parentId: string | null = null) {
+  let order = 0;
+  for (const [clause, title, children] of reqs) {
+    order += 10;
+    const r = await prisma.normRequirement.upsert({
+      where: { normId_clause: { normId, clause } },
+      update: {},
+      create: { normId, clause, title, parentId, sortOrder: order },
+    });
+    if (children) await upsertRequirements(normId, children, r.id);
+  }
+}
+
+async function main() {
+  console.log("Seed: normen…");
+  let order = 0;
+  for (const n of NORMS) {
+    order += 10;
+    const norm = await prisma.norm.upsert({
+      where: { code: n.code },
+      update: {},
+      create: { code: n.code, name: n.name, version: n.version, category: n.category, description: n.description, sortOrder: order },
+    });
+    if (n.requirements) await upsertRequirements(norm.id, n.requirements);
+  }
+
+  console.log("Seed: disciplines, locaties, functies…");
+  for (const [i, name] of DISCIPLINES.entries()) {
+    await prisma.discipline.upsert({ where: { name }, update: {}, create: { name, sortOrder: (i + 1) * 10 } });
+  }
+  for (const l of LOCATIONS) {
+    await prisma.location.upsert({ where: { name: l.name }, update: {}, create: l });
+  }
+  for (const name of FUNCTIONS) {
+    await prisma.jobFunction.upsert({ where: { name }, update: {}, create: { name } });
+  }
+
+  const isProd = process.env.NODE_ENV === "production";
+  if (!isProd && process.env.AUTH_DEV_LOGIN === "true") {
+    console.log("Seed: testgebruikers voor de ontwikkel-login…");
+    const testUsers = [
+      { email: "test.kam@ims.local", name: "Test KAM", role: "KAM" as const },
+      { email: "test.directie@ims.local", name: "Test Directie", role: "DIRECTIE" as const },
+      { email: "test.middenkader@ims.local", name: "Test Middenkader", role: "MIDDENKADER" as const },
+    ];
+    for (const u of testUsers) await prisma.user.upsert({ where: { email: u.email }, update: {}, create: u });
+  }
+
+  if (process.env.SEED_DEMO === "true") await seedDemo();
+  console.log("Seed klaar.");
+}
+
+/** Voorbeelddata om de app te verkennen. Niet gebruiken in productie. */
+async function seedDemo() {
+  console.log("Seed: voorbeelddata…");
+  if (await prisma.process.findFirst({ where: { code: "DEMO-BET-01" } })) return;
+
+  const beton = await prisma.discipline.findUniqueOrThrow({ where: { name: "Beton" } });
+  const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
+  const kam = await prisma.user.findFirst({ where: { role: "KAM" } });
+  const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
+  const fn = async (name: string) => (await prisma.jobFunction.findUniqueOrThrow({ where: { name } })).id;
+  const req = async (code: string, clause: string) => {
+    const norm = await prisma.norm.findUniqueOrThrow({ where: { code } });
+    return (await prisma.normRequirement.findUniqueOrThrow({ where: { normId_clause: { normId: norm.id, clause } } })).id;
+  };
+
+  const doc = await prisma.document.create({
+    data: {
+      title: "Werkinstructie mengen en leveren betonmortel (voorbeeld)",
+      documentNumber: "DEMO-WI-001",
+      webUrl: "https://example.sharepoint.com/sites/IMS/IMS-documenten/DEMO-WI-001.docx",
+      status: "Vrijgegeven",
+      version: "1.0",
+      ownerName: "KAM",
+      revisionDate: new Date(Date.now() + 20 * 86_400_000),
+      requirements: { connect: [{ id: await req("ISO 9001", "8.5") }] },
+    },
+  });
+
+  const process = await prisma.process.create({
+    data: {
+      code: "DEMO-BET-01",
+      name: "Productie en levering betonmortel (voorbeeld)",
+      purpose: "Betonmortel volgens specificatie van de klant produceren en tijdig leveren.",
+      input: "Order met specificatie",
+      output: "Geleverde betonmortel met afleverbon",
+      disciplineId: beton.id,
+      ownerId: kam?.id,
+      documents: { connect: [{ id: doc.id }] },
+      requirements: { connect: [{ id: await req("ISO 9001", "8.5") }, { id: await req("ISO 14001", "8.1") }] },
+    },
+  });
+
+  const steps: { name: string; raci: ["R" | "A" | "C" | "I", string][] }[] = [
+    {
+      name: "Order ontvangen en controleren",
+      raci: [
+        ["R", "Planner"],
+        ["A", "Bedrijfsleider"],
+        ["I", "Productieleider"],
+      ],
+    },
+    {
+      name: "Productie plannen",
+      raci: [
+        ["R", "Planner"],
+        ["A", "Productieleider"],
+        ["C", "Uitvoerder"],
+      ],
+    },
+    {
+      name: "Mengen volgens recept",
+      raci: [
+        ["R", "Medewerker productie"],
+        ["A", "Productieleider"],
+        ["C", "KAM-coördinator"],
+      ],
+    },
+    {
+      name: "Kwaliteitscontrole en vrijgave",
+      raci: [
+        ["R", "Productieleider"],
+        ["A", "Bedrijfsleider"],
+        ["I", "KAM-coördinator"],
+      ],
+    },
+    {
+      name: "Leveren en afleverbon",
+      raci: [
+        ["R", "Uitvoerder"],
+        ["A", "Bedrijfsleider"],
+        ["I", "Planner"],
+      ],
+    },
+  ];
+  for (const [i, s] of steps.entries()) {
+    const step = await prisma.processStep.create({ data: { processId: process.id, name: s.name, sortOrder: (i + 1) * 10 } });
+    for (const [type, f] of s.raci) await prisma.raciAssignment.create({ data: { stepId: step.id, type, jobFunctionId: await fn(f) } });
+    if (i === 2) await prisma.processStep.update({ where: { id: step.id }, data: { documents: { connect: [{ id: doc.id }] } } });
+    if (i === 3) await prisma.processStep.update({ where: { id: step.id }, data: { requirements: { connect: [{ id: await req("ISO 9001", "8.6") }] } } });
+  }
+
+  await prisma.action.createMany({
+    data: [
+      {
+        title: "Kalibratie weegsysteem menginstallatie inplannen (voorbeeld)",
+        source: "AUDIT",
+        priority: "HIGH",
+        ownerId: mk?.id,
+        createdById: kam?.id,
+        deadline: new Date(Date.now() - 5 * 86_400_000),
+        disciplineId: beton.id,
+        locationId: groenlo.id,
+      },
+      {
+        title: "Werkinstructie mengen actualiseren (voorbeeld)",
+        source: "MANUAL",
+        priority: "MEDIUM",
+        ownerId: kam?.id,
+        createdById: kam?.id,
+        deadline: new Date(Date.now() + 14 * 86_400_000),
+        disciplineId: beton.id,
+      },
+      {
+        title: "Toolbox stofbeheersing breker plannen (voorbeeld)",
+        source: "RISK",
+        priority: "MEDIUM",
+        ownerId: mk?.id,
+        createdById: kam?.id,
+        deadline: new Date(Date.now() + 30 * 86_400_000),
+        status: "IN_PROGRESS",
+        locationId: groenlo.id,
+      },
+    ],
+  });
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());

@@ -1,0 +1,496 @@
+// Datamodel IMS Rouwmaat Groep
+// Code-identifiers zijn Engels; de interface is Nederlands (zie src/lib/labels.ts).
+// Kernprincipe: één bewijsstuk (document, proces, risico, audit, actie) kan aan
+// meerdere normeisen van meerdere normen gekoppeld worden.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Gebruikers, rollen en stamgegevens
+// ─────────────────────────────────────────────────────────────
+
+/// Rol wordt bij elke login afgeleid uit Entra ID-groepen; hier alleen gecachet.
+enum Role {
+  KAM
+  DIRECTIE
+  MIDDENKADER
+}
+
+model User {
+  id            String       @id @default(cuid())
+  entraObjectId String?      @unique
+  email         String       @unique
+  name          String
+  role          Role         @default(MIDDENKADER)
+  jobFunctionId String?
+  jobFunction   JobFunction? @relation(fields: [jobFunctionId], references: [id], onDelete: SetNull)
+  active        Boolean      @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  ownedActions        Action[]             @relation("ActionOwner")
+  createdActions      Action[]             @relation("ActionCreatedBy")
+  ownedProcesses      Process[]            @relation("ProcessOwner")
+  ownedDocuments      Document[]           @relation("DocumentOwner")
+  ownedRisks          Risk[]               @relation("RiskOwner")
+  ownedStakeholders   Stakeholder[]        @relation("StakeholderOwner")
+  raciAssignments     RaciAssignment[]
+  supplierEvaluations SupplierEvaluation[]
+  auditLogs           AuditLog[]
+}
+
+/// Vestiging/locatie: vast kenmerk in het hele systeem.
+model Location {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  address   String?
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actions Action[]
+  risks   Risk[]
+  audits  Audit[]
+}
+
+/// Discipline: prefab, beton, afvalrecycling, infra (uitbreidbaar).
+model Discipline {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  processes Process[]
+  actions   Action[]
+  risks     Risk[]
+  audits    Audit[]
+  suppliers Supplier[]
+}
+
+/// Functie (bijv. Uitvoerder, KAM-coördinator) — gebruikt in RACI.
+model JobFunction {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users           User[]
+  raciAssignments RaciAssignment[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Normenkader
+// ─────────────────────────────────────────────────────────────
+
+enum NormCategory {
+  QUALITY
+  ENVIRONMENT
+  SAFETY
+  CO2
+  PRODUCT
+  OTHER
+}
+
+model Norm {
+  id          String       @id @default(cuid())
+  code        String       @unique // bijv. "ISO 9001"
+  name        String
+  version     String? // bijv. "2015"
+  category    NormCategory @default(OTHER)
+  description String?
+  active      Boolean      @default(true)
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  requirements NormRequirement[]
+  audits       Audit[]           @relation("AuditNorms")
+}
+
+/// Eis of hoofdstuk van een norm. Hiërarchisch via parentId.
+model NormRequirement {
+  id          String            @id @default(cuid())
+  normId      String
+  norm        Norm              @relation(fields: [normId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      NormRequirement?  @relation("RequirementTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    NormRequirement[] @relation("RequirementTree")
+  clause      String // bijv. "7.5.3"
+  title       String
+  description String?
+  sortOrder   Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  documents    Document[]     @relation("DocumentRequirements")
+  processes    Process[]      @relation("ProcessRequirements")
+  processSteps ProcessStep[]  @relation("StepRequirements")
+  risks        Risk[]         @relation("RiskRequirements")
+  actions      Action[]       @relation("ActionRequirements")
+  findings     AuditFinding[]
+
+  @@unique([normId, clause])
+  @@index([normId, sortOrder])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Processen, processtappen en RACI
+// ─────────────────────────────────────────────────────────────
+
+model Process {
+  id           String      @id @default(cuid())
+  code         String?     @unique
+  name         String
+  description  String?
+  purpose      String?
+  input        String?
+  output       String?
+  disciplineId String?
+  discipline   Discipline? @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  ownerId      String?
+  owner        User?       @relation("ProcessOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  sortOrder    Int         @default(0)
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  steps        ProcessStep[]
+  documents    Document[]        @relation("ProcessDocuments")
+  requirements NormRequirement[] @relation("ProcessRequirements")
+  risks        Risk[]            @relation("RiskProcesses")
+}
+
+model ProcessStep {
+  id          String   @id @default(cuid())
+  processId   String
+  process     Process  @relation(fields: [processId], references: [id], onDelete: Cascade)
+  sortOrder   Int      @default(0)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  raci         RaciAssignment[]
+  documents    Document[]        @relation("StepDocuments")
+  requirements NormRequirement[] @relation("StepRequirements")
+
+  @@index([processId, sortOrder])
+}
+
+enum RaciType {
+  R
+  A
+  C
+  I
+}
+
+/// RACI-toewijzing per processtap, aan een functie óf een persoon.
+model RaciAssignment {
+  id            String       @id @default(cuid())
+  stepId        String
+  step          ProcessStep  @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  type          RaciType
+  jobFunctionId String?
+  jobFunction   JobFunction? @relation(fields: [jobFunctionId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note          String?
+  createdAt     DateTime     @default(now())
+
+  @@index([stepId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Documentbeheer — SharePoint is de enige bron. Hier staan alleen
+// een verwijzing en gecachete metadata, nooit het bestand zelf.
+// ─────────────────────────────────────────────────────────────
+
+model Document {
+  id                String    @id @default(cuid())
+  title             String
+  documentNumber    String?
+  sharePointDriveId String?
+  sharePointItemId  String?   @unique
+  webUrl            String
+  fileType          String?
+  status            String? // uit SharePoint-metadata (bijv. "Vrijgegeven")
+  version           String? // uit SharePoint-versiegeschiedenis
+  ownerName         String? // uit SharePoint-metadata
+  ownerId           String?
+  owner             User?     @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  revisionDate      DateTime?
+  lastModifiedAt    DateTime?
+  lastSyncedAt      DateTime?
+  removedInSource   Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  requirements NormRequirement[] @relation("DocumentRequirements")
+  processes    Process[]         @relation("ProcessDocuments")
+  processSteps ProcessStep[]     @relation("StepDocuments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Risico's en kansen
+// ─────────────────────────────────────────────────────────────
+
+enum RiskType {
+  RISK
+  OPPORTUNITY
+}
+
+enum RiskStatus {
+  OPEN
+  CONTROLLED
+  CLOSED
+}
+
+model Risk {
+  id               String      @id @default(cuid())
+  type             RiskType    @default(RISK)
+  title            String
+  description      String?
+  cause            String?
+  consequence      String?
+  likelihoodBefore Int // 1–5
+  impactBefore     Int // 1–5
+  measures         String?
+  likelihoodAfter  Int?
+  impactAfter      Int?
+  status           RiskStatus  @default(OPEN)
+  ownerId          String?
+  owner            User?       @relation("RiskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  disciplineId     String?
+  discipline       Discipline? @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  locationId       String?
+  location         Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  reviewDate       DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  processes    Process[]         @relation("RiskProcesses")
+  requirements NormRequirement[] @relation("RiskRequirements")
+  actions      Action[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Audits (intern, extern, klant) en bevindingen
+// ─────────────────────────────────────────────────────────────
+
+enum AuditType {
+  INTERNAL
+  EXTERNAL
+  CUSTOMER
+}
+
+enum AuditStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum FindingClass {
+  MAJOR
+  MINOR
+  OBSERVATION
+}
+
+model Audit {
+  id                String      @id @default(cuid())
+  type              AuditType
+  title             String
+  plannedDate       DateTime
+  completedDate     DateTime?
+  auditor           String?
+  certificationBody String?
+  scope             String?
+  status            AuditStatus @default(PLANNED)
+  locationId        String?
+  location          Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  disciplineId      String?
+  discipline        Discipline? @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  norms    Norm[]         @relation("AuditNorms")
+  findings AuditFinding[]
+}
+
+model AuditFinding {
+  id             String           @id @default(cuid())
+  auditId        String
+  audit          Audit            @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  requirementId  String?
+  requirement    NormRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  classification FindingClass
+  description    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  actions Action[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Acties en verbeterpunten
+// ─────────────────────────────────────────────────────────────
+
+enum ActionStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum ActionPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ActionSource {
+  MANUAL
+  AUDIT
+  RISK
+  COMPLIANCE
+  NONCONFORMITY
+  MANAGEMENT_REVIEW
+  COMPLAINT
+  OTHER
+}
+
+model Action {
+  id           String         @id @default(cuid())
+  number       Int            @unique @default(autoincrement())
+  title        String
+  description  String?
+  source       ActionSource   @default(MANUAL)
+  status       ActionStatus   @default(OPEN)
+  priority     ActionPriority @default(MEDIUM)
+  ownerId      String?
+  owner        User?          @relation("ActionOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdBy    User?          @relation("ActionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  deadline     DateTime?
+  completedAt  DateTime?
+  result       String?
+  disciplineId String?
+  discipline   Discipline?    @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  locationId   String?
+  location     Location?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  riskId       String?
+  risk         Risk?          @relation(fields: [riskId], references: [id], onDelete: SetNull)
+  findingId    String?
+  finding      AuditFinding?  @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  requirements NormRequirement[] @relation("ActionRequirements")
+
+  @@index([status, deadline])
+  @@index([ownerId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Leveranciers
+// ─────────────────────────────────────────────────────────────
+
+enum SupplierStatus {
+  NEW
+  APPROVED
+  CONDITIONAL
+  REJECTED
+}
+
+model Supplier {
+  id           String         @id @default(cuid())
+  name         String
+  category     String?
+  contactName  String?
+  email        String?
+  phone        String?
+  critical     Boolean        @default(false)
+  status       SupplierStatus @default(NEW)
+  notes        String?
+  disciplineId String?
+  discipline   Discipline?    @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  evaluations SupplierEvaluation[]
+}
+
+model SupplierEvaluation {
+  id                 String    @id @default(cuid())
+  supplierId         String
+  supplier           Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  date               DateTime
+  quality            Int // 1–5
+  delivery           Int // 1–5
+  price              Int // 1–5
+  safety             Int // 1–5
+  environment        Int? // 1–5
+  remarks            String?
+  nextEvaluationDate DateTime?
+  evaluatedById      String?
+  evaluatedBy        User?     @relation(fields: [evaluatedById], references: [id], onDelete: SetNull)
+  createdAt          DateTime  @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// Stakeholders (belanghebbenden)
+// ─────────────────────────────────────────────────────────────
+
+enum StakeholderType {
+  INTERNAL
+  EXTERNAL
+}
+
+model Stakeholder {
+  id           String          @id @default(cuid())
+  name         String
+  type         StakeholderType
+  needs        String? // eisen
+  expectations String? // verwachtingen
+  influence    Int? // 1–5
+  interest     Int? // 1–5
+  howAddressed String?
+  ownerId      String?
+  owner        User?           @relation("StakeholderOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  reviewDate   DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// Audit trail: wie heeft wat wanneer bekeken of gewijzigd
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userEmail  String?
+  action     String // LOGIN, VIEW, CREATE, UPDATE, DELETE, SYNC
+  entityType String
+  entityId   String?
+  summary    String?
+  details    Json?
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([userId])
+}

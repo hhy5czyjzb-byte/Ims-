@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ims
+          POSTGRES_PASSWORD: ims
+          POSTGRES_DB: ims
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ims" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ims:ims@localhost:5432/ims?schema=public
+      NEXTAUTH_SECRET: ci-only-not-a-secret
+      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Kwetsbaarheden in pakketten (OWASP)
+        run: npm audit --audit-level=high
+      - run: npx prisma migrate deploy
+      - run: npx prisma db seed
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run typecheck

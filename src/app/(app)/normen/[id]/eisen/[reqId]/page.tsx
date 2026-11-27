@@ -1,0 +1,148 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
+import { can } from "@/lib/rbac";
+import { flattenTree } from "@/lib/tree";
+import { ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
+import { Badge, Disclosure, Field, PageHeader, Select } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
+import { deleteRequirement, updateRequirement } from "../../../actions";
+import { Form } from "@/components/form";
+
+export default async function RequirementPage({ params }: { params: Promise<{ id: string; reqId: string }> }) {
+  const { id, reqId } = await params;
+  const user = await requireUser();
+  const req = await prisma.normRequirement.findUnique({
+    where: { id: reqId },
+    include: {
+      norm: { include: { requirements: { select: { id: true, clause: true, title: true, parentId: true, sortOrder: true } } } },
+      parent: true,
+      children: { orderBy: { clause: "asc" } },
+      documents: { orderBy: { title: "asc" } },
+      processes: { orderBy: { name: "asc" } },
+      processSteps: { include: { process: true }, orderBy: { sortOrder: "asc" } },
+      risks: { orderBy: { title: "asc" } },
+      actions: { orderBy: { number: "desc" } },
+    },
+  });
+  if (!req || req.normId !== id) notFound();
+  await logAudit({ user, action: "VIEW", entityType: "NormRequirement", entityId: reqId });
+
+  const canEdit = can(user.role, "norms.edit");
+  const parentOptions = flattenTree(req.norm.requirements)
+    .filter((r) => r.id !== req.id)
+    .map((r) => ({ value: r.id, label: `${"  ".repeat(r.depth)}${r.clause} ${r.title}` }));
+
+  return (
+    <>
+      <PageHeader
+        breadcrumb={[
+          { href: "/normen", label: "Normenbeheer" },
+          { href: `/normen/${id}`, label: req.norm.code },
+        ]}
+        title={`${req.clause} ${req.title}`}
+        description={req.description ?? undefined}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Section title="Documenten" empty="Nog geen documenten gekoppeld. Koppel vanuit Documentbeheer.">
+          {req.documents.map((d) => (
+            <li key={d.id}>
+              <Link href={`/documenten/${d.id}`}>{d.title}</Link>
+              {d.documentNumber && <span className="ml-1 text-xs text-neutral-500">{d.documentNumber}</span>}
+            </li>
+          ))}
+        </Section>
+        <Section title="Processen en processtappen" empty="Nog geen processen gekoppeld. Koppel vanuit Processen.">
+          {req.processes.map((p) => (
+            <li key={p.id}>
+              <Link href={`/processen/${p.id}`}>{p.name}</Link> <span className="text-xs text-neutral-500">(proces)</span>
+            </li>
+          ))}
+          {req.processSteps.map((s) => (
+            <li key={s.id}>
+              <Link href={`/processen/${s.processId}?stap=${s.id}`}>
+                {s.process.name} › {s.name}
+              </Link>{" "}
+              <span className="text-xs text-neutral-500">(stap)</span>
+            </li>
+          ))}
+        </Section>
+        <Section title="Risico's en kansen" empty="Nog geen risico's gekoppeld (module volgt).">
+          {req.risks.map((r) => (
+            <li key={r.id}>{r.title}</li>
+          ))}
+        </Section>
+        <Section title="Acties" empty="Geen acties gekoppeld.">
+          {req.actions.map((a) => (
+            <li key={a.id} className="flex items-center gap-2">
+              <Link href={`/acties/${a.id}`}>
+                #{a.number} {a.title}
+              </Link>
+              <Badge className={ACTION_STATUS_CLASS[a.status]}>{ACTION_STATUS_LABEL[a.status]}</Badge>
+            </li>
+          ))}
+        </Section>
+      </div>
+
+      {req.children.length > 0 && (
+        <div className="card mt-4">
+          <h2 className="mb-2">Onderliggende eisen</h2>
+          <ul className="space-y-1 text-sm">
+            {req.children.map((c) => (
+              <li key={c.id}>
+                <Link href={`/normen/${id}/eisen/${c.id}`}>
+                  {c.clause} {c.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {canEdit && (
+        <div className="mt-6">
+          <Disclosure summary="Eis wijzigen">
+            <Form action={updateRequirement.bind(null, id, req.id)} className="grid gap-3 sm:grid-cols-4">
+              <Field label="Paragraaf">
+                <input name="clause" required defaultValue={req.clause} className="input" />
+              </Field>
+              <Field label="Titel" className="sm:col-span-3">
+                <input name="title" required defaultValue={req.title} className="input" />
+              </Field>
+              <Field label="Onder" className="sm:col-span-3">
+                <Select name="parentId" options={parentOptions} defaultValue={req.parentId} placeholder="— Hoofdniveau —" />
+              </Field>
+              <Field label="Volgorde">
+                <input name="sortOrder" type="number" defaultValue={req.sortOrder} className="input" />
+              </Field>
+              <Field label="Toelichting / eistekst" className="sm:col-span-4">
+                <textarea name="description" rows={4} defaultValue={req.description ?? ""} className="input" />
+              </Field>
+              <div className="sm:col-span-4">
+                <SubmitButton>Opslaan</SubmitButton>
+              </div>
+            </Form>
+            <Form action={deleteRequirement.bind(null, id, req.id)} className="mt-4 border-t border-neutral-200 pt-3">
+              <SubmitButton variant="link" confirm="Deze eis (en onderliggende eisen) verwijderen? Koppelingen gaan verloren.">
+                Eis verwijderen
+              </SubmitButton>
+            </Form>
+          </Disclosure>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Section({ title, empty, children }: { title: string; empty: string; children: React.ReactNode[] | React.ReactNode }) {
+  const items = (Array.isArray(children) ? children.flat() : [children]).filter(Boolean);
+  return (
+    <div className="card">
+      <h2 className="mb-2">{title}</h2>
+      {items.length ? <ul className="space-y-1 text-sm">{items}</ul> : <p className="text-sm text-neutral-500">{empty}</p>}
+    </div>
+  );
+}
