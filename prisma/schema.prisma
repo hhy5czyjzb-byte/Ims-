@@ -135,12 +135,13 @@ model NormRequirement {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  documents    Document[]     @relation("DocumentRequirements")
-  processes    Process[]      @relation("ProcessRequirements")
-  processSteps ProcessStep[]  @relation("StepRequirements")
-  risks        Risk[]         @relation("RiskRequirements")
-  actions      Action[]       @relation("ActionRequirements")
-  findings     AuditFinding[]
+  documents      Document[]           @relation("DocumentRequirements")
+  processes      Process[]            @relation("ProcessRequirements")
+  processSteps   ProcessStep[]        @relation("StepRequirements")
+  risks          Risk[]               @relation("RiskRequirements")
+  actions        Action[]             @relation("ActionRequirements")
+  findings       AuditFinding[]
+  checklistItems AuditChecklistItem[]
 
   @@unique([normId, clause])
   @@index([normId, sortOrder])
@@ -283,21 +284,21 @@ model Risk {
   measures         String?
   likelihoodAfter  Int?
   impactAfter      Int?
-  status           RiskStatus  @default(OPEN)
+  status           RiskStatus   @default(OPEN)
   ownerId          String?
-  owner            User?       @relation("RiskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  owner            User?        @relation("RiskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   createdById      String?
-  createdBy        User?       @relation("RiskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy        User?        @relation("RiskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   disciplineId     String?
-  discipline       Discipline? @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  discipline       Discipline?  @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
   locationId       String?
-  location         Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  location         Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
   reviewDate       DateTime?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  processes    Process[]         @relation("RiskProcesses")
-  
+  processes Process[] @relation("RiskProcesses")
+
   requirements NormRequirement[] @relation("RiskRequirements")
   actions      Action[]
 }
@@ -325,8 +326,22 @@ enum FindingClass {
   OBSERVATION
 }
 
+enum FindingStatus {
+  OPEN
+  CLOSED
+}
+
+/// Resultaat per normeis op de auditchecklist.
+enum ChecklistResult {
+  NOT_ASSESSED
+  CONFORM
+  FINDING
+  NOT_APPLICABLE
+}
+
 model Audit {
   id                String      @id @default(cuid())
+  number            Int         @unique @default(autoincrement())
   type              AuditType
   title             String
   plannedDate       DateTime
@@ -334,6 +349,8 @@ model Audit {
   auditor           String?
   certificationBody String?
   scope             String?
+  conclusion        String?
+  reportUrl         String? // link naar het auditrapport in SharePoint
   status            AuditStatus @default(PLANNED)
   locationId        String?
   location          Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
@@ -342,8 +359,27 @@ model Audit {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
-  norms    Norm[]         @relation("AuditNorms")
-  findings AuditFinding[]
+  norms     Norm[]               @relation("AuditNorms")
+  findings  AuditFinding[]
+  checklist AuditChecklistItem[]
+
+  @@index([plannedDate])
+}
+
+/// Checklistregel: één normeis die in deze audit wordt (of is) getoetst.
+model AuditChecklistItem {
+  id            String          @id @default(cuid())
+  auditId       String
+  audit         Audit           @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  requirementId String
+  requirement   NormRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  result        ChecklistResult @default(NOT_ASSESSED)
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([auditId, requirementId])
+  @@index([requirementId])
 }
 
 model AuditFinding {
@@ -352,12 +388,19 @@ model AuditFinding {
   audit          Audit            @relation(fields: [auditId], references: [id], onDelete: Cascade)
   requirementId  String?
   requirement    NormRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  number         Int // volgnummer binnen de audit
   classification FindingClass
   description    String
+  rootCause      String? // oorzaakanalyse
+  status         FindingStatus    @default(OPEN)
+  dueDate        DateTime? // termijn voor afhandeling (bijv. eis certificatie-instelling)
+  closedAt       DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
   actions Action[]
+
+  @@unique([auditId, number])
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -273,6 +273,7 @@ async function main() {
   if (process.env.SEED_DEMO === "true") {
     await seedDemo();
     await seedDemoRisks();
+    await seedDemoAudits();
   }
   console.log("Seed klaar.");
 }
@@ -533,6 +534,116 @@ async function seedDemoRisks() {
       });
     }
   }
+}
+
+/** Voorbeeldaudits met checklist en bevindingen (idempotent op titel). */
+async function seedDemoAudits() {
+  const marker = "Interne audit ISO 9001 productie beton (voorbeeld)";
+  if (await prisma.audit.findFirst({ where: { title: marker } })) return;
+  const kam = await prisma.user.findFirst({ where: { role: "KAM" } });
+  const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
+  const iso9001 = await prisma.norm.findUniqueOrThrow({ where: { code: "ISO 9001" } });
+  const iso14001 = await prisma.norm.findUniqueOrThrow({ where: { code: "ISO 14001" } });
+  const beton = await prisma.discipline.findUniqueOrThrow({ where: { name: "Beton" } });
+  const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
+  const req = async (normId: string, clause: string) => (await prisma.normRequirement.findUniqueOrThrow({ where: { normId_clause: { normId, clause } } })).id;
+  const day = 86_400_000;
+
+  // Afgeronde interne audit met checklist en bevindingen
+  const checklist: [string, "CONFORM" | "FINDING" | "NOT_APPLICABLE", string | null][] = [
+    ["7.1.5", "FINDING", "Kalibratie weegsysteem verlopen"],
+    ["7.5", "CONFORM", "Werkinstructies actueel in SharePoint"],
+    ["8.3", "NOT_APPLICABLE", "Geen eigen ontwerp in deze scope"],
+    ["8.5", "CONFORM", "Productie volgens recept, afleverbonnen compleet"],
+    ["8.6", "FINDING", "Vrijgave niet altijd vastgelegd"],
+    ["9.2", "CONFORM", null],
+  ];
+  const internal = await prisma.audit.create({
+    data: {
+      type: "INTERNAL",
+      title: marker,
+      plannedDate: new Date(Date.now() - 30 * day),
+      completedDate: new Date(Date.now() - 28 * day),
+      auditor: "Test KAM",
+      scope: "Productie en levering betonmortel, Groenlo",
+      conclusion: "Systeem werkt in de praktijk; aandacht voor meetmiddelen en vastleggen van vrijgave.",
+      status: "COMPLETED",
+      locationId: groenlo.id,
+      disciplineId: beton.id,
+      norms: { connect: [{ id: iso9001.id }] },
+      checklist: {
+        create: await Promise.all(checklist.map(async ([clause, result, notes]) => ({ requirementId: await req(iso9001.id, clause), result, notes }))),
+      },
+    },
+  });
+  const minor = await prisma.auditFinding.create({
+    data: {
+      auditId: internal.id,
+      number: 1,
+      classification: "MINOR",
+      requirementId: await req(iso9001.id, "7.1.5"),
+      description: "Het weegsysteem van de menginstallatie is niet binnen de gestelde termijn gekalibreerd (laatste kalibratie 14 maanden geleden).",
+      rootCause: "Kalibratieplanning stond in een persoonlijke agenda; geen overdracht bij vakantie.",
+      dueDate: new Date(Date.now() + 30 * day),
+    },
+  });
+  await prisma.action.create({
+    data: {
+      title: "Kalibratieplanning meetmiddelen centraal vastleggen (voorbeeld)",
+      source: "AUDIT",
+      findingId: minor.id,
+      ownerId: mk?.id,
+      createdById: kam?.id,
+      deadline: new Date(Date.now() + 21 * day),
+      disciplineId: beton.id,
+      locationId: groenlo.id,
+      requirements: { connect: [{ id: await req(iso9001.id, "7.1.5") }] },
+    },
+  });
+  await prisma.auditFinding.create({
+    data: {
+      auditId: internal.id,
+      number: 2,
+      classification: "OBSERVATION",
+      requirementId: await req(iso9001.id, "8.6"),
+      description: "Vrijgave van de productie wordt mondeling gegeven; vastleggen op de afleverbon zou de herleidbaarheid verbeteren.",
+    },
+  });
+
+  // Geplande externe audit en klantaudit
+  await prisma.audit.create({
+    data: {
+      type: "EXTERNAL",
+      title: "Controle-audit ISO 9001 en ISO 14001 (voorbeeld)",
+      plannedDate: new Date(Date.now() + 45 * day),
+      certificationBody: "Certificatie-instelling (voorbeeld)",
+      scope: "Alle disciplines, locatie Groenlo",
+      status: "PLANNED",
+      locationId: groenlo.id,
+      norms: { connect: [{ id: iso9001.id }, { id: iso14001.id }] },
+      checklist: {
+        create: await Promise.all(
+          [
+            [iso9001.id, "9.3"],
+            [iso9001.id, "10.2"],
+            [iso14001.id, "6.1.2"],
+            [iso14001.id, "9.1.2"],
+          ].map(async ([n, c]) => ({ requirementId: await req(n, c) })),
+        ),
+      },
+    },
+  });
+  await prisma.audit.create({
+    data: {
+      type: "CUSTOMER",
+      title: "Leveranciersaudit door klant (voorbeeld)",
+      plannedDate: new Date(Date.now() + 75 * day),
+      certificationBody: "Bouwbedrijf (voorbeeld)",
+      status: "PLANNED",
+      disciplineId: beton.id,
+      norms: { connect: [{ id: iso9001.id }] },
+    },
+  });
 }
 
 main()

@@ -190,6 +190,7 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
         )}
         {can(user.role, "actions.create") && (
           <Form
+            resetOnSuccess
             action={createRiskAction.bind(null, id)}
             className="grid gap-2 border-t border-neutral-100 pt-3 md:grid-cols-[1fr_12rem_10rem_8rem_auto] md:items-end"
           >
@@ -218,6 +219,7 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
         <div className="mt-6">
           <Disclosure summary="Risico wijzigen of herbeoordelen">
             <RiskForm
+              key={risk.updatedAt.toISOString()}
               risk={risk}
               formAction={updateRisk.bind(null, id)}
               lookups={lookups}

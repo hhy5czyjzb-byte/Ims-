@@ -57,7 +57,9 @@ export function parseForm<T extends z.ZodType>(schema: T, formData: FormData, mu
   const result = schema.safeParse(formToObject(formData, multi));
   if (!result.success) {
     // Eigen (Nederlandse) meldingen zonder technische veldnaam; standaardmeldingen mét veldnaam.
-    const msg = [...new Set(result.error.issues.map((i) => (i.code === "custom" || !i.path.length ? i.message : `${i.path.join(".")}: ${i.message}`)))].join(
+    // Eigen Nederlandse meldingen zonder technische veldnaam; Engelstalige zod-standaardmeldingen mét veldnaam.
+    const isDefault = (m: string) => /^(Invalid|Too |Expected|Required)/.test(m);
+    const msg = [...new Set(result.error.issues.map((i) => (isDefault(i.message) && i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)))].join(
       "; ",
     );
     throw new UserError(`Controleer de invoer — ${msg}`);

@@ -46,7 +46,7 @@ export default async function NormDetailPage({ params }: { params: Promise<{ id:
       {canEdit && (
         <div className="mb-6 grid gap-4 lg:grid-cols-2">
           <Disclosure summary="Eis of hoofdstuk toevoegen" open={rows.length === 0}>
-            <Form action={createRequirement.bind(null, norm.id)} className="grid gap-3 sm:grid-cols-4">
+            <Form resetOnSuccess action={createRequirement.bind(null, norm.id)} className="grid gap-3 sm:grid-cols-4">
               <Field label="Paragraaf">
                 <input name="clause" required maxLength={30} className="input" placeholder="7.5.3" />
               </Field>

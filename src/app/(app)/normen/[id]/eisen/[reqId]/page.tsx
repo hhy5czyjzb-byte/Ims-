@@ -6,7 +6,17 @@ import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/rbac";
 import { flattenTree } from "@/lib/tree";
 import { riskCode } from "@/lib/risk";
-import { ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
+import { auditCode, findingCode } from "@/lib/audit-plan";
+import { formatDate } from "@/lib/format";
+import {
+  ACTION_STATUS_CLASS,
+  ACTION_STATUS_LABEL,
+  CHECKLIST_RESULT_CLASS,
+  CHECKLIST_RESULT_LABEL,
+  FINDING_CLASS_CLASS,
+  FINDING_CLASS_SHORT,
+  FINDING_STATUS_LABEL,
+} from "@/lib/labels";
 import { Badge, Disclosure, Field, PageHeader, Select } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { deleteRequirement, updateRequirement } from "../../../actions";
@@ -26,6 +36,8 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
       processSteps: { include: { process: true }, orderBy: { sortOrder: "asc" } },
       risks: { orderBy: { title: "asc" } },
       actions: { orderBy: { number: "desc" } },
+      checklistItems: { include: { audit: { select: { id: true, number: true, title: true, status: true, plannedDate: true, completedDate: true } } } },
+      findings: { include: { audit: { select: { id: true, number: true } } }, orderBy: { createdAt: "desc" } },
     },
   });
   if (!req || req.normId !== id) notFound();
@@ -77,6 +89,26 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
               <Link href={`/risicos/${r.id}`}>
                 {riskCode(r.number, r.type)} {r.title}
               </Link>
+            </li>
+          ))}
+        </Section>
+        <Section title="Audits" empty="Nog niet in een audit opgenomen.">
+          {[...req.checklistItems]
+            .sort((a, b) => (b.audit.completedDate ?? b.audit.plannedDate).getTime() - (a.audit.completedDate ?? a.audit.plannedDate).getTime())
+            .map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center gap-2">
+                <Link href={`/audits/${c.audit.id}`}>
+                  {auditCode(c.audit.number)} {c.audit.title}
+                </Link>
+                <span className="text-xs text-neutral-500">{formatDate(c.audit.completedDate ?? c.audit.plannedDate)}</span>
+                <Badge className={CHECKLIST_RESULT_CLASS[c.result]}>{CHECKLIST_RESULT_LABEL[c.result]}</Badge>
+              </li>
+            ))}
+          {req.findings.map((f) => (
+            <li key={f.id} className="flex flex-wrap items-center gap-2">
+              <Badge className={FINDING_CLASS_CLASS[f.classification]}>{FINDING_CLASS_SHORT[f.classification]}</Badge>
+              <Link href={`/audits/${f.audit.id}/bevindingen/${f.id}`}>Bevinding {findingCode(f.audit.number, f.number)}</Link>
+              <span className="text-xs text-neutral-500">{FINDING_STATUS_LABEL[f.status]}</span>
             </li>
           ))}
         </Section>

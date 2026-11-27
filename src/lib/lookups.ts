@@ -26,7 +26,7 @@ export async function getRequirementOptions() {
   });
   return norms.map((n) => ({
     norm: n.code,
-    options: [...n.requirements].sort(compareRequirement).map((r) => ({ value: r.id, label: `${n.code} ${r.clause} — ${r.title}` })),
+    options: [...n.requirements].sort(compareRequirementFlat).map((r) => ({ value: r.id, label: `${n.code} ${r.clause} — ${r.title}` })),
   }));
 }
 
@@ -35,6 +35,15 @@ export function compareClause(a: string, b: string): number {
   return a.localeCompare(b, "nl", { numeric: true, sensitivity: "base" });
 }
 
+/** Sortering van broers/zussen in de boom (zelfde niveau): handmatige volgorde, dan paragraaf. */
 export function compareRequirement(a: { sortOrder: number; clause: string }, b: { sortOrder: number; clause: string }) {
   return a.sortOrder - b.sortOrder || compareClause(a.clause, b.clause);
+}
+
+/**
+ * Sortering van een platte lijst eisen over alle niveaus heen (keuzelijsten, checklists):
+ * op paragraafnummer. `sortOrder` geldt alleen binnen één niveau en is hier niet bruikbaar.
+ */
+export function compareRequirementFlat(a: { clause: string }, b: { clause: string }) {
+  return compareClause(a.clause, b.clause);
 }

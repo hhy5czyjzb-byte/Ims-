@@ -8,6 +8,7 @@ import { can, canEditAction } from "@/lib/rbac";
 import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
 import { riskCode } from "@/lib/risk";
+import { findingCode } from "@/lib/audit-plan";
 import { ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
 import { Badge, Disclosure, PageHeader } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -127,8 +128,13 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
             )}
             {action.finding && (
               <>
-                <dt className="text-neutral-500">Audit</dt>
-                <dd>{action.finding.audit.title}</dd>
+                <dt className="text-neutral-500">Auditbevinding</dt>
+                <dd>
+                  <Link href={`/audits/${action.finding.auditId}/bevindingen/${action.finding.id}`}>
+                    Bevinding {findingCode(action.finding.audit.number, action.finding.number)}
+                  </Link>{" "}
+                  — {action.finding.audit.title}
+                </dd>
               </>
             )}
             {action.risk && (
@@ -149,6 +155,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
         <div className="mt-6">
           <Disclosure summary="Actie wijzigen">
             <ActionForm
+              key={action.updatedAt.toISOString()}
               action={action}
               formAction={updateAction.bind(null, id)}
               lookups={lookups}

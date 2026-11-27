@@ -16,9 +16,21 @@ export function useFormPending() {
  *
  * Bewust via onSubmit i.p.v. de action-prop: React 19 wist een formulier na
  * elke action-verzending, ook bij een foutmelding — dan is de invoer weg.
- * Hier blijft de invoer staan bij een fout en wordt alleen bij succes gereset.
+ * Hier blijft de invoer altijd staan bij een fout. Alleen formulieren met
+ * `resetOnSuccess` (voor het toevoegen van nieuwe items) worden na succes geleegd;
+ * wijzigformulieren niet, anders tonen ze kort de oude waarden.
  */
-export function Form({ action, children, className }: { action: (formData: FormData) => Promise<ActionResult>; children: ReactNode; className?: string }) {
+export function Form({
+  action,
+  children,
+  className,
+  resetOnSuccess = false,
+}: {
+  action: (formData: FormData) => Promise<ActionResult>;
+  children: ReactNode;
+  className?: string;
+  resetOnSuccess?: boolean;
+}) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -33,7 +45,7 @@ export function Form({ action, children, className }: { action: (formData: FormD
         setError(result.error);
       } else {
         setError(null);
-        form.reset();
+        if (resetOnSuccess) form.reset();
       }
     });
   }

@@ -17,13 +17,13 @@ const NAV: { title?: string; items: NavItem[] }[] = [
       { href: "/processen", label: "Processen" },
       { href: "/documenten", label: "Documentbeheer" },
       { href: "/risicos", label: "Risico's en kansen" },
+      { href: "/audits", label: "Audits" },
       { href: "/acties", label: "Acties" },
     ],
   },
   {
     title: "Binnenkort",
     items: [
-      { href: "#", label: "Audits", soon: true },
       { href: "#", label: "Wet- en regelgeving", soon: true },
       { href: "#", label: "Milieuaspecten", soon: true },
       { href: "#", label: "CO2", soon: true },

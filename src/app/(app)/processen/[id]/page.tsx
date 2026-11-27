@@ -208,7 +208,7 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
                 </tbody>
               </table>
               {canEdit && lookups && (
-                <Form action={addRaci.bind(null, id, selected.id)} className="mt-3 grid gap-2 sm:grid-cols-[5rem_1fr_auto]">
+                <Form resetOnSuccess action={addRaci.bind(null, id, selected.id)} className="mt-3 grid gap-2 sm:grid-cols-[5rem_1fr_auto]">
                   <Select name="type" options={RACI_ORDER.map((t) => ({ value: t, label: t }))} />
                   <select name="assignee" required className="input" defaultValue="">
                     <option value="" disabled>

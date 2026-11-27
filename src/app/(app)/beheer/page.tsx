@@ -56,7 +56,7 @@ export default async function MasterDataPage() {
             ))}
           </ul>
           {canEdit && (
-            <Form action={createMasterData.bind(null, "location")} className="space-y-2 border-t border-neutral-200 pt-3">
+            <Form resetOnSuccess action={createMasterData.bind(null, "location")} className="space-y-2 border-t border-neutral-200 pt-3">
               <Field label="Nieuwe locatie">
                 <input name="name" required className="input" />
               </Field>
@@ -83,7 +83,7 @@ export default async function MasterDataPage() {
             ))}
           </ul>
           {canEdit && (
-            <Form action={createMasterData.bind(null, "discipline")} className="space-y-2 border-t border-neutral-200 pt-3">
+            <Form resetOnSuccess action={createMasterData.bind(null, "discipline")} className="space-y-2 border-t border-neutral-200 pt-3">
               <Field label="Nieuwe discipline">
                 <input name="name" required className="input" />
               </Field>
@@ -112,7 +112,7 @@ export default async function MasterDataPage() {
             ))}
           </ul>
           {canEdit && (
-            <Form action={createMasterData.bind(null, "jobFunction")} className="space-y-2 border-t border-neutral-200 pt-3">
+            <Form resetOnSuccess action={createMasterData.bind(null, "jobFunction")} className="space-y-2 border-t border-neutral-200 pt-3">
               <Field label="Nieuwe functie">
                 <input name="name" required className="input" />
               </Field>

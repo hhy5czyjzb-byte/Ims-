@@ -3,10 +3,19 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getNormCoverage } from "@/lib/coverage";
 import { formatDate } from "@/lib/format";
-import { ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
+import {
+  ACTION_STATUS_CLASS,
+  ACTION_STATUS_LABEL,
+  AUDIT_STATUS_CLASS,
+  AUDIT_STATUS_LABEL,
+  AUDIT_TYPE_CLASS,
+  AUDIT_TYPE_SHORT,
+  FINDING_CLASS_SHORT,
+} from "@/lib/labels";
 import { Badge, PageHeader, ProgressBar, StatCard } from "@/components/ui";
 import { RiskMatrix } from "@/components/risk-matrix";
 import { residual } from "@/lib/risk";
+import { auditCode } from "@/lib/audit-plan";
 
 export const metadata = { title: "Dashboard" };
 
@@ -18,28 +27,59 @@ export default async function DashboardPage() {
   today.setHours(0, 0, 0, 0);
   const in30 = new Date(Date.now() + 30 * 86_400_000);
 
-  const [openCount, overdueCount, myCount, docsRevision, docsUnlinked, docsTotal, coverage, overdueList, byDiscipline, disciplines, activeRisks] =
-    await Promise.all([
-      prisma.action.count({ where: OPEN }),
-      prisma.action.count({ where: { ...OPEN, deadline: { lt: today } } }),
-      prisma.action.count({ where: { ...OPEN, ownerId: user.id } }),
-      prisma.document.count({ where: { revisionDate: { lte: in30 }, removedInSource: false } }),
-      prisma.document.count({ where: { requirements: { none: {} }, processes: { none: {} }, processSteps: { none: {} } } }),
-      prisma.document.count(),
-      getNormCoverage(),
-      prisma.action.findMany({
-        where: { ...OPEN, deadline: { lt: today } },
-        orderBy: { deadline: "asc" },
-        take: 8,
-        include: { owner: { select: { name: true } } },
-      }),
-      prisma.action.groupBy({ by: ["disciplineId"], where: OPEN, _count: true }),
-      prisma.discipline.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-      prisma.risk.findMany({
-        where: { type: "RISK", status: { not: "CLOSED" } },
-        select: { likelihoodBefore: true, impactBefore: true, likelihoodAfter: true, impactAfter: true, reviewDate: true },
-      }),
-    ]);
+  const [
+    openCount,
+    overdueCount,
+    myCount,
+    docsRevision,
+    docsUnlinked,
+    docsTotal,
+    coverage,
+    overdueList,
+    byDiscipline,
+    disciplines,
+    activeRisks,
+    upcomingAudits,
+    openFindings,
+  ] = await Promise.all([
+    prisma.action.count({ where: OPEN }),
+    prisma.action.count({ where: { ...OPEN, deadline: { lt: today } } }),
+    prisma.action.count({ where: { ...OPEN, ownerId: user.id } }),
+    prisma.document.count({ where: { revisionDate: { lte: in30 }, removedInSource: false } }),
+    prisma.document.count({ where: { requirements: { none: {} }, processes: { none: {} }, processSteps: { none: {} } } }),
+    prisma.document.count(),
+    getNormCoverage(),
+    prisma.action.findMany({
+      where: { ...OPEN, deadline: { lt: today } },
+      orderBy: { deadline: "asc" },
+      take: 8,
+      include: { owner: { select: { name: true } } },
+    }),
+    prisma.action.groupBy({ by: ["disciplineId"], where: OPEN, _count: true }),
+    prisma.discipline.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    prisma.risk.findMany({
+      where: { type: "RISK", status: { not: "CLOSED" } },
+      select: { likelihoodBefore: true, impactBefore: true, likelihoodAfter: true, impactAfter: true, reviewDate: true },
+    }),
+    prisma.audit.findMany({
+      where: { status: { in: ["PLANNED", "IN_PROGRESS"] }, plannedDate: { lte: new Date(Date.now() + 90 * 86_400_000) } },
+      orderBy: { plannedDate: "asc" },
+      take: 6,
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        type: true,
+        status: true,
+        plannedDate: true,
+        norms: { select: { code: true }, orderBy: { sortOrder: "asc" } },
+      },
+    }),
+    prisma.auditFinding.findMany({
+      where: { status: "OPEN" },
+      select: { classification: true, dueDate: true, audit: { select: { norms: { select: { code: true } } } } },
+    }),
+  ]);
 
   // Restrisico's (open + beheerst): positie na maatregelen, of bruto als nog niet beoordeeld.
   const riskCounts: Record<string, number> = {};
@@ -166,8 +206,73 @@ export default async function DashboardPage() {
           </div>
           <RiskMatrix type="RISK" counts={riskCounts} size="sm" href={(c) => `/risicos?soort=RISK&basis=rest&cel=${c.likelihood}-${c.impact}`} />
           <p className="mt-2 text-xs text-neutral-500">Open en beheerste risico&apos;s, na maatregelen. Klik op een cel voor de lijst.</p>
+        </section>
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <section className="card lg:col-span-2">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2>Audits komende 90 dagen</h2>
+            <Link href="/audits" className="text-sm">
+              Planning →
+            </Link>
+          </div>
+          {upcomingAudits.length === 0 ? (
+            <p className="text-sm text-neutral-500">Geen audits gepland in de komende 90 dagen.</p>
+          ) : (
+            <table className="table">
+              <tbody>
+                {upcomingAudits.map((a) => (
+                  <tr key={a.id}>
+                    <td className={`whitespace-nowrap ${a.plannedDate < today ? "font-semibold text-brand-red" : ""}`}>{formatDate(a.plannedDate)}</td>
+                    <td>
+                      <Badge className={`mr-1.5 ${AUDIT_TYPE_CLASS[a.type]}`}>{AUDIT_TYPE_SHORT[a.type]}</Badge>
+                      <Link href={`/audits/${a.id}`}>
+                        {auditCode(a.number)} {a.title}
+                      </Link>
+                    </td>
+                    <td className="text-xs text-neutral-500">{a.norms.map((n) => n.code).join(", ")}</td>
+                    <td>
+                      <Badge className={AUDIT_STATUS_CLASS[a.status]}>{AUDIT_STATUS_LABEL[a.status]}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+        <section className="card">
+          <h2 className="mb-3">Open auditbevindingen</h2>
+          {openFindings.length === 0 ? (
+            <p className="text-sm text-green-700">Geen open bevindingen.</p>
+          ) : (
+            <>
+              <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+                {(["MAJOR", "MINOR", "OBSERVATION"] as const).map((c) => {
+                  const n = openFindings.filter((f) => f.classification === c).length;
+                  return (
+                    <div key={c} className="rounded-md bg-neutral-50 p-2">
+                      <div className={`text-2xl font-bold ${c !== "OBSERVATION" && n ? "text-brand-red" : ""}`}>{n}</div>
+                      <div className="text-xs text-neutral-500">{FINDING_CLASS_SHORT[c]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <ul className="space-y-1 text-sm">
+                {[...new Set(openFindings.flatMap((f) => f.audit.norms.map((n) => n.code)))].sort().map((code) => (
+                  <li key={code} className="flex justify-between">
+                    <span>{code}</span>
+                    <span className="tabular-nums text-neutral-600">{openFindings.filter((f) => f.audit.norms.some((n) => n.code === code)).length}</span>
+                  </li>
+                ))}
+              </ul>
+              {openFindings.some((f) => f.dueDate && f.dueDate < today) && (
+                <p className="mt-2 text-xs font-semibold text-brand-red">{openFindings.filter((f) => f.dueDate && f.dueDate < today).length} over de termijn</p>
+              )}
+            </>
+          )}
           <p className="mt-3 border-t border-dashed border-neutral-200 pt-2 text-xs text-neutral-400">
-            Binnenkort: auditresultaten, CO2, compliance, milieuaspecten, certificaten en keuringen.
+            Binnenkort: CO2, compliance, milieuaspecten, certificaten en keuringen.
           </p>
         </section>
       </div>

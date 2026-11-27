@@ -1,4 +1,19 @@
-import type { ActionPriority, ActionSource, ActionStatus, NormCategory, RaciType, RiskCategory, RiskStatus, RiskType, Role } from "@prisma/client";
+import type {
+  ActionPriority,
+  ActionSource,
+  ActionStatus,
+  AuditStatus,
+  AuditType,
+  ChecklistResult,
+  FindingClass,
+  FindingStatus,
+  NormCategory,
+  RaciType,
+  RiskCategory,
+  RiskStatus,
+  RiskType,
+  Role,
+} from "@prisma/client";
 
 /** Nederlandse labels voor enums. */
 export const ROLE_LABEL: Record<Role, string> = {
@@ -86,6 +101,64 @@ export const RISK_STATUS_CLASS: Record<RiskStatus, string> = {
   OPEN: "bg-blue-100 text-blue-800",
   CONTROLLED: "bg-green-100 text-green-800",
   CLOSED: "bg-neutral-200 text-neutral-600",
+};
+
+export const AUDIT_TYPE_LABEL: Record<AuditType, string> = {
+  INTERNAL: "Interne audit",
+  EXTERNAL: "Externe audit (certificatie-instelling)",
+  CUSTOMER: "Klantaudit",
+};
+
+export const AUDIT_TYPE_SHORT: Record<AuditType, string> = { INTERNAL: "Intern", EXTERNAL: "Extern", CUSTOMER: "Klant" };
+
+export const AUDIT_TYPE_CLASS: Record<AuditType, string> = {
+  INTERNAL: "bg-brand-grey-light text-neutral-900",
+  EXTERNAL: "bg-neutral-800 text-white",
+  CUSTOMER: "bg-amber-100 text-amber-900",
+};
+
+export const AUDIT_STATUS_LABEL: Record<AuditStatus, string> = {
+  PLANNED: "Gepland",
+  IN_PROGRESS: "In uitvoering",
+  COMPLETED: "Afgerond",
+  CANCELLED: "Geannuleerd",
+};
+
+export const AUDIT_STATUS_CLASS: Record<AuditStatus, string> = {
+  PLANNED: "bg-blue-100 text-blue-800",
+  IN_PROGRESS: "bg-amber-100 text-amber-800",
+  COMPLETED: "bg-green-100 text-green-800",
+  CANCELLED: "bg-neutral-200 text-neutral-600",
+};
+
+export const FINDING_CLASS_LABEL: Record<FindingClass, string> = {
+  MAJOR: "Major (grote tekortkoming)",
+  MINOR: "Minor (kleine tekortkoming)",
+  OBSERVATION: "Observatie / verbeterpunt",
+};
+
+export const FINDING_CLASS_SHORT: Record<FindingClass, string> = { MAJOR: "Major", MINOR: "Minor", OBSERVATION: "Observatie" };
+
+export const FINDING_CLASS_CLASS: Record<FindingClass, string> = {
+  MAJOR: "bg-brand-red text-white",
+  MINOR: "bg-orange-100 text-orange-800",
+  OBSERVATION: "bg-sky-100 text-sky-800",
+};
+
+export const FINDING_STATUS_LABEL: Record<FindingStatus, string> = { OPEN: "Open", CLOSED: "Afgehandeld" };
+
+export const CHECKLIST_RESULT_LABEL: Record<ChecklistResult, string> = {
+  NOT_ASSESSED: "Nog niet getoetst",
+  CONFORM: "Conform",
+  FINDING: "Bevinding",
+  NOT_APPLICABLE: "Niet van toepassing",
+};
+
+export const CHECKLIST_RESULT_CLASS: Record<ChecklistResult, string> = {
+  NOT_ASSESSED: "bg-neutral-100 text-neutral-600",
+  CONFORM: "bg-green-100 text-green-800",
+  FINDING: "bg-orange-100 text-orange-800",
+  NOT_APPLICABLE: "bg-neutral-200 text-neutral-500",
 };
 
 export function options<T extends string>(labels: Record<T, string>) {
