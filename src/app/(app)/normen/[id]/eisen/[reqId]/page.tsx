@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/rbac";
 import { flattenTree } from "@/lib/tree";
 import { riskCode } from "@/lib/risk";
+import { LegalLinkItems, legalLinkSelect } from "@/components/legal-links";
 import { auditCode, findingCode } from "@/lib/audit-plan";
 import { formatDate } from "@/lib/format";
 import {
@@ -36,6 +37,7 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
       processSteps: { include: { process: true }, orderBy: { sortOrder: "asc" } },
       risks: { orderBy: { title: "asc" } },
       actions: { orderBy: { number: "desc" } },
+      legalRequirements: { select: legalLinkSelect, orderBy: { number: "asc" } },
       checklistItems: { include: { audit: { select: { id: true, number: true, title: true, status: true, plannedDate: true, completedDate: true } } } },
       findings: { include: { audit: { select: { id: true, number: true } } }, orderBy: { createdAt: "desc" } },
     },
@@ -91,6 +93,9 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
               </Link>
             </li>
           ))}
+        </Section>
+        <Section title="Wet- en regelgeving" empty="Geen wettelijke eisen gekoppeld. Koppel vanuit Wet- en regelgeving.">
+          {req.legalRequirements.length > 0 && <LegalLinkItems items={req.legalRequirements} />}
         </Section>
         <Section title="Audits" empty="Nog niet in een audit opgenomen.">
           {[...req.checklistItems]

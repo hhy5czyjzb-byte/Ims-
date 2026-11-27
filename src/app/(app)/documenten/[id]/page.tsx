@@ -10,6 +10,7 @@ import { formatDate, formatDateTime, toDateInput } from "@/lib/format";
 import { Badge, Disclosure, Field, PageHeader } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { CheckboxPicker } from "@/components/checkbox-picker";
+import { LegalLinkItems, legalLinkSelect } from "@/components/legal-links";
 import { deleteDocument, setDocumentLinks, updateManualDocument } from "../actions";
 import { Form } from "@/components/form";
 
@@ -20,6 +21,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
     where: { id },
     include: {
       requirements: { include: { norm: true } },
+      legalRequirements: { select: legalLinkSelect, orderBy: { number: "asc" } },
       processes: { orderBy: { name: "asc" } },
       processSteps: { include: { process: true } },
     },
@@ -124,6 +126,14 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
               )}
             </div>
           </div>
+          {doc.legalRequirements.length > 0 && (
+            <div className="mt-4 text-sm">
+              <h3 className="mb-1 font-semibold">Wet- en regelgeving ({doc.legalRequirements.length})</h3>
+              <ul className="space-y-1">
+                <LegalLinkItems items={doc.legalRequirements} />
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 

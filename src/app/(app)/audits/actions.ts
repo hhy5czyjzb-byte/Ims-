@@ -10,6 +10,7 @@ import { requirePermission } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { auditCode, findingCode } from "@/lib/audit-plan";
 import { optionalDate, optionalId, optionalText, optionalUrl, parseForm, requiredText } from "@/lib/forms";
+import { AUDIT_STATUS_LABEL, FINDING_CLASS_SHORT } from "@/lib/labels";
 
 const requiredDate = z
   .string()
@@ -105,7 +106,7 @@ export async function updateAudit(id: string, formData: FormData): Promise<Actio
       action: "UPDATE",
       entityType: "Audit",
       entityId: id,
-      summary: `${auditCode(audit.number)} gewijzigd${audit.status !== data.status ? ` (status ${audit.status} → ${data.status})` : ""}${removed.count ? ` — ${removed.count} checklistregel(s) vervallen` : ""}`,
+      summary: `${auditCode(audit.number)} gewijzigd${audit.status !== data.status ? ` (status ${AUDIT_STATUS_LABEL[audit.status]} → ${AUDIT_STATUS_LABEL[data.status]})` : ""}${removed.count ? ` — ${removed.count} checklistregel(s) vervallen` : ""}`,
       details: { ...data, plannedDate: data.plannedDate.toISOString(), completedDate: data.completedDate?.toISOString() ?? null, normIds },
     });
     revalidateAudits(id);
@@ -119,7 +120,13 @@ export async function setAuditStatus(id: string, status: AuditStatus): Promise<A
     const parsed = z.enum(AuditStatus).parse(status);
     const completedDate = parsed === "COMPLETED" ? (audit.completedDate ?? new Date(new Date().toISOString().slice(0, 10))) : audit.completedDate;
     await prisma.audit.update({ where: { id }, data: { status: parsed, completedDate } });
-    await logAudit({ user, action: "UPDATE", entityType: "Audit", entityId: id, summary: `${auditCode(audit.number)}: status ${audit.status} → ${parsed}` });
+    await logAudit({
+      user,
+      action: "UPDATE",
+      entityType: "Audit",
+      entityId: id,
+      summary: `${auditCode(audit.number)}: status ${AUDIT_STATUS_LABEL[audit.status]} → ${AUDIT_STATUS_LABEL[parsed]}`,
+    });
     revalidateAudits(id);
   });
 }
@@ -245,7 +252,7 @@ export async function createFinding(auditId: string, formData: FormData): Promis
       action: "CREATE",
       entityType: "AuditFinding",
       entityId: finding.id,
-      summary: `Bevinding ${findingCode(audit.number, finding.number)} (${finding.classification}) vastgelegd`,
+      summary: `Bevinding ${findingCode(audit.number, finding.number)} (${FINDING_CLASS_SHORT[finding.classification]}) vastgelegd`,
     });
     revalidateAudits(auditId);
   });

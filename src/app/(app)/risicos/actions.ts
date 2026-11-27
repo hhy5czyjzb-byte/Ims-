@@ -11,6 +11,7 @@ import { logAudit } from "@/lib/audit";
 import { canEditRisk } from "@/lib/rbac";
 import { riskCode } from "@/lib/risk";
 import { optionalDate, optionalId, optionalText, parseForm, requiredText } from "@/lib/forms";
+import { RISK_STATUS_LABEL } from "@/lib/labels";
 
 const score = z.coerce.number().int().min(1).max(5);
 const optionalScore = z
@@ -113,7 +114,7 @@ export async function updateRisk(id: string, formData: FormData): Promise<Action
       action: "UPDATE",
       entityType: "Risk",
       entityId: id,
-      summary: `${riskCode(risk.number, data.type)} gewijzigd${scoreChange ? " (beoordeling aangepast)" : ""}${risk.status !== status ? ` (status ${risk.status} → ${status})` : ""}`,
+      summary: `${riskCode(risk.number, data.type)} gewijzigd${scoreChange ? " (beoordeling aangepast)" : ""}${risk.status !== status ? ` (status ${RISK_STATUS_LABEL[risk.status].split(" —")[0]} → ${RISK_STATUS_LABEL[status].split(" —")[0]})` : ""}`,
       details: { ...data, status, reviewDate: data.reviewDate?.toISOString() ?? null, processIds, requirementIds },
     });
     revalidateRisks(id);

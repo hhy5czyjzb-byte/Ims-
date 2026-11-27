@@ -274,6 +274,7 @@ async function main() {
     await seedDemo();
     await seedDemoRisks();
     await seedDemoAudits();
+    await seedDemoLegal();
   }
   console.log("Seed klaar.");
 }
@@ -644,6 +645,120 @@ async function seedDemoAudits() {
       norms: { connect: [{ id: iso9001.id }] },
     },
   });
+}
+
+/** Voorbeeldregister wet- en regelgeving met toetsingen (idempotent op titel). */
+async function seedDemoLegal() {
+  const marker = "Besluit activiteiten leefomgeving (voorbeeld)";
+  if (await prisma.legalRequirement.findFirst({ where: { title: marker } })) return;
+  const kam = await prisma.user.findFirst({ where: { role: "KAM" } });
+  const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
+  const disc = async (name: string) => (await prisma.discipline.findUniqueOrThrow({ where: { name } })).id;
+  const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
+  const iso14001 = await prisma.norm.findUniqueOrThrow({ where: { code: "ISO 14001" } });
+  const req = async (clause: string) => ({
+    id: (await prisma.normRequirement.findUniqueOrThrow({ where: { normId_clause: { normId: iso14001.id, clause } } })).id,
+  });
+  const kwarts = await prisma.risk.findFirst({ where: { title: { startsWith: "Blootstelling aan kwartsstof" } } });
+  const day = 86_400_000;
+  const ago = (d: number) => new Date(new Date(Date.now() - d * day).toISOString().slice(0, 10));
+  const ahead = (d: number) => new Date(new Date(Date.now() + d * day).toISOString().slice(0, 10));
+
+  const items = [
+    {
+      title: marker,
+      article: "Opslaan van afvalstoffen (voorbeeld)",
+      subject: "Opslag en acceptatie afval",
+      description: "Afvalstoffen gescheiden en op een vloeistofdichte vloer opslaan; acceptatie- en verwerkingsbeleid actueel houden.",
+      source: "Omgevingsdienst",
+      category: "ENVIRONMENT" as const,
+      status: "COMPLIANT" as const,
+      explanation: "Controle op terrein: opslag conform, AV-beleid geactualiseerd.",
+      lastReviewDate: ago(60),
+      nextReviewDate: ahead(305),
+      ownerId: mk?.id,
+      disciplineId: await disc("Afvalrecycling"),
+      locationId: groenlo.id,
+      requirements: [await req("6.1.3")],
+      risks: [],
+    },
+    {
+      title: "Arbeidsomstandighedenbesluit (voorbeeld)",
+      article: "Grenswaarde respirabel kwartsstof (voorbeeld)",
+      subject: "Blootstelling aan stof",
+      description: "Blootstelling van medewerkers aan respirabel kwartsstof blijft onder de wettelijke grenswaarde; metingen periodiek herhalen.",
+      source: "Nederlandse Arbeidsinspectie",
+      category: "HEALTH_SAFETY" as const,
+      status: "PARTIAL" as const,
+      explanation: "Meting breker: onder grenswaarde, maar meting bij onderhoudswerk ontbreekt.",
+      lastReviewDate: ago(40),
+      nextReviewDate: ahead(140),
+      ownerId: kam?.id,
+      disciplineId: await disc("Afvalrecycling"),
+      locationId: groenlo.id,
+      requirements: [],
+      risks: kwarts ? [{ id: kwarts.id }] : [],
+    },
+    {
+      title: "Omgevingsvergunning locatie Groenlo (voorbeeld)",
+      article: "Voorschrift geluid (voorbeeld)",
+      subject: "Geluid",
+      description: "Geluidsniveau op de beoordelingspunten blijft binnen de vergunde waarden, ook in de avondperiode.",
+      source: "Gemeente",
+      category: "ENVIRONMENT" as const,
+      status: "NON_COMPLIANT" as const,
+      explanation: "Klacht omwonenden; indicatieve meting in de avond boven de vergunde waarde.",
+      lastReviewDate: ago(200),
+      nextReviewDate: ago(15),
+      ownerId: kam?.id,
+      disciplineId: null,
+      locationId: groenlo.id,
+      requirements: [await req("6.1.3"), await req("9.1.2")],
+      risks: [],
+    },
+    {
+      title: "Energiebesparingsplicht (voorbeeld)",
+      article: null,
+      subject: "Energie",
+      description: "Energiebesparende maatregelen met een terugverdientijd van vijf jaar of minder uitvoeren en rapporteren.",
+      source: "Omgevingsdienst",
+      category: "ENERGY_CO2" as const,
+      status: "NOT_ASSESSED" as const,
+      explanation: null,
+      lastReviewDate: null,
+      nextReviewDate: ahead(20),
+      ownerId: kam?.id,
+      disciplineId: null,
+      locationId: null,
+      requirements: [await req("6.1.3")],
+      risks: [],
+    },
+  ];
+
+  for (const { requirements, risks, ...data } of items) {
+    const created = await prisma.legalRequirement.create({
+      data: { ...data, createdById: kam?.id, requirements: { connect: requirements }, risks: { connect: risks } },
+    });
+    if (data.status !== "NOT_ASSESSED" && data.lastReviewDate) {
+      await prisma.complianceAssessment.create({
+        data: { legalRequirementId: created.id, date: data.lastReviewDate, status: data.status, explanation: data.explanation, assessedById: kam?.id },
+      });
+    }
+    if (data.status === "NON_COMPLIANT") {
+      await prisma.action.create({
+        data: {
+          title: "Geluidsmaatregelen avondperiode uitvoeren (voorbeeld)",
+          source: "COMPLIANCE",
+          priority: "HIGH",
+          legalRequirementId: created.id,
+          ownerId: mk?.id,
+          createdById: kam?.id,
+          deadline: ahead(30),
+          locationId: groenlo.id,
+        },
+      });
+    }
+  }
 }
 
 main()

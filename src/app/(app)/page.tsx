@@ -10,12 +10,15 @@ import {
   AUDIT_STATUS_LABEL,
   AUDIT_TYPE_CLASS,
   AUDIT_TYPE_SHORT,
+  COMPLIANCE_STATUS_CLASS,
+  COMPLIANCE_STATUS_LABEL,
   FINDING_CLASS_SHORT,
 } from "@/lib/labels";
 import { Badge, PageHeader, ProgressBar, StatCard } from "@/components/ui";
 import { RiskMatrix } from "@/components/risk-matrix";
 import { residual } from "@/lib/risk";
 import { auditCode } from "@/lib/audit-plan";
+import { complianceSummary, legalCode } from "@/lib/compliance";
 
 export const metadata = { title: "Dashboard" };
 
@@ -40,6 +43,8 @@ export default async function DashboardPage() {
     disciplines,
     activeRisks,
     upcomingAudits,
+    legalStatuses,
+    legalDue,
     openFindings,
   ] = await Promise.all([
     prisma.action.count({ where: OPEN }),
@@ -75,6 +80,13 @@ export default async function DashboardPage() {
         norms: { select: { code: true }, orderBy: { sortOrder: "asc" } },
       },
     }),
+    prisma.legalRequirement.findMany({ where: { active: true }, select: { status: true } }),
+    prisma.legalRequirement.findMany({
+      where: { active: true, status: { not: "NOT_APPLICABLE" }, nextReviewDate: { lte: in30 } },
+      orderBy: { nextReviewDate: "asc" },
+      take: 8,
+      select: { id: true, number: true, title: true, article: true, status: true, nextReviewDate: true, owner: { select: { name: true } } },
+    }),
     prisma.auditFinding.findMany({
       where: { status: "OPEN" },
       select: { classification: true, dueDate: true, audit: { select: { norms: { select: { code: true } } } } },
@@ -92,6 +104,8 @@ export default async function DashboardPage() {
     if (res.score >= 10) highResidual++;
     if (r.reviewDate && r.reviewDate < today) reviewOverdue++;
   }
+
+  const legalSummary = complianceSummary(legalStatuses.map((l) => l.status));
 
   const activeNorms = coverage.filter((n) => n.active);
   const disciplineRows = [
@@ -133,7 +147,9 @@ export default async function DashboardPage() {
               Normenbeheer →
             </Link>
           </div>
-          <p className="mb-3 text-xs text-neutral-500">Percentage normeisen waaraan bewijs (document, proces, processtap of risico) is gekoppeld.</p>
+          <p className="mb-3 text-xs text-neutral-500">
+            Percentage normeisen waaraan bewijs (document, proces, processtap, risico of wettelijke eis) is gekoppeld.
+          </p>
           <table className="table">
             <tbody>
               {activeNorms.map((n) => (
@@ -272,8 +288,76 @@ export default async function DashboardPage() {
             </>
           )}
           <p className="mt-3 border-t border-dashed border-neutral-200 pt-2 text-xs text-neutral-400">
-            Binnenkort: CO2, compliance, milieuaspecten, certificaten en keuringen.
+            Binnenkort: CO2, milieuaspecten, certificaten en keuringen.
           </p>
+        </section>
+      </div>
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <section className="card lg:col-span-2">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2>Toetsingen wet- en regelgeving (verlopen en ≤ 30 dagen)</h2>
+            <Link href="/wetgeving?toetsing=verlopen" className="text-sm">
+              Register →
+            </Link>
+          </div>
+          {legalDue.length === 0 ? (
+            <p className="text-sm text-green-700">Geen toetsingen die verlopen zijn of binnenkort vervallen.</p>
+          ) : (
+            <table className="table">
+              <tbody>
+                {legalDue.map((l) => (
+                  <tr key={l.id}>
+                    <td className={`whitespace-nowrap ${l.nextReviewDate && l.nextReviewDate < today ? "font-semibold text-brand-red" : ""}`}>
+                      {formatDate(l.nextReviewDate)}
+                    </td>
+                    <td>
+                      <Link href={`/wetgeving/${l.id}`}>
+                        {legalCode(l.number)} {l.title}
+                        {l.article ? ` — ${l.article}` : ""}
+                      </Link>
+                    </td>
+                    <td className="text-neutral-600">{l.owner?.name ?? "—"}</td>
+                    <td>
+                      <Badge className={COMPLIANCE_STATUS_CLASS[l.status]}>{COMPLIANCE_STATUS_LABEL[l.status]}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+        <section className="card">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2>Compliance</h2>
+            <Link href="/wetgeving" className="text-sm">
+              Register →
+            </Link>
+          </div>
+          {legalSummary.relevant === 0 ? (
+            <p className="text-sm text-neutral-500">Nog geen wet- en regelgeving in het register.</p>
+          ) : (
+            <>
+              <ProgressBar value={legalSummary.pct} />
+              <p className="mt-1 text-xs text-neutral-500">voldoet, van {legalSummary.relevant} relevante eisen</p>
+              <ul className="mt-3 space-y-1 text-sm">
+                {(
+                  [
+                    ["COMPLIANT", legalSummary.compliant],
+                    ["PARTIAL", legalSummary.partial],
+                    ["NON_COMPLIANT", legalSummary.nonCompliant],
+                    ["NOT_ASSESSED", legalSummary.notAssessed],
+                  ] as const
+                ).map(([st, n]) => (
+                  <li key={st}>
+                    <Link href={`/wetgeving?status=${st}`} className="flex items-center justify-between text-inherit no-underline hover:no-underline">
+                      <Badge className={COMPLIANCE_STATUS_CLASS[st]}>{COMPLIANCE_STATUS_LABEL[st]}</Badge>
+                      <span className="tabular-nums">{n}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </section>
       </div>
     </>

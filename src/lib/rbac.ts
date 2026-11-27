@@ -14,6 +14,7 @@ export const PERMISSIONS = {
   "risks.create": ["KAM", "MIDDENKADER"],
   "risks.editAny": ["KAM"],
   "audits.edit": ["KAM"],
+  "legal.edit": ["KAM"],
   "auditlog.view": ["KAM"],
 } as const satisfies Record<string, readonly Role[]>;
 
@@ -35,6 +36,12 @@ export function canEditRisk(user: { id: string; role: Role }, risk: { ownerId: s
   if (can(user.role, "risks.editAny")) return true;
   if (!can(user.role, "risks.create")) return false;
   return risk.ownerId === user.id || risk.createdById === user.id;
+}
+
+/** Mag deze gebruiker een toetsing vastleggen? KAM altijd; anderen alleen als eigenaar van de eis (directie niet). */
+export function canAssessLegal(user: { id: string; role: Role }, req: { ownerId: string | null }): boolean {
+  if (can(user.role, "legal.edit")) return true;
+  return user.role === "MIDDENKADER" && req.ownerId === user.id;
 }
 
 /**

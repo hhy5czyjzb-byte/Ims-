@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { can, canEditAction, canEditRisk, roleFromGroups } from "./rbac";
+import { can, canAssessLegal, canEditAction, canEditRisk, roleFromGroups } from "./rbac";
 
 const cfg = { kam: "g-kam", directie: "g-dir", middenkader: "g-mk" };
 
@@ -40,4 +40,11 @@ test("canEditRisk: KAM altijd, middenkader alleen eigen, directie nooit", () => 
   assert.equal(canEditRisk({ id: "u2", role: "MIDDENKADER" }, r), true);
   assert.equal(canEditRisk({ id: "u3", role: "MIDDENKADER" }, r), false);
   assert.equal(canEditRisk({ id: "u1", role: "DIRECTIE" }, r), false);
+});
+
+test("canAssessLegal: KAM altijd, middenkader alleen als eigenaar, directie niet", () => {
+  assert.equal(canAssessLegal({ id: "x", role: "KAM" }, { ownerId: null }), true);
+  assert.equal(canAssessLegal({ id: "u1", role: "MIDDENKADER" }, { ownerId: "u1" }), true);
+  assert.equal(canAssessLegal({ id: "u2", role: "MIDDENKADER" }, { ownerId: "u1" }), false);
+  assert.equal(canAssessLegal({ id: "u1", role: "DIRECTIE" }, { ownerId: "u1" }), false);
 });

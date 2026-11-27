@@ -22,6 +22,7 @@ import { Form } from "@/components/form";
 import { SubmitButton } from "@/components/submit-button";
 import { RiskMatrix, ScoreBadge } from "@/components/risk-matrix";
 import { RiskForm } from "@/components/risk-form";
+import { LegalLinkItems, legalLinkSelect } from "@/components/legal-links";
 import { createRiskAction, deleteRisk, updateRisk } from "../actions";
 
 export default async function RiskDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,6 +37,7 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
       location: true,
       processes: { orderBy: { name: "asc" } },
       requirements: { include: { norm: true } },
+      legalRequirements: { select: legalLinkSelect, orderBy: { number: "asc" } },
       actions: { orderBy: { number: "desc" }, include: { owner: { select: { name: true } } } },
     },
   });
@@ -158,6 +160,14 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
             </ul>
           )}
         </section>
+        {risk.legalRequirements.length > 0 && (
+          <section className="card text-sm lg:col-span-2">
+            <h2 className="mb-2">Wet- en regelgeving</h2>
+            <ul className="space-y-1">
+              <LegalLinkItems items={risk.legalRequirements} />
+            </ul>
+          </section>
+        )}
       </div>
 
       <section className="card mt-4">

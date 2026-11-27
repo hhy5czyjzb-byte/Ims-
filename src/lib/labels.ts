@@ -5,8 +5,10 @@ import type {
   AuditStatus,
   AuditType,
   ChecklistResult,
+  ComplianceStatus,
   FindingClass,
   FindingStatus,
+  LegalCategory,
   NormCategory,
   RaciType,
   RiskCategory,
@@ -159,6 +161,31 @@ export const CHECKLIST_RESULT_CLASS: Record<ChecklistResult, string> = {
   CONFORM: "bg-green-100 text-green-800",
   FINDING: "bg-orange-100 text-orange-800",
   NOT_APPLICABLE: "bg-neutral-200 text-neutral-500",
+};
+
+export const COMPLIANCE_STATUS_LABEL: Record<ComplianceStatus, string> = {
+  NOT_ASSESSED: "Nog niet getoetst",
+  COMPLIANT: "Voldoet",
+  PARTIAL: "Voldoet deels",
+  NON_COMPLIANT: "Voldoet niet",
+  NOT_APPLICABLE: "Niet van toepassing",
+};
+
+export const COMPLIANCE_STATUS_CLASS: Record<ComplianceStatus, string> = {
+  NOT_ASSESSED: "bg-neutral-100 text-neutral-600",
+  COMPLIANT: "bg-green-100 text-green-800",
+  PARTIAL: "bg-amber-100 text-amber-800",
+  NON_COMPLIANT: "bg-brand-red text-white",
+  NOT_APPLICABLE: "bg-neutral-200 text-neutral-500",
+};
+
+export const LEGAL_CATEGORY_LABEL: Record<LegalCategory, string> = {
+  ENVIRONMENT: "Milieu en omgeving",
+  HEALTH_SAFETY: "Arbo en veiligheid",
+  PRODUCT: "Product en kwaliteit",
+  ENERGY_CO2: "Energie en CO2",
+  BUILDING: "Bouwen",
+  OTHER: "Overig",
 };
 
 export function options<T extends string>(labels: Record<T, string>) {

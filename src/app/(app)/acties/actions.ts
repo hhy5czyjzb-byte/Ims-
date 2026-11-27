@@ -10,6 +10,7 @@ import { requirePermission, requireUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { canEditAction } from "@/lib/rbac";
 import { optionalDate, optionalId, optionalText, parseForm, requiredText } from "@/lib/forms";
+import { ACTION_STATUS_LABEL } from "@/lib/labels";
 
 const actionSchema = z.object({
   title: requiredText(300),
@@ -64,7 +65,7 @@ export async function updateAction(id: string, formData: FormData): Promise<Acti
       action: "UPDATE",
       entityType: "Action",
       entityId: id,
-      summary: `Actie #${action.number} gewijzigd${action.status !== data.status ? ` (status ${action.status} → ${data.status})` : ""}`,
+      summary: `Actie #${action.number} gewijzigd${action.status !== data.status ? ` (status ${ACTION_STATUS_LABEL[action.status]} → ${ACTION_STATUS_LABEL[data.status]})` : ""}`,
       details: { ...data, deadline: data.deadline?.toISOString() ?? null, requirementIds },
     });
     revalidatePath("/acties");
@@ -81,7 +82,13 @@ export async function setActionStatus(id: string, status: ActionStatus): Promise
       where: { id },
       data: { status: parsed, completedAt: parsed === "DONE" ? (action.completedAt ?? new Date()) : null },
     });
-    await logAudit({ user, action: "UPDATE", entityType: "Action", entityId: id, summary: `Actie #${action.number}: status ${action.status} → ${parsed}` });
+    await logAudit({
+      user,
+      action: "UPDATE",
+      entityType: "Action",
+      entityId: id,
+      summary: `Actie #${action.number}: status ${ACTION_STATUS_LABEL[action.status]} → ${ACTION_STATUS_LABEL[parsed]}`,
+    });
     revalidatePath("/acties");
     revalidatePath(`/acties/${id}`);
     revalidatePath("/");

@@ -9,6 +9,7 @@ import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { RACI_CLASS, RACI_LABEL } from "@/lib/labels";
 import { residual, riskCode } from "@/lib/risk";
 import { ScoreBadge } from "@/components/risk-matrix";
+import { LegalLinkItems, legalLinkSelect } from "@/components/legal-links";
 import { Badge, Disclosure, Field, PageHeader, Select } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { CheckboxPicker } from "@/components/checkbox-picker";
@@ -30,6 +31,7 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
       documents: { orderBy: { title: "asc" } },
       requirements: { include: { norm: true } },
       risks: { where: { status: { not: "CLOSED" } }, orderBy: { number: "asc" } },
+      legalRequirements: { where: { active: true }, select: legalLinkSelect, orderBy: { number: "asc" } },
       steps: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         include: {
@@ -336,6 +338,22 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
                 </li>
               );
             })}
+          </ul>
+        )}
+      </section>
+
+      <section className="card mt-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h3 className="font-semibold">Wet- en regelgeving bij dit proces</h3>
+          <Link href="/wetgeving" className="text-sm">
+            Register →
+          </Link>
+        </div>
+        {process.legalRequirements.length === 0 ? (
+          <p className="text-sm text-neutral-500">Geen wettelijke eisen gekoppeld.</p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            <LegalLinkItems items={process.legalRequirements} />
           </ul>
         )}
       </section>

@@ -8,6 +8,7 @@ import { can, canEditAction } from "@/lib/rbac";
 import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
 import { riskCode } from "@/lib/risk";
+import { legalCode } from "@/lib/compliance";
 import { findingCode } from "@/lib/audit-plan";
 import { ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
 import { Badge, Disclosure, PageHeader } from "@/components/ui";
@@ -38,6 +39,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
       location: true,
       requirements: { include: { norm: true } },
       risk: true,
+      legalRequirement: true,
       finding: { include: { audit: true } },
     },
   });
@@ -134,6 +136,16 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
                     Bevinding {findingCode(action.finding.audit.number, action.finding.number)}
                   </Link>{" "}
                   — {action.finding.audit.title}
+                </dd>
+              </>
+            )}
+            {action.legalRequirement && (
+              <>
+                <dt className="text-neutral-500">Wettelijke eis</dt>
+                <dd>
+                  <Link href={`/wetgeving/${action.legalRequirement.id}`}>
+                    {legalCode(action.legalRequirement.number)} {action.legalRequirement.title}
+                  </Link>
                 </dd>
               </>
             )}

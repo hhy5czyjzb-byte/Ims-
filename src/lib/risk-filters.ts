@@ -30,9 +30,4 @@ export function riskWhere(sp: RiskSearch): Prisma.RiskWhereInput {
   };
 }
 
-/** CSV-veld voor Excel (NL): puntkomma als scheidingsteken, aanhalingstekens verdubbeld, geen formule-injectie. */
-export function csvField(v: unknown): string {
-  let s = v == null ? "" : String(v);
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+export { csvField } from "@/lib/csv";

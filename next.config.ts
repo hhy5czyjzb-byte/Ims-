@@ -12,6 +12,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: "standalone",
+  // Import van registers (Excel → gekoppelde regels) kan groter zijn dan de standaard 1 MB.
+  experimental: { serverActions: { bodySizeLimit: "5mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
