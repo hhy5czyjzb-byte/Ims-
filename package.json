@@ -21,7 +21,12 @@
     "postinstall": "prisma generate",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "start:local": "next start -H 127.0.0.1"
+    "start:local": "next start -H 127.0.0.1",
+    "backup": "tsx scripts/backup.ts maak",
+    "backup:test": "tsx scripts/backup.ts test",
+    "backup:lijst": "tsx scripts/backup.ts lijst",
+    "backup:herstel": "tsx scripts/backup.ts herstel",
+    "backup:plan": "tsx scripts/backup-plan.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

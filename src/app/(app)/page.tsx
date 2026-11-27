@@ -21,6 +21,9 @@ import { residual } from "@/lib/risk";
 import { auditCode } from "@/lib/audit-plan";
 import { complianceSummary, legalCode } from "@/lib/compliance";
 import { aspectCode } from "@/lib/aspects";
+import { listBackups } from "@/lib/backup";
+import { localMode } from "@/lib/env";
+import { can } from "@/lib/rbac";
 import { formatTonnes, formatPct } from "@/lib/co2";
 import { loadFactors, loadFootprint, targetStatus } from "@/lib/co2-data";
 
@@ -133,6 +136,15 @@ export default async function DashboardPage() {
   ]);
   const co2TargetRows = await Promise.all(co2Targets.map(async (t) => ({ t, s: await targetStatus(t, co2Factors) })));
 
+  // Back-upwaarschuwing (lokale modus, alleen QHSE): geen geslaagde back-up in de laatste 2 dagen.
+  let backupWarning: string | null = null;
+  if (localMode && can(user.role, "backup.manage")) {
+    const lastOk = listBackups().find((b) => b.verify?.ok);
+    if (!lastOk) backupWarning = "Er is nog geen geteste back-up van de database.";
+    else if (Date.now() - new Date(lastOk.createdAt).getTime() > 2 * 86_400_000)
+      backupWarning = `De laatste geteste back-up is van ${formatDate(lastOk.createdAt)}.`;
+  }
+
   const legalSummary = complianceSummary(legalStatuses.map((l) => l.status));
 
   const activeNorms = coverage.filter((n) => n.active);
@@ -144,6 +156,14 @@ export default async function DashboardPage() {
 
   return (
     <>
+      {backupWarning && (
+        <div role="alert" className="mb-4 rounded-md border border-brand-red/30 bg-red-50 px-3 py-2 text-sm text-brand-red-dark">
+          {backupWarning}{" "}
+          <Link href="/beheer" className="font-medium">
+            Naar back-ups →
+          </Link>
+        </div>
+      )}
       <PageHeader title={`Goedendag, ${user.name.split(" ")[0]}`} description="Stand van zaken van het integraal managementsysteem." />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

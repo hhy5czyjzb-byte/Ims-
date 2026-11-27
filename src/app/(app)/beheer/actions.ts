@@ -6,6 +6,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { localMode } from "@/lib/env";
+import { createBackup } from "@/lib/backup";
 import { optionalText, parseForm, requiredText } from "@/lib/forms";
 
 type Kind = "location" | "discipline" | "jobFunction";
@@ -59,5 +61,29 @@ export async function deleteJobFunction(id: string): Promise<ActionResult> {
     const f = await prisma.jobFunction.delete({ where: { id } });
     await logAudit({ user, action: "DELETE", entityType: "JobFunction", entityId: id, summary: `Functie "${f.name}" verwijderd` });
     revalidatePath("/beheer");
+  });
+}
+
+/** Back-up met hersteltest maken vanuit de app (alleen lokale modus; in fase 2 regelt Azure de back-ups). */
+export async function createBackupNow(): Promise<ActionResult> {
+  return safeAction(async () => {
+    const user = await requirePermission("backup.manage");
+    if (!localMode) throw new UserError("Back-ups maken vanuit de app kan alleen in de lokale modus.");
+    let info;
+    try {
+      info = await createBackup({ verify: true });
+    } catch (err) {
+      throw new UserError(`Back-up mislukt: ${(err as Error).message}`);
+    }
+    await logAudit({
+      user,
+      action: "CREATE",
+      entityType: "Backup",
+      entityId: info.name,
+      summary: `Back-up ${info.name} gemaakt — ${info.verify?.ok ? "hersteltest geslaagd" : `hersteltest NIET geslaagd: ${info.verify?.message ?? "niet uitgevoerd"}`}`,
+    });
+    revalidatePath("/beheer");
+    revalidatePath("/");
+    if (!info.verify?.ok) throw new UserError(`Back-up gemaakt, maar de hersteltest is niet geslaagd: ${info.verify?.message}`);
   });
 }

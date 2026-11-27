@@ -66,6 +66,24 @@ Veiligheid van de lokale modus: de app is dan alleen bereikbaar via `localhost` 
 | `npm run db:seed`                                       | Basisgegevens (idempotent)                                     |
 | `npm run db:studio`                                     | Database bekijken in de browser                                |
 
+## Back-up en herstel (fase 1, laptop)
+
+Zolang de app op de laptop draait, staan alle gegevens alleen daar. Maak daarom dagelijks een back-up.
+
+| Commando                              | Wat                                                                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `npm run backup`                      | Back-up maken **met hersteltest**: de back-up wordt teruggezet in een tijdelijke database en per tabel gecontroleerd |
+| `npm run backup:plan`                 | Dagelijkse back-up inplannen (Windows Taakplanner, standaard 12:30; andere tijd: `npm run backup:plan -- 09:15`)     |
+| `npm run backup:lijst`                | Overzicht van de back-ups en de uitkomst van de hersteltest                                                          |
+| `npm run backup:test`                 | Hersteltest van de nieuwste back-up (of `-- <bestand>`)                                                              |
+| `npm run backup:herstel -- <bestand>` | Back-up terugzetten (stop eerst de app). Maakt eerst automatisch een veiligheidskopie van de huidige stand           |
+
+- Werkt met de database in Docker (`docker compose`) of met een lokale PostgreSQL-installatie.
+- Map: `BACKUP_DIR` in `.env` (standaard `backups/` in het project, staat niet in git). **Tip: kies een map in OneDrive**, dan staat er ook een kopie buiten de laptop.
+- De nieuwste `BACKUP_KEEP` (standaard 30) back-ups blijven bewaard.
+- In de app: Stamgegevens → Back-ups (knop "Nu back-up maken" en overzicht). Het dashboard waarschuwt QHSE als de laatste geteste back-up ouder is dan 2 dagen.
+- Back-upbestanden bevatten bedrijfsgegevens: niet mailen of in git zetten.
+
 ## Microsoft 365 koppelen (Entra ID) — fase 2
 
 Zet daarna `AUTH_MODE="entra"` in `.env` (of laat het leeg zodra de AZURE_AD_* zijn ingevuld). Het loginscherm verschijnt dan en de lokale modus en "Bekijken als" verdwijnen.
