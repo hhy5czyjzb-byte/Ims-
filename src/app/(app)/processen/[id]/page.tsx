@@ -7,7 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/rbac";
 import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { RACI_CLASS, RACI_LABEL } from "@/lib/labels";
-import { residual, riskCode } from "@/lib/risk";
+import { residual, riskDisplayCode } from "@/lib/risk";
 import { ScoreBadge } from "@/components/risk-matrix";
 import { LegalLinkItems, legalLinkSelect } from "@/components/legal-links";
 import { AspectLinkItems, aspectLinkSelect } from "@/components/aspect-links";
@@ -32,7 +32,7 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
       documents: { orderBy: { title: "asc" } },
       requirements: { include: { norm: true } },
       risks: { where: { status: { not: "CLOSED" } }, orderBy: { number: "asc" } },
-      legalRequirements: { where: { active: true }, select: legalLinkSelect, orderBy: { number: "asc" } },
+      legalRequirements: { where: { active: true }, select: legalLinkSelect, orderBy: [{ externalRef: "asc" }, { number: "asc" }] },
       environmentalAspects: { where: { active: true }, select: aspectLinkSelect, orderBy: [{ significant: "desc" }, { number: "asc" }] },
       steps: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -335,7 +335,7 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
                 <li key={r.id} className="flex items-center gap-2">
                   <ScoreBadge likelihood={res.likelihood} impact={res.impact} type={r.type} />
                   <Link href={`/risicos/${r.id}`}>
-                    {riskCode(r.number, r.type)} {r.title}
+                    {riskDisplayCode(r)} {r.title}
                   </Link>
                 </li>
               );

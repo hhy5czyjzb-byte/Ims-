@@ -19,7 +19,7 @@ import { Badge, PageHeader, ProgressBar, StatCard } from "@/components/ui";
 import { RiskMatrix } from "@/components/risk-matrix";
 import { residual } from "@/lib/risk";
 import { auditCode } from "@/lib/audit-plan";
-import { complianceSummary, legalCode } from "@/lib/compliance";
+import { complianceSummary, legalDisplayCode } from "@/lib/compliance";
 import { aspectCode } from "@/lib/aspects";
 import { listBackups } from "@/lib/backup";
 import { localMode } from "@/lib/env";
@@ -93,7 +93,7 @@ export default async function DashboardPage() {
       where: { active: true, status: { not: "NOT_APPLICABLE" }, nextReviewDate: { lte: in30 } },
       orderBy: { nextReviewDate: "asc" },
       take: 8,
-      select: { id: true, number: true, title: true, article: true, status: true, nextReviewDate: true, owner: { select: { name: true } } },
+      select: { id: true, number: true, externalRef: true, title: true, article: true, status: true, nextReviewDate: true, owner: { select: { name: true } } },
     }),
     prisma.environmentalAspect.findMany({
       where: { active: true, significant: true },
@@ -360,7 +360,7 @@ export default async function DashboardPage() {
                     </td>
                     <td>
                       <Link href={`/wetgeving/${l.id}`}>
-                        {legalCode(l.number)} {l.title}
+                        {legalDisplayCode(l)} {l.title}
                         {l.article ? ` — ${l.article}` : ""}
                       </Link>
                     </td>

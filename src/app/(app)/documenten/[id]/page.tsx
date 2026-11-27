@@ -21,7 +21,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
     where: { id },
     include: {
       requirements: { include: { norm: true } },
-      legalRequirements: { select: legalLinkSelect, orderBy: { number: "asc" } },
+      legalRequirements: { select: legalLinkSelect, orderBy: [{ externalRef: "asc" }, { number: "asc" }] },
       processes: { orderBy: { name: "asc" } },
       processSteps: { include: { process: true } },
     },

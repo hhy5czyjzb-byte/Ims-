@@ -7,14 +7,18 @@ import { can, canAssessLegal } from "@/lib/rbac";
 import { getLookups } from "@/lib/lookups";
 import { getLegalLinkOptions } from "@/lib/legal-links";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
-import { legalCode } from "@/lib/compliance";
-import { riskCode } from "@/lib/risk";
+import { legalDisplayCode } from "@/lib/compliance";
+import { riskDisplayCode } from "@/lib/risk";
 import {
   ACTION_PRIORITY_LABEL,
   ACTION_STATUS_CLASS,
   ACTION_STATUS_LABEL,
+  APPLICABILITY_LABEL,
   COMPLIANCE_STATUS_CLASS,
   COMPLIANCE_STATUS_LABEL,
+  IMPACT_LEVEL_LABEL,
+  IMPLEMENTATION_STATUS_CLASS,
+  IMPLEMENTATION_STATUS_LABEL,
   LEGAL_CATEGORY_LABEL,
   options,
 } from "@/lib/labels";
@@ -32,6 +36,7 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
   const req = await prisma.legalRequirement.findUnique({
     where: { id },
     include: {
+      norms: { orderBy: { sortOrder: "asc" } },
       owner: true,
       createdBy: true,
       discipline: true,
@@ -50,7 +55,7 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
 
   const canEdit = can(user.role, "legal.edit");
   const canAssess = canAssessLegal(user, req);
-  const code = legalCode(req.number);
+  const code = legalDisplayCode(req);
   const openActions = req.actions.filter((a) => a.status === "OPEN" || a.status === "IN_PROGRESS").length;
   const late = req.active && req.status !== "NOT_APPLICABLE" && isOverdue(req.nextReviewDate);
   const [lookups, linkOptions] = await Promise.all([getLookups(), canEdit ? getLegalLinkOptions() : Promise.resolve(null)]);
@@ -69,7 +74,17 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
         description={
           <span className="flex flex-wrap items-center gap-2">
             <Badge className={COMPLIANCE_STATUS_CLASS[req.status]}>{COMPLIANCE_STATUS_LABEL[req.status]}</Badge>
-            <Badge>{LEGAL_CATEGORY_LABEL[req.category]}</Badge>
+            <Badge>{req.theme ?? LEGAL_CATEGORY_LABEL[req.category]}</Badge>
+            {req.applicability !== "YES" && <Badge className="bg-neutral-200 text-neutral-700">Van toepassing: {APPLICABILITY_LABEL[req.applicability]}</Badge>}
+            {req.implementationStatus && (
+              <Badge className={IMPLEMENTATION_STATUS_CLASS[req.implementationStatus]}>{IMPLEMENTATION_STATUS_LABEL[req.implementationStatus]}</Badge>
+            )}
+            {req.impact && <Badge>Impact {IMPACT_LEVEL_LABEL[req.impact].toLowerCase()}</Badge>}
+            {req.norms.map((n) => (
+              <Badge key={n.id} className="bg-brand-grey-light text-neutral-900">
+                {n.code}
+              </Badge>
+            ))}
             {!req.active && <Badge className="bg-neutral-200 text-neutral-600">Vervallen</Badge>}
             {req.externalRef && <span className="text-xs text-neutral-500">Kenmerk bronregister: {req.externalRef}</span>}
           </span>
@@ -87,6 +102,20 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
         <section className="card text-sm lg:col-span-2">
           {req.subject && <div className="mb-1 text-xs font-semibold tracking-wide text-neutral-500 uppercase">{req.subject}</div>}
           <p className="whitespace-pre-line">{req.description || <span className="text-neutral-400">Geen omschrijving van de eis.</span>}</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {req.evidence && (
+              <div>
+                <div className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">Bewijslast</div>
+                <p className="mt-0.5 whitespace-pre-line">{req.evidence}</p>
+              </div>
+            )}
+            {req.nextStep && (
+              <div>
+                <div className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">Volgende stap</div>
+                <p className="mt-0.5 whitespace-pre-line">{req.nextStep}</p>
+              </div>
+            )}
+          </div>
           {req.explanation && (
             <div className="mt-4 rounded-md bg-neutral-50 p-3">
               <div className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">Toelichting bij de status</div>
@@ -97,7 +126,22 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
         <section className="card text-sm">
           <dl className="grid grid-cols-[8.5rem_1fr] gap-y-1.5">
             <dt className="text-neutral-500">Eigenaar</dt>
-            <dd>{req.owner?.name ?? <span className="text-brand-red">Geen eigenaar</span>}</dd>
+            <dd>
+              {req.ownerText ?? (!req.owner && <span className="text-brand-red">Geen eigenaar</span>)}
+              {req.owner && <span className={req.ownerText ? "ml-1 text-neutral-500" : ""}>{req.ownerText ? `(${req.owner.name})` : req.owner.name}</span>}
+            </dd>
+            {req.regulationType && (
+              <>
+                <dt className="text-neutral-500">Soort</dt>
+                <dd>{req.regulationType}</dd>
+              </>
+            )}
+            {req.origin && (
+              <>
+                <dt className="text-neutral-500">Herkomst</dt>
+                <dd>{req.origin}</dd>
+              </>
+            )}
             <dt className="text-neutral-500">Discipline</dt>
             <dd>{req.discipline?.name ?? "Bedrijfsbreed"}</dd>
             <dt className="text-neutral-500">Locatie</dt>
@@ -247,7 +291,7 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
             {req.risks.map((r) => (
               <li key={r.id}>
                 <Link href={`/risicos/${r.id}`}>
-                  {riskCode(r.number, r.type)} {r.title}
+                  {riskDisplayCode(r)} {r.title}
                 </Link>
               </li>
             ))}

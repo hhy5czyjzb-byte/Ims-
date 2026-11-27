@@ -206,7 +206,7 @@ const NORMS: { code: string; name: string; version?: string; category: NormCateg
   // BRL's voor grondbank en granulaat: nummers nog te bevestigen (open punt) — toevoegen via Normenbeheer.
 ];
 
-const DISCIPLINES = ["Prefab", "Beton", "Afvalrecycling", "Infra"];
+const DISCIPLINES = ["Infra", "Beton", "Prefab", "Afval/Transport", "Asbestinventarisatie"]; // BU's volgens het eigen register ("Groep" = bedrijfsbreed)
 const LOCATIONS = [{ name: "Groenlo", address: "Hoofdvestiging" }];
 const FUNCTIONS = [
   "Directeur",
@@ -457,7 +457,7 @@ async function seedDemoRisks() {
       impactAfter: 4,
       status: "CONTROLLED" as const,
       ownerId: mk?.id,
-      disciplineId: await disc("Afvalrecycling"),
+      disciplines: { connect: [{ id: await disc("Afval/Transport") }] },
       locationId: groenlo.id,
       reviewDate: in30,
       requirements: [await req("ISO 14001", "6.1.2")],
@@ -476,7 +476,7 @@ async function seedDemoRisks() {
       impactAfter: null,
       status: "OPEN" as const,
       ownerId: qhse?.id,
-      disciplineId: await disc("Beton"),
+      disciplines: { connect: [{ id: await disc("Beton") }] },
       locationId: groenlo.id,
       reviewDate: new Date(Date.now() - 3 * 86_400_000),
       requirements: [await req("ISO 9001", "8.6")],
@@ -495,7 +495,7 @@ async function seedDemoRisks() {
       impactAfter: 3,
       status: "CONTROLLED" as const,
       ownerId: qhse?.id,
-      disciplineId: await disc("Beton"),
+      disciplines: { connect: [{ id: await disc("Beton") }] },
       locationId: null,
       reviewDate: in30,
       requirements: [await req("ISO 9001", "6.1")],
@@ -514,7 +514,7 @@ async function seedDemoRisks() {
       impactAfter: null,
       status: "OPEN" as const,
       ownerId: qhse?.id,
-      disciplineId: await disc("Beton"),
+      disciplines: { connect: [{ id: await disc("Beton") }] },
       locationId: null,
       reviewDate: in30,
       requirements: [await req("ISO 14001", "6.1.1")],
@@ -533,7 +533,7 @@ async function seedDemoRisks() {
       impactAfter: null,
       status: "OPEN" as const,
       ownerId: mk?.id,
-      disciplineId: await disc("Afvalrecycling"),
+      disciplines: { connect: [{ id: await disc("Afval/Transport") }] },
       locationId: groenlo.id,
       reviewDate: null,
       requirements: [],
@@ -554,7 +554,7 @@ async function seedDemoRisks() {
           riskId: risk.id,
           ownerId: mk?.id,
           createdById: qhse?.id,
-          disciplineId: r.disciplineId,
+          disciplineId: r.disciplines.connect[0].id,
           deadline: in30,
         },
       });
@@ -702,7 +702,7 @@ async function seedDemoLegal() {
       lastReviewDate: ago(60),
       nextReviewDate: ahead(305),
       ownerId: mk?.id,
-      disciplineId: await disc("Afvalrecycling"),
+      disciplineId: await disc("Afval/Transport"),
       locationId: groenlo.id,
       requirements: [await req("6.1.3")],
       risks: [],
@@ -719,7 +719,7 @@ async function seedDemoLegal() {
       lastReviewDate: ago(40),
       nextReviewDate: ahead(140),
       ownerId: qhse?.id,
-      disciplineId: await disc("Afvalrecycling"),
+      disciplineId: await disc("Afval/Transport"),
       locationId: groenlo.id,
       requirements: [],
       risks: kwarts ? [{ id: kwarts.id }] : [],
@@ -826,7 +826,7 @@ async function seedDemoAspects() {
       e: 3,
       o: 3,
       stakeholder: true,
-      discipline: "Afvalrecycling",
+      discipline: "Afval/Transport",
       links: { risk: true },
     },
     {
@@ -839,7 +839,7 @@ async function seedDemoAspects() {
       f: 5,
       e: 2,
       o: 3,
-      discipline: "Afvalrecycling",
+      discipline: "Afval/Transport",
       links: { legal: true },
     },
     {
@@ -965,7 +965,7 @@ async function seedDemoCo2() {
       code: "DEMO-SH-01",
       type: "shovel",
       defaultCarrierId: diesel.id,
-      disciplineId: await disc("Afvalrecycling"),
+      disciplineId: await disc("Afval/Transport"),
       locationId: groenlo.id,
     },
   });

@@ -5,10 +5,12 @@ import { brand } from "../theme/brand";
 
 test("risicoscore en klasse", () => {
   assert.equal(riskScore(5, 5), 25);
+  // Methode Rouwmaat: laag 1–7, midden 8–14, hoog 15–25
   assert.equal(riskLevel(riskScore(1, 4)), "low");
-  assert.equal(riskLevel(5), "medium");
-  assert.equal(riskLevel(12), "high");
-  assert.equal(riskLevel(15), "veryHigh");
+  assert.equal(riskLevel(7), "low");
+  assert.equal(riskLevel(8), "medium");
+  assert.equal(riskLevel(14), "medium");
+  assert.equal(riskLevel(15), "high");
 });
 
 test("klassengrenzen sluiten aan op riskLevel", () => {
@@ -19,8 +21,8 @@ test("klassengrenzen sluiten aan op riskLevel", () => {
 });
 
 test("kansen krijgen een groene schaal, risico's rood", () => {
-  assert.equal(riskColor(25, "RISK"), brand.riskColors.veryHigh);
-  assert.equal(riskColor(25, "OPPORTUNITY"), brand.opportunityColors.veryHigh);
+  assert.equal(riskColor(25, "RISK"), brand.riskColors.high);
+  assert.equal(riskColor(25, "OPPORTUNITY"), brand.opportunityColors.high);
 });
 
 test("restrisico valt terug op bruto score als 'na maatregelen' ontbreekt", () => {
@@ -36,4 +38,13 @@ test("restrisico valt terug op bruto score als 'na maatregelen' ontbreekt", () =
 test("risicocode", () => {
   assert.equal(riskCode(7, "RISK"), "R-007");
   assert.equal(riskCode(1234, "OPPORTUNITY"), "K-1234");
+});
+
+test("prioriteit en getoonde code", async () => {
+  const { riskPriority, riskDisplayCode } = await import("./risk");
+  assert.equal(riskPriority({ strategic: true, likelihoodBefore: 2, impactBefore: 2 }), 1);
+  assert.equal(riskPriority({ strategic: false, likelihoodBefore: 4, impactBefore: 4 }), 2);
+  assert.equal(riskPriority({ strategic: false, likelihoodBefore: 3, impactBefore: 4 }), 3);
+  assert.equal(riskDisplayCode({ number: 7, type: "RISK", externalRef: "R07" }), "R07");
+  assert.equal(riskDisplayCode({ number: 7, type: "OPPORTUNITY", externalRef: null }), "K-007");
 });

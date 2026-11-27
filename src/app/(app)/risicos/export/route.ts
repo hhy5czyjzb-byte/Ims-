@@ -1,21 +1,25 @@
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
-import { RISK_CATEGORY_LABEL, RISK_STATUS_LABEL, RISK_TYPE_LABEL } from "@/lib/labels";
-import { residual, RISK_LEVEL_LABEL, riskCode, riskLevel } from "@/lib/risk";
-import { csvField, riskWhere, type RiskSearch } from "@/lib/risk-filters";
+import { RISK_STATUS_LABEL, RISK_TYPE_LABEL, TREATMENT_STATUS_LABEL } from "@/lib/labels";
+import { PRIORITY_LABEL, RISK_LEVEL_LABEL, riskDisplayCode, riskLevel, riskPriority } from "@/lib/risk";
+import { riskWhere, type RiskSearch } from "@/lib/risk-filters";
+import { csvResponse, toCsv } from "@/lib/csv";
 import { formatDate } from "@/lib/format";
 
-/** Export van het risicoregister als CSV (opent direct in Excel), met dezelfde filters als het overzicht. */
+/**
+ * Export van het risico- en kansenregister als CSV (opent in Excel), met dezelfde filters als het overzicht.
+ * De kolommen volgen het eigen register van Rouwmaat, zodat een export direct weer te importeren is.
+ */
 export async function GET(request: Request) {
   const user = await requireUser();
   const sp = Object.fromEntries(new URL(request.url).searchParams) as RiskSearch;
   const risks = await prisma.risk.findMany({
     where: riskWhere(sp),
-    orderBy: [{ type: "asc" }, { number: "asc" }],
+    orderBy: [{ type: "asc" }, { externalRef: "asc" }, { number: "asc" }],
     include: {
       owner: { select: { name: true } },
-      discipline: { select: { name: true } },
+      disciplines: { select: { name: true }, orderBy: { sortOrder: "asc" } },
       location: { select: { name: true } },
       processes: { select: { name: true } },
       requirements: { select: { clause: true, norm: { select: { code: true } } } },
@@ -24,70 +28,78 @@ export async function GET(request: Request) {
   });
 
   const header = [
-    "Code",
+    "Nr.",
     "Soort",
-    "Categorie",
-    "Titel",
     "Omschrijving",
-    "Oorzaak",
+    "Herkomst",
+    "Prioriteit",
+    "Contextfactor",
+    "Thema",
+    "BU",
+    "Oorzaak / context",
     "Gevolg",
-    "Beheersmaatregelen",
-    "Kans vóór",
-    "Effect vóór",
-    "Score vóór",
-    "Klasse vóór",
-    "Kans na",
-    "Effect na",
-    "Score na",
-    "Klasse na",
-    "Status",
+    "Kans",
+    "Effect",
+    "Score",
+    "Niveau",
+    "Beheersmaatregel",
     "Eigenaar",
-    "Discipline",
+    "Termijn",
+    "Status",
+    "Monitoring / KPI",
+    "Kader",
+    "Restkans",
+    "Resteffect",
+    "Restscore",
+    "Laatst beoordeeld",
+    "Opmerking",
+    "Volgende beoordeling",
+    "Status risico",
     "Locatie",
     "Processen",
     "Normeisen",
     "Open acties",
-    "Volgende beoordeling",
   ];
-  const rows = risks.map((r) => {
-    const before = r.likelihoodBefore * r.impactBefore;
-    const res = residual(r);
-    return [
-      riskCode(r.number, r.type),
-      RISK_TYPE_LABEL[r.type],
-      RISK_CATEGORY_LABEL[r.category],
-      r.title,
-      r.description,
-      r.cause,
-      r.consequence,
-      r.measures,
-      r.likelihoodBefore,
-      r.impactBefore,
-      before,
-      RISK_LEVEL_LABEL[riskLevel(before)],
-      r.likelihoodAfter,
-      r.impactAfter,
-      res.assessed ? res.score : "",
-      res.assessed ? RISK_LEVEL_LABEL[riskLevel(res.score)] : "",
-      RISK_STATUS_LABEL[r.status],
-      r.owner?.name,
-      r.discipline?.name ?? "Bedrijfsbreed",
-      r.location?.name ?? "Alle locaties",
-      r.processes.map((p) => p.name).join(", "),
-      r.requirements.map((q) => `${q.norm.code} ${q.clause}`).join(", "),
-      r._count.actions,
-      r.reviewDate ? formatDate(r.reviewDate) : "",
-    ];
-  });
-  const csv = "﻿" + [header, ...rows].map((row) => row.map(csvField).join(";")).join("\r\n");
+  const rows = risks
+    .sort((a, b) => riskDisplayCode(a).localeCompare(riskDisplayCode(b), "nl", { numeric: true }))
+    .map((r) => {
+      const before = r.likelihoodBefore * r.impactBefore;
+      const after = r.likelihoodAfter && r.impactAfter ? r.likelihoodAfter * r.impactAfter : null;
+      return [
+        riskDisplayCode(r),
+        RISK_TYPE_LABEL[r.type],
+        r.title,
+        r.origin,
+        PRIORITY_LABEL[riskPriority(r)],
+        r.contextFactor,
+        r.theme,
+        r.disciplines.length ? r.disciplines.map((d) => d.name).join(", ") : "Groep",
+        r.cause,
+        r.consequence,
+        r.likelihoodBefore,
+        r.impactBefore,
+        before,
+        RISK_LEVEL_LABEL[riskLevel(before)],
+        r.measures,
+        r.ownerText ?? r.owner?.name ?? "",
+        r.term,
+        TREATMENT_STATUS_LABEL[r.treatmentStatus],
+        r.monitoring,
+        r.framework,
+        r.likelihoodAfter,
+        r.impactAfter,
+        after,
+        r.lastReviewedAt ? formatDate(r.lastReviewedAt) : "",
+        r.notes,
+        r.reviewDate ? formatDate(r.reviewDate) : "",
+        RISK_STATUS_LABEL[r.status],
+        r.location?.name ?? "",
+        r.processes.map((p) => p.name).join(", "),
+        r.requirements.map((q) => `${q.norm.code} ${q.clause}`).join(", "),
+        r._count.actions,
+      ];
+    });
 
-  await logAudit({ user, action: "VIEW", entityType: "Risk", summary: `Risicoregister geëxporteerd (${risks.length} regels)` });
-  const date = new Date().toISOString().slice(0, 10);
-  return new Response(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="risicoregister-${date}.csv"`,
-      "Cache-Control": "no-store",
-    },
-  });
+  await logAudit({ user, action: "VIEW", entityType: "Risk", summary: `Risico- en kansenregister geëxporteerd (${risks.length} regels)` });
+  return csvResponse(toCsv([header, ...rows]), `risico-en-kansenregister-${new Date().toISOString().slice(0, 10)}.csv`);
 }

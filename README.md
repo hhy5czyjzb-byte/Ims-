@@ -1,6 +1,6 @@
 # IMS Rouwmaat Groep
 
-Integraal managementsysteem (IMS) voor alle certificeringen van Rouwmaat Groep (Groenlo) in één webapplicatie, voor de disciplines prefab, beton, afvalrecycling en infra.
+Integraal managementsysteem (IMS) voor alle certificeringen van Rouwmaat Groep (Groenlo) in één webapplicatie, voor de BU's infra, beton, prefab, afval/transport en asbestinventarisatie.
 
 > Specificatie: [`docs/specificatie.docx`](docs/specificatie.docx) · Huisstijl: [`docs/huisstijl.pdf`](docs/huisstijl.pdf) · Architectuur en keuzes: [`CLAUDE.md`](CLAUDE.md)
 
@@ -13,7 +13,7 @@ Integraal managementsysteem (IMS) voor alle certificeringen van Rouwmaat Groep (
 | Normenbeheer: normen, eisen/hoofdstukken, dekking met bewijs                                                                                                                                                  | ✅                                            |
 | Processen: proceskaart per discipline, processtappen, RACI, koppelingen                                                                                                                                       | ✅                                            |
 | Documentbeheer: verwijzingen naar SharePoint, sync via Graph, koppelingen                                                                                                                                     | ✅ (sync nog te testen met echte bibliotheek) |
-| Risico's en kansen (incl. RI&E): 5×5-matrix vóór/na maatregelen, filters, acties, CSV-export                                                                                                                  | ✅                                            |
+| Risico's en kansen (incl. RI&E): 5×5-matrix vóór/na maatregelen, prioriteit (★ strategisch), filters, acties, Excel-import, CSV-export                                                                        | ✅                                            |
 | Audits (intern, extern, klant): planning, checklist per norm, bevindingen met opvolging, planning over de certificatiecyclus                                                                                  | ✅                                            |
 | Wet- en regelgeving: register met compliancestatus, toetsingen (evaluatie naleving), acties, Excel-import met kolommen koppelen, CSV-export                                                                   | ✅                                            |
 | Milieuaspecten: register met scoring (F × E × O), significantie (instelbare drempel), acties, Excel-import, CSV-export                                                                                        | ✅                                            |
@@ -51,6 +51,17 @@ npm run dev              # → http://localhost:3000
 **Inloggen is in fase 1 niet nodig.** Je komt direct binnen als de lokale gebruiker (`LOCAL_USER_NAME`, rol QHSE). Met **"Bekijken als"** onderin het menu kijk je mee met de rechten van een andere rol (testgebruikers QHSE, Directie, Middenkader); kies "jijzelf" om terug te gaan.
 
 Veiligheid van de lokale modus: de app is dan alleen bereikbaar via `localhost` (andere adressen krijgen een foutmelding) en `npm run dev` / `npm run start:local` luisteren alleen op de eigen laptop. Gebruik de lokale modus nooit op een server; daar geldt `AUTH_MODE="entra"` (Microsoft 365).
+
+## Bestaande registers inlezen (eerste vulling)
+
+Importeer in deze volgorde (elk via de knop "Importeren uit Excel"; kolommen worden automatisch gekoppeld, eerst controleren, dan importeren):
+
+1. **Vestigingen** — Stamgegevens → Vestigingen importeren, bestand _register wet- en regelgeving_, tabblad _Vestigingen_.
+2. **Risico's** — Risico's en kansen → Importeren, bestand _risico- en kansenregister_, tabblad _Risico's_.
+3. **Kansen** — zelfde bestand, tabblad _Kansen_.
+4. **Wet- en regelgeving** — Wet- en regelgeving → Importeren, tabblad _Register_ (koppelt de risico's uit kolom "Risicoregister", daarom als laatste).
+
+Opnieuw importeren werkt bij (op het nummer R01/K01/W001) en maakt geen dubbele regels. Maak vooraf een back-up.
 
 ## Handige commando's
 

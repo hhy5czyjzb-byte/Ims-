@@ -14,9 +14,11 @@ import {
   RISK_STATUS_CLASS,
   RISK_STATUS_LABEL,
   RISK_TYPE_LABEL,
+  TREATMENT_STATUS_CLASS,
+  TREATMENT_STATUS_LABEL,
   options,
 } from "@/lib/labels";
-import { IMPACT_LABEL, LIKELIHOOD_LABEL, RISK_LEVEL_LABEL, riskCode, riskLevel } from "@/lib/risk";
+import { IMPACT_LABEL, LIKELIHOOD_LABEL, PRIORITY_LABEL, RISK_LEVEL_APPROACH, RISK_LEVEL_LABEL, riskDisplayCode, riskLevel, riskPriority } from "@/lib/risk";
 import { Badge, Disclosure, Field, PageHeader, Select } from "@/components/ui";
 import { Form } from "@/components/form";
 import { SubmitButton } from "@/components/submit-button";
@@ -34,11 +36,11 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
     include: {
       owner: true,
       createdBy: true,
-      discipline: true,
+      disciplines: { orderBy: { sortOrder: "asc" } },
       location: true,
       processes: { orderBy: { name: "asc" } },
       requirements: { include: { norm: true } },
-      legalRequirements: { select: legalLinkSelect, orderBy: { number: "asc" } },
+      legalRequirements: { select: legalLinkSelect, orderBy: [{ externalRef: "asc" }, { number: "asc" }] },
       environmentalAspects: { select: aspectLinkSelect, orderBy: { number: "asc" } },
       actions: { orderBy: { number: "desc" }, include: { owner: { select: { name: true } } } },
     },
@@ -47,7 +49,7 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
   await logAudit({ user, action: "VIEW", entityType: "Risk", entityId: id });
 
   const editable = canEditRisk(user, risk);
-  const code = riskCode(risk.number, risk.type);
+  const code = riskDisplayCode(risk);
   const assessedAfter = risk.likelihoodAfter != null && risk.impactAfter != null;
 
   const markers: Record<string, string[]> = {};
@@ -77,6 +79,10 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
           <span className="flex flex-wrap items-center gap-2">
             <Badge className={risk.type === "RISK" ? "bg-red-50 text-brand-red-dark" : "bg-green-50 text-green-800"}>{RISK_TYPE_LABEL[risk.type]}</Badge>
             <Badge>{RISK_CATEGORY_LABEL[risk.category]}</Badge>
+            <Badge className={risk.strategic ? "bg-red-100 text-brand-red-dark" : "bg-neutral-100 text-neutral-700"}>
+              {PRIORITY_LABEL[riskPriority(risk)]}
+            </Badge>
+            <Badge className={TREATMENT_STATUS_CLASS[risk.treatmentStatus]}>Aanpak: {TREATMENT_STATUS_LABEL[risk.treatmentStatus]}</Badge>
             <Badge className={RISK_STATUS_CLASS[risk.status]}>{RISK_STATUS_LABEL[risk.status]}</Badge>
           </span>
         }
@@ -86,19 +92,35 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
         <section className="card text-sm lg:col-span-2">
           {risk.description && <p className="mb-4 whitespace-pre-line">{risk.description}</p>}
           <div className="grid gap-4 md:grid-cols-2">
-            <Info label="Oorzaak">{risk.cause}</Info>
-            <Info label="Gevolg">{risk.consequence}</Info>
-            <Info label="Beheersmaatregelen" className="md:col-span-2">
+            <Info label={risk.type === "OPPORTUNITY" ? "Aanleiding" : "Oorzaak / context"}>{risk.cause}</Info>
+            <Info label={risk.type === "OPPORTUNITY" ? "Opbrengst" : "Gevolg"}>{risk.consequence}</Info>
+            <Info label={risk.type === "OPPORTUNITY" ? "Actie om te benutten" : "Beheersmaatregel"} className="md:col-span-2">
               {risk.measures}
             </Info>
+            <Info label="Monitoring / KPI">{risk.monitoring}</Info>
+            <Info label="Kader">{risk.framework}</Info>
+            {risk.notes && (
+              <Info label="Opmerking" className="md:col-span-2">
+                {risk.notes}
+              </Info>
+            )}
           </div>
           <dl className="mt-5 grid grid-cols-[9rem_1fr] gap-y-1.5 border-t border-neutral-100 pt-4">
             <dt className="text-neutral-500">Eigenaar</dt>
-            <dd>{risk.owner?.name ?? <span className="text-brand-red">Geen eigenaar</span>}</dd>
-            <dt className="text-neutral-500">Discipline</dt>
-            <dd>{risk.discipline?.name ?? "Bedrijfsbreed"}</dd>
+            <dd>
+              {risk.ownerText ?? (!risk.owner && <span className="text-brand-red">Geen eigenaar</span>)}
+              {risk.owner && <span className={risk.ownerText ? "ml-1 text-neutral-500" : ""}>{risk.ownerText ? `(${risk.owner.name})` : risk.owner.name}</span>}
+            </dd>
+            <dt className="text-neutral-500">Termijn</dt>
+            <dd>{risk.term ?? "—"}</dd>
+            <dt className="text-neutral-500">BU</dt>
+            <dd>{risk.disciplines.length ? risk.disciplines.map((d) => d.name).join(", ") : "Groep (bedrijfsbreed)"}</dd>
+            <dt className="text-neutral-500">Herkomst</dt>
+            <dd>{[risk.origin, risk.contextFactor, risk.theme].filter(Boolean).join(" · ") || "—"}</dd>
             <dt className="text-neutral-500">Locatie</dt>
             <dd>{risk.location?.name ?? "Alle locaties"}</dd>
+            <dt className="text-neutral-500">Laatst beoordeeld</dt>
+            <dd>{formatDate(risk.lastReviewedAt)}</dd>
             <dt className="text-neutral-500">Volgende beoordeling</dt>
             <dd className={reviewOverdue ? "font-semibold text-brand-red" : ""}>
               {formatDate(risk.reviewDate)}
@@ -127,6 +149,10 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
           </div>
           <RiskMatrix type={risk.type} markers={markers} size="sm" />
           <p className="mt-2 text-xs text-neutral-500">B = vóór maatregelen (bruto), N = na maatregelen (rest).</p>
+          <p className="mt-2 rounded-md bg-neutral-50 p-2 text-xs text-neutral-600">
+            <strong>{RISK_LEVEL_LABEL[riskLevel(risk.likelihoodBefore * risk.impactBefore)]}:</strong>{" "}
+            {RISK_LEVEL_APPROACH[riskLevel(risk.likelihoodBefore * risk.impactBefore)][risk.type === "RISK" ? "risk" : "opportunity"]}
+          </p>
         </section>
       </div>
 
@@ -227,7 +253,7 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
               <Select
                 name="priority"
                 options={options(ACTION_PRIORITY_LABEL)}
-                defaultValue={riskLevel(risk.likelihoodBefore * risk.impactBefore) === "veryHigh" ? "HIGH" : "MEDIUM"}
+                defaultValue={riskLevel(risk.likelihoodBefore * risk.impactBefore) === "high" ? "HIGH" : "MEDIUM"}
               />
             </Field>
             <SubmitButton variant="secondary">Actie toevoegen</SubmitButton>

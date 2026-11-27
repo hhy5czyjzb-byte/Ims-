@@ -41,13 +41,21 @@ export default async function MasterDataPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="card">
-          <h2 className="mb-3">Locaties</h2>
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2>Locaties</h2>
+            {canEdit && (
+              <Link href="/beheer/vestigingen-import" className="text-sm">
+                Importeren uit Excel
+              </Link>
+            )}
+          </div>
           <ul className="mb-4 divide-y divide-neutral-100 text-sm">
             {locations.map((l) => (
               <li key={l.id} className="flex items-center justify-between py-1.5">
                 <span className={l.active ? "" : "text-neutral-400 line-through"}>
                   {l.name}
-                  {l.address && <span className="block text-xs text-neutral-500">{l.address}</span>}
+                  {(l.address || l.city) && <span className="block text-xs text-neutral-500">{[l.address, l.city].filter(Boolean).join(", ")}</span>}
+                  {l.energySavingObligation && <span className="block text-xs text-neutral-400">Energiebesparingsplicht: {l.energySavingObligation}</span>}
                 </span>
                 {canEdit && (
                   <Form action={toggleActive.bind(null, "location", l.id)}>

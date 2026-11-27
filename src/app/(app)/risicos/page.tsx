@@ -4,8 +4,8 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { formatDate, isOverdue } from "@/lib/format";
-import { RISK_CATEGORY_LABEL, RISK_STATUS_CLASS, RISK_STATUS_LABEL, options } from "@/lib/labels";
-import { RISK_LEVEL_LABEL, residual, riskCode, riskLevel, type RiskLevel } from "@/lib/risk";
+import { RISK_CATEGORY_LABEL, RISK_STATUS_LABEL, TREATMENT_STATUS_CLASS, TREATMENT_STATUS_LABEL, options } from "@/lib/labels";
+import { PRIORITY_LABEL, RISK_LEVEL_LABEL, residual, riskDisplayCode, riskLevel, riskPriority, type RiskLevel } from "@/lib/risk";
 import { Badge, Disclosure, EmptyState, Field, PageHeader, Select } from "@/components/ui";
 import { RiskMatrix, ScoreBadge } from "@/components/risk-matrix";
 import { RiskForm } from "@/components/risk-form";
@@ -31,7 +31,7 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
       where,
       include: {
         owner: { select: { name: true } },
-        discipline: { select: { name: true } },
+        disciplines: { select: { name: true }, orderBy: { sortOrder: "asc" } },
         location: { select: { name: true } },
         processes: { select: { id: true, name: true } },
         _count: { select: { actions: { where: { status: { in: ["OPEN", "IN_PROGRESS"] } } } } },
@@ -64,10 +64,19 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
       const p = position(r);
       if (selectedCell && (p.likelihood !== selectedCell.likelihood || p.impact !== selectedCell.impact)) return false;
       if (level && riskLevel(p.likelihood * p.impact) !== level) return false;
+      if (sp.prioriteit === "2" || sp.prioriteit === "3") {
+        if (String(riskPriority(r)) !== sp.prioriteit) return false;
+      }
       return true;
     })
-    // Eerst risico's, dan kansen; binnen elk het hoogste restrisico / de aantrekkelijkste kans bovenaan.
-    .sort((a, b) => (a.type === b.type ? 0 : a.type === "RISK" ? -1 : 1) || residual(b).score - residual(a).score || a.number - b.number);
+    // Eerst risico's, dan kansen; binnen elk: prioriteit (★ strategisch bovenaan), dan hoogste score, dan eigen nummer.
+    .sort(
+      (a, b) =>
+        (a.type === b.type ? 0 : a.type === "RISK" ? -1 : 1) ||
+        riskPriority(a) - riskPriority(b) ||
+        residual(b).score - residual(a).score ||
+        riskDisplayCode(a).localeCompare(riskDisplayCode(b), "nl", { numeric: true }),
+    );
 
   const query = (patch: Partial<Search>) => {
     const p = new URLSearchParams();
@@ -85,9 +94,16 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
         title="Risico's en kansen"
         description="Risico- en kansenregister inclusief RI&E. Beoordeling met de 5×5-matrix (kans × effect), vóór en na maatregelen, met eigenaar en acties."
         actions={
-          <a href={`/risicos/export${exportQuery ? `?${exportQuery}` : ""}`} className="btn-secondary">
-            Exporteren naar Excel (CSV)
-          </a>
+          <>
+            {can(user.role, "risks.editAny") && (
+              <Link href="/risicos/import" className="btn-secondary">
+                Importeren uit Excel
+              </Link>
+            )}
+            <a href={`/risicos/export${exportQuery ? `?${exportQuery}` : ""}`} className="btn-secondary">
+              Exporteren naar Excel (CSV)
+            </a>
+          </>
         }
       />
 
@@ -152,6 +168,21 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
         <Field label="Locatie">
           <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
         </Field>
+        <Field label="Prioriteit">
+          <Select
+            name="prioriteit"
+            options={[
+              { value: "1", label: "★ 1 · Strategisch" },
+              { value: "2", label: "2 · Hoog" },
+              { value: "3", label: "3 · Regulier" },
+            ]}
+            defaultValue={sp.prioriteit}
+            placeholder="Alle"
+          />
+        </Field>
+        <Field label="Aanpak">
+          <Select name="aanpak" options={options(TREATMENT_STATUS_LABEL)} defaultValue={sp.aanpak} placeholder="Alle" />
+        </Field>
         <Field label="Klasse">
           <Select name="klasse" options={LEVELS.map((l) => ({ value: l, label: RISK_LEVEL_LABEL[l] }))} defaultValue={sp.klasse} placeholder="Alle" />
         </Field>
@@ -208,8 +239,7 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
           )}
         </div>
         <p className="mt-3 text-xs text-neutral-500">
-          Klik op een cel om de lijst te filteren. Klassen: laag 1–4, middel 5–9, hoog 10–14, zeer hoog 15–25. Bij kansen betekent een hogere score een
-          aantrekkelijkere kans.
+          Klik op een cel om de lijst te filteren. Niveaus: laag 1–7, midden 8–14, hoog 15–25. Bij kansen betekent een hogere score een aantrekkelijkere kans.
         </p>
       </section>
 
@@ -220,12 +250,13 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
           <table className="table">
             <thead>
               <tr>
-                <th>Code</th>
+                <th>Nr.</th>
+                <th>Prio</th>
                 <th>Omschrijving</th>
                 <th className="text-center">Bruto</th>
                 <th className="text-center">Rest</th>
                 <th>Eigenaar</th>
-                <th>Status</th>
+                <th>Aanpak</th>
                 <th className="text-center">Open acties</th>
                 <th>Beoordelen vóór</th>
               </tr>
@@ -235,14 +266,24 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
                 const res = residual(r);
                 const reviewOverdue = r.status !== "CLOSED" && isOverdue(r.reviewDate);
                 return (
-                  <tr key={r.id}>
-                    <td className="font-mono text-xs whitespace-nowrap">{riskCode(r.number, r.type)}</td>
+                  <tr key={r.id} className={r.strategic ? "bg-red-50/40" : ""}>
+                    <td className="font-mono text-xs whitespace-nowrap">{riskDisplayCode(r)}</td>
+                    <td className="text-xs whitespace-nowrap" title={PRIORITY_LABEL[riskPriority(r)]}>
+                      {riskPriority(r) === 1 ? <span className="font-semibold text-brand-red">★ 1</span> : riskPriority(r)}
+                    </td>
                     <td>
                       <Link href={`/risicos/${r.id}`} className="font-medium">
                         {r.title}
                       </Link>
                       <div className="text-xs text-neutral-500">
-                        {RISK_CATEGORY_LABEL[r.category]} · {r.discipline?.name ?? "Bedrijfsbreed"} · {r.location?.name ?? "Alle locaties"}
+                        {[
+                          r.theme ?? RISK_CATEGORY_LABEL[r.category],
+                          r.disciplines.length ? r.disciplines.map((d) => d.name).join(", ") : "Groep",
+                          r.location?.name,
+                          r.term,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                         {r.processes.length > 0 && <> · {r.processes.map((p) => p.name).join(", ")}</>}
                       </div>
                     </td>
@@ -256,9 +297,10 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
                         <span className="text-xs text-neutral-400">n.t.b.</span>
                       )}
                     </td>
-                    <td>{r.owner?.name ?? <span className="text-brand-red">Geen</span>}</td>
+                    <td className="text-sm">{r.ownerText ?? r.owner?.name ?? <span className="text-brand-red">Geen</span>}</td>
                     <td>
-                      <Badge className={RISK_STATUS_CLASS[r.status]}>{RISK_STATUS_LABEL[r.status].split(" —")[0]}</Badge>
+                      <Badge className={TREATMENT_STATUS_CLASS[r.treatmentStatus]}>{TREATMENT_STATUS_LABEL[r.treatmentStatus]}</Badge>
+                      {r.status !== "OPEN" && <div className="mt-0.5 text-xs text-neutral-500">{RISK_STATUS_LABEL[r.status].split(" —")[0]}</div>}
                     </td>
                     <td className={`text-center tabular-nums ${r._count.actions === 0 ? "text-neutral-300" : ""}`}>{r._count.actions}</td>
                     <td className={`whitespace-nowrap ${reviewOverdue ? "font-semibold text-brand-red" : ""}`}>

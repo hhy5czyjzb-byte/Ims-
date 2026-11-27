@@ -7,7 +7,16 @@ import { getLegalLinkOptions } from "@/lib/legal-links";
 import { formatDate, isOverdue } from "@/lib/format";
 import { complianceSummary, legalCode } from "@/lib/compliance";
 import { legalWhere, type LegalSearch } from "@/lib/legal-filters";
-import { COMPLIANCE_STATUS_CLASS, COMPLIANCE_STATUS_LABEL, LEGAL_CATEGORY_LABEL, options } from "@/lib/labels";
+import {
+  APPLICABILITY_LABEL,
+  COMPLIANCE_STATUS_CLASS,
+  COMPLIANCE_STATUS_LABEL,
+  IMPACT_LEVEL_LABEL,
+  IMPLEMENTATION_STATUS_CLASS,
+  IMPLEMENTATION_STATUS_LABEL,
+  LEGAL_CATEGORY_LABEL,
+  options,
+} from "@/lib/labels";
 import { Badge, Disclosure, EmptyState, Field, PageHeader, ProgressBar, Select } from "@/components/ui";
 import { LegalForm } from "@/components/legal-form";
 import { createLegal } from "./actions";
@@ -19,11 +28,12 @@ export default async function LegalRegisterPage({ searchParams }: { searchParams
   const sp = await searchParams;
   const canEdit = can(user.role, "legal.edit");
 
-  const [reqs, allActive, lookups, linkOptions] = await Promise.all([
+  const [reqs, allActive, lookups, linkOptions, themes, normList] = await Promise.all([
     prisma.legalRequirement.findMany({
       where: legalWhere(sp, user.id),
-      orderBy: [{ title: "asc" }, { article: "asc" }, { number: "asc" }],
+      orderBy: [{ externalRef: "asc" }, { title: "asc" }, { article: "asc" }, { number: "asc" }],
       include: {
+        norms: { select: { code: true }, orderBy: { sortOrder: "asc" } },
         owner: { select: { name: true } },
         discipline: { select: { name: true } },
         location: { select: { name: true } },
@@ -34,6 +44,8 @@ export default async function LegalRegisterPage({ searchParams }: { searchParams
     prisma.legalRequirement.findMany({ where: { active: true }, select: { status: true, nextReviewDate: true } }),
     getLookups(),
     canEdit ? getLegalLinkOptions() : Promise.resolve(null),
+    prisma.legalRequirement.findMany({ where: { theme: { not: null } }, distinct: ["theme"], select: { theme: true }, orderBy: { theme: "asc" } }),
+    prisma.norm.findMany({ where: { legalRequirements: { some: {} } }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }], select: { id: true, code: true } }),
   ]);
 
   const summary = complianceSummary(allActive.map((r) => r.status));
@@ -114,6 +126,21 @@ export default async function LegalRegisterPage({ searchParams }: { searchParams
             placeholder="Alle"
           />
         </Field>
+        <Field label="Thema">
+          <Select name="thema" options={themes.map((t) => ({ value: t.theme!, label: t.theme! }))} defaultValue={sp.thema} placeholder="Alle" />
+        </Field>
+        <Field label="Geldt voor">
+          <Select name="geldtvoor" options={normList.map((n) => ({ value: n.id, label: n.code }))} defaultValue={sp.geldtvoor} placeholder="Alle" />
+        </Field>
+        <Field label="Van toepassing">
+          <Select name="toepassing" options={options(APPLICABILITY_LABEL)} defaultValue={sp.toepassing} placeholder="Alle" />
+        </Field>
+        <Field label="Uitvoering">
+          <Select name="uitvoering" options={options(IMPLEMENTATION_STATUS_LABEL)} defaultValue={sp.uitvoering} placeholder="Alle" />
+        </Field>
+        <Field label="Impact">
+          <Select name="impact" options={options(IMPACT_LEVEL_LABEL)} defaultValue={sp.impact} placeholder="Alle" />
+        </Field>
         <Field label="Categorie">
           <Select name="categorie" options={options(LEGAL_CATEGORY_LABEL)} defaultValue={sp.categorie} placeholder="Alle" />
         </Field>
@@ -158,8 +185,10 @@ export default async function LegalRegisterPage({ searchParams }: { searchParams
           <table className="table">
             <thead>
               <tr>
-                <th>Code</th>
+                <th>Nr.</th>
                 <th>Wet / eis</th>
+                <th>Geldt voor</th>
+                <th>Uitvoering</th>
                 <th>Eigenaar</th>
                 <th>Status</th>
                 <th>Laatst getoetst</th>
@@ -171,10 +200,10 @@ export default async function LegalRegisterPage({ searchParams }: { searchParams
               {reqs.map((r) => {
                 const late = r.active && r.status !== "NOT_APPLICABLE" && isOverdue(r.nextReviewDate);
                 return (
-                  <tr key={r.id} className={r.active ? "" : "opacity-50"}>
+                  <tr key={r.id} className={!r.active ? "opacity-50" : r.applicability === "NO" ? "bg-neutral-50 text-neutral-500" : ""}>
                     <td className="font-mono text-xs whitespace-nowrap">
-                      {legalCode(r.number)}
-                      {r.externalRef && <div className="text-neutral-400">{r.externalRef}</div>}
+                      {r.externalRef ?? legalCode(r.number)}
+                      {r.externalRef && <div className="text-neutral-400">{legalCode(r.number)}</div>}
                     </td>
                     <td>
                       <Link href={`/wetgeving/${r.id}`} className="font-medium">
@@ -182,12 +211,32 @@ export default async function LegalRegisterPage({ searchParams }: { searchParams
                         {r.article && <span className="font-normal"> — {r.article}</span>}
                       </Link>
                       <div className="text-xs text-neutral-500">
-                        {[r.subject, LEGAL_CATEGORY_LABEL[r.category], r.discipline?.name ?? "Bedrijfsbreed", r.location?.name ?? "Alle locaties"]
+                        {[
+                          r.theme ?? LEGAL_CATEGORY_LABEL[r.category],
+                          r.applicability !== "YES" ? `Van toepassing: ${APPLICABILITY_LABEL[r.applicability]}` : null,
+                          r.discipline?.name ?? "Bedrijfsbreed",
+                          r.location?.name ?? "Alle locaties",
+                        ]
                           .filter(Boolean)
                           .join(" · ")}
                       </div>
                     </td>
-                    <td>{r.owner?.name ?? <span className="text-brand-red">Geen</span>}</td>
+                    <td>
+                      <div className="flex flex-wrap gap-1">
+                        {r.norms.map((n) => (
+                          <Badge key={n.code} className="bg-neutral-100 text-neutral-700">
+                            {n.code}
+                          </Badge>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      {r.implementationStatus && (
+                        <Badge className={IMPLEMENTATION_STATUS_CLASS[r.implementationStatus]}>{IMPLEMENTATION_STATUS_LABEL[r.implementationStatus]}</Badge>
+                      )}
+                      {r.impact && <div className="text-xs text-neutral-500">Impact {IMPACT_LEVEL_LABEL[r.impact].toLowerCase()}</div>}
+                    </td>
+                    <td>{r.owner?.name ?? r.ownerText ?? <span className="text-brand-red">Geen</span>}</td>
                     <td>
                       <Badge className={COMPLIANCE_STATUS_CLASS[r.status]}>{COMPLIANCE_STATUS_LABEL[r.status]}</Badge>
                     </td>

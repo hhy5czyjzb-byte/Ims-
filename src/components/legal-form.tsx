@@ -4,7 +4,7 @@ import { Field, Select } from "@/components/ui";
 import { Form } from "@/components/form";
 import { CheckboxPicker } from "@/components/checkbox-picker";
 import { SubmitButton } from "@/components/submit-button";
-import { LEGAL_CATEGORY_LABEL, options } from "@/lib/labels";
+import { APPLICABILITY_LABEL, IMPACT_LEVEL_LABEL, IMPLEMENTATION_STATUS_LABEL, LEGAL_CATEGORY_LABEL, options } from "@/lib/labels";
 import { toDateInput } from "@/lib/format";
 
 type Opt = { value: string; label: string };
@@ -16,10 +16,16 @@ export function LegalForm({
   linkOptions,
   submitLabel,
 }: {
-  req?: LegalRequirement & { processes: { id: string }[]; documents: { id: string }[]; risks: { id: string }[]; requirements: { id: string }[] };
+  req?: LegalRequirement & {
+    processes: { id: string }[];
+    documents: { id: string }[];
+    risks: { id: string }[];
+    requirements: { id: string }[];
+    norms: { id: string }[];
+  };
   formAction: (formData: FormData) => Promise<ActionResult>;
   lookups: { users: Opt[]; disciplines: Opt[]; locations: Opt[] };
-  linkOptions: { processes: Opt[]; documents: Opt[]; risks: Opt[]; requirementGroups: { norm: string; options: Opt[] }[] };
+  linkOptions: { processes: Opt[]; documents: Opt[]; risks: Opt[]; requirementGroups: { norm: string; options: Opt[] }[]; norms: Opt[] };
   submitLabel: string;
 }) {
   return (
@@ -33,7 +39,19 @@ export function LegalForm({
       <Field label="Categorie">
         <Select name="category" options={options(LEGAL_CATEGORY_LABEL)} defaultValue={req?.category ?? "OTHER"} />
       </Field>
-      <Field label="Onderwerp" className="md:col-span-2">
+      <Field label="Thema">
+        <input name="theme" maxLength={200} defaultValue={req?.theme ?? ""} className="input" placeholder="bijv. Milieu & Omgeving" />
+      </Field>
+      <Field label="Soort regelgeving">
+        <input name="regulationType" maxLength={100} defaultValue={req?.regulationType ?? ""} className="input" placeholder="Wet, Besluit, Norm, Arbo…" />
+      </Field>
+      <Field label="Van toepassing">
+        <Select name="applicability" options={options(APPLICABILITY_LABEL)} defaultValue={req?.applicability ?? "YES"} />
+      </Field>
+      <Field label="Status uitvoering">
+        <Select name="implementationStatus" options={options(IMPLEMENTATION_STATUS_LABEL)} defaultValue={req?.implementationStatus} placeholder="—" />
+      </Field>
+      <Field label="Onderwerp / toepassing bij Rouwmaat" className="md:col-span-2">
         <input name="subject" maxLength={300} defaultValue={req?.subject ?? ""} className="input" placeholder="Bijv. Opslag van afvalstoffen" />
       </Field>
       <Field label="Bevoegd gezag / bron">
@@ -45,6 +63,21 @@ export function LegalForm({
       <Field label="De eis (wat moet je doen?)" className="md:col-span-4">
         <textarea name="description" rows={3} defaultValue={req?.description ?? ""} className="input" />
       </Field>
+      <Field label="Bewijslast" className="md:col-span-2">
+        <input name="evidence" maxLength={5000} defaultValue={req?.evidence ?? ""} className="input" placeholder="bijv. metingen, registraties" />
+      </Field>
+      <Field label="Volgende stap" className="md:col-span-2">
+        <input name="nextStep" maxLength={5000} defaultValue={req?.nextStep ?? ""} className="input" />
+      </Field>
+      <Field label="Eigenaar en frequentie (functie)" className="md:col-span-2">
+        <input name="ownerText" maxLength={200} defaultValue={req?.ownerText ?? ""} className="input" placeholder="bijv. BU-directeur Afval, jaarlijks" />
+      </Field>
+      <Field label="Impact">
+        <Select name="impact" options={options(IMPACT_LEVEL_LABEL)} defaultValue={req?.impact} placeholder="—" />
+      </Field>
+      <Field label="Herkomst">
+        <input name="origin" maxLength={200} defaultValue={req?.origin ?? ""} className="input" placeholder="bijv. Register QHSE" />
+      </Field>
       <Field label="Link naar de wettekst (https)" className="md:col-span-4">
         <input
           name="sourceUrl"
@@ -55,7 +88,7 @@ export function LegalForm({
           placeholder="https://wetten.overheid.nl/…"
         />
       </Field>
-      <Field label="Eigenaar">
+      <Field label="Eigenaar (persoon in de app)">
         <Select name="ownerId" options={lookups.users} defaultValue={req?.ownerId} placeholder="— Kies —" />
       </Field>
       <Field label="Discipline">
@@ -77,6 +110,9 @@ export function LegalForm({
           <input type="checkbox" name="active" defaultChecked={req.active} /> Actief (uitvinken als de eis is vervallen of niet meer relevant is)
         </label>
       )}
+      <Field label="Geldt voor (normen)" className="md:col-span-2" group>
+        <CheckboxPicker name="normIds" groups={[{ label: "Normen", options: linkOptions.norms }]} selected={req?.norms.map((n) => n.id) ?? []} height="10rem" />
+      </Field>
       <Field label="Normeisen (bijv. ISO 14001 6.1.3)" className="md:col-span-2" group>
         <CheckboxPicker
           name="requirementIds"

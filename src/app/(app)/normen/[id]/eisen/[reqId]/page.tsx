@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/rbac";
 import { flattenTree } from "@/lib/tree";
-import { riskCode } from "@/lib/risk";
+import { riskDisplayCode } from "@/lib/risk";
 import { LegalLinkItems, legalLinkSelect } from "@/components/legal-links";
 import { AspectLinkItems, aspectLinkSelect } from "@/components/aspect-links";
 import { auditCode, findingCode } from "@/lib/audit-plan";
@@ -38,7 +38,7 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
       processSteps: { include: { process: true }, orderBy: { sortOrder: "asc" } },
       risks: { orderBy: { title: "asc" } },
       actions: { orderBy: { number: "desc" } },
-      legalRequirements: { select: legalLinkSelect, orderBy: { number: "asc" } },
+      legalRequirements: { select: legalLinkSelect, orderBy: [{ externalRef: "asc" }, { number: "asc" }] },
       environmentalAspects: { select: aspectLinkSelect, orderBy: { number: "asc" } },
       checklistItems: { include: { audit: { select: { id: true, number: true, title: true, status: true, plannedDate: true, completedDate: true } } } },
       findings: { include: { audit: { select: { id: true, number: true } } }, orderBy: { createdAt: "desc" } },
@@ -91,7 +91,7 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
           {req.risks.map((r) => (
             <li key={r.id}>
               <Link href={`/risicos/${r.id}`}>
-                {riskCode(r.number, r.type)} {r.title}
+                {riskDisplayCode(r)} {r.title}
               </Link>
             </li>
           ))}

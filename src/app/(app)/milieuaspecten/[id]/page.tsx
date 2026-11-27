@@ -9,7 +9,7 @@ import { getAspectLinkOptions } from "@/lib/legal-links";
 import { getSignificanceThreshold } from "@/lib/settings";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
 import { aspectCode, determineSignificance } from "@/lib/aspects";
-import { riskCode } from "@/lib/risk";
+import { riskDisplayCode } from "@/lib/risk";
 import { ACTION_PRIORITY_LABEL, ACTION_STATUS_CLASS, ACTION_STATUS_LABEL, ASPECT_TYPE_LABEL, SITUATION_CLASS, SITUATION_LABEL, options } from "@/lib/labels";
 import { Badge, Disclosure, Field, PageHeader, Select } from "@/components/ui";
 import { Form } from "@/components/form";
@@ -30,7 +30,7 @@ export default async function AspectDetailPage({ params }: { params: Promise<{ i
       location: true,
       processes: { orderBy: { name: "asc" } },
       risks: { orderBy: { number: "asc" } },
-      legalRequirements: { select: legalLinkSelect, orderBy: { number: "asc" } },
+      legalRequirements: { select: legalLinkSelect, orderBy: [{ externalRef: "asc" }, { number: "asc" }] },
       requirements: { include: { norm: true } },
       actions: { orderBy: { number: "desc" }, include: { owner: { select: { name: true } } } },
     },
@@ -205,7 +205,7 @@ export default async function AspectDetailPage({ params }: { params: Promise<{ i
             {a.risks.map((r) => (
               <li key={r.id}>
                 <Link href={`/risicos/${r.id}`}>
-                  {riskCode(r.number, r.type)} {r.title}
+                  {riskDisplayCode(r)} {r.title}
                 </Link>
               </li>
             ))}

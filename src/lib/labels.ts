@@ -3,6 +3,7 @@ import type {
   ActionSource,
   ActionStatus,
   AuditStatus,
+  Applicability,
   AspectType,
   AuditType,
   ChecklistResult,
@@ -10,6 +11,8 @@ import type {
   EnergyCategory,
   FindingClass,
   FindingStatus,
+  ImpactLevel,
+  ImplementationStatus,
   LegalCategory,
   NormCategory,
   OperatingSituation,
@@ -17,6 +20,7 @@ import type {
   RiskCategory,
   RiskStatus,
   RiskType,
+  TreatmentStatus,
   Role,
 } from "@prisma/client";
 
@@ -235,6 +239,45 @@ export const SCOPE_LABEL: Record<1 | 2 | 3, string> = {
   2: "Scope 2 — ingekochte elektriciteit en warmte",
   3: "Scope 3 — overige indirecte emissies",
 };
+
+export const TREATMENT_STATUS_LABEL: Record<TreatmentStatus, string> = {
+  OPEN: "Open",
+  PLANNED: "Gepland",
+  IN_PROGRESS: "In uitvoering",
+  ONGOING: "Doorlopend",
+  DONE: "Afgerond",
+};
+
+export const TREATMENT_STATUS_CLASS: Record<TreatmentStatus, string> = {
+  OPEN: "bg-blue-100 text-blue-800",
+  PLANNED: "bg-sky-100 text-sky-800",
+  IN_PROGRESS: "bg-amber-100 text-amber-800",
+  ONGOING: "bg-neutral-100 text-neutral-700",
+  DONE: "bg-green-100 text-green-800",
+};
+
+export const APPLICABILITY_LABEL: Record<Applicability, string> = {
+  YES: "Ja",
+  CONDITIONAL: "Voorwaardelijk",
+  TO_DETERMINE: "Nog bepalen",
+  NO: "Nee",
+};
+
+export const IMPLEMENTATION_STATUS_LABEL: Record<ImplementationStatus, string> = {
+  IMPLEMENTED: "Geïmplementeerd",
+  IN_PROGRESS: "In opzet",
+  ACTION_NEEDED: "Actie nodig",
+  NOT_APPLICABLE: "N.v.t.",
+};
+
+export const IMPLEMENTATION_STATUS_CLASS: Record<ImplementationStatus, string> = {
+  IMPLEMENTED: "bg-green-100 text-green-800",
+  IN_PROGRESS: "bg-amber-100 text-amber-800",
+  ACTION_NEEDED: "bg-red-100 text-brand-red-dark",
+  NOT_APPLICABLE: "bg-neutral-200 text-neutral-500",
+};
+
+export const IMPACT_LEVEL_LABEL: Record<ImpactLevel, string> = { HIGH: "Hoog", MEDIUM: "Middel", LOW: "Laag" };
 
 export function options<T extends string>(labels: Record<T, string>) {
   return (Object.keys(labels) as T[]).map((value) => ({ value, label: labels[value] }));

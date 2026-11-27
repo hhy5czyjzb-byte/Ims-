@@ -7,8 +7,8 @@ import { logAudit } from "@/lib/audit";
 import { can, canEditAction } from "@/lib/rbac";
 import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
-import { riskCode } from "@/lib/risk";
-import { legalCode } from "@/lib/compliance";
+import { riskDisplayCode } from "@/lib/risk";
+import { legalDisplayCode } from "@/lib/compliance";
 import { aspectCode } from "@/lib/aspects";
 import { formatKg } from "@/lib/co2";
 import { findingCode } from "@/lib/audit-plan";
@@ -169,7 +169,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
                 <dt className="text-neutral-500">Wettelijke eis</dt>
                 <dd>
                   <Link href={`/wetgeving/${action.legalRequirement.id}`}>
-                    {legalCode(action.legalRequirement.number)} {action.legalRequirement.title}
+                    {legalDisplayCode(action.legalRequirement)} {action.legalRequirement.title}
                   </Link>
                 </dd>
               </>
@@ -179,7 +179,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
                 <dt className="text-neutral-500">Risico</dt>
                 <dd>
                   <Link href={`/risicos/${action.risk.id}`}>
-                    {riskCode(action.risk.number, action.risk.type)} {action.risk.title}
+                    {riskDisplayCode(action.risk)} {action.risk.title}
                   </Link>
                 </dd>
               </>

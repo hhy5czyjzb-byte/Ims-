@@ -15,11 +15,22 @@ import {
   type Mapping,
   type PreviewKind,
 } from "@/lib/spreadsheet-import";
-import { parseCategory, parseStatus } from "@/lib/legal-import";
+import { parseApplicability, parseCategory, parseImpact, parseImplementationStatus, parseStatus } from "@/lib/legal-import";
+import { parseRiskType, parseTreatmentStatus } from "@/lib/risk-import";
 import { parseAspectType, parseSituation } from "@/lib/aspect-import";
 import { parseDecimal, parsePeriod, formatQuantity } from "@/lib/co2";
 import { formatDate } from "@/lib/format";
-import { ASPECT_TYPE_LABEL, COMPLIANCE_STATUS_LABEL, LEGAL_CATEGORY_LABEL, SITUATION_LABEL } from "@/lib/labels";
+import {
+  APPLICABILITY_LABEL,
+  ASPECT_TYPE_LABEL,
+  COMPLIANCE_STATUS_LABEL,
+  IMPACT_LEVEL_LABEL,
+  IMPLEMENTATION_STATUS_LABEL,
+  LEGAL_CATEGORY_LABEL,
+  RISK_TYPE_LABEL,
+  SITUATION_LABEL,
+  TREATMENT_STATUS_LABEL,
+} from "@/lib/labels";
 
 type Sheet = { name: string; rows: unknown[][] };
 const MAX_FILE_MB = 10;
@@ -44,6 +55,23 @@ const PREVIEW: Record<PreviewKind, (raw: string, row: ImportRow) => string | nul
   decimal: (raw) => {
     const n = parseDecimal(raw);
     return n.value === null ? null : formatQuantity(n.value);
+  },
+  riskType: (raw, row) => RISK_TYPE_LABEL[parseRiskType(raw, row.externalRef)],
+  treatmentStatus: (raw) => {
+    const t = parseTreatmentStatus(raw);
+    return t ? TREATMENT_STATUS_LABEL[t] : null;
+  },
+  applicability: (raw) => {
+    const a = parseApplicability(raw);
+    return a ? APPLICABILITY_LABEL[a] : null;
+  },
+  implementationStatus: (raw) => {
+    const i = parseImplementationStatus(raw);
+    return i ? IMPLEMENTATION_STATUS_LABEL[i] : null;
+  },
+  impactLevel: (raw) => {
+    const i = parseImpact(raw);
+    return i ? IMPACT_LEVEL_LABEL[i] : null;
   },
   yesNo: (raw) => {
     const b = parseYesNo(raw);

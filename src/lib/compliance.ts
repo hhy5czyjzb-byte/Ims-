@@ -5,6 +5,11 @@ export function legalCode(number: number): string {
   return `W-${String(number).padStart(3, "0")}`;
 }
 
+/** Code zoals de gebruiker die kent: het nummer uit het eigen register (bijv. W001), anders W-001. */
+export function legalDisplayCode(r: { number: number; externalRef?: string | null }): string {
+  return r.externalRef || legalCode(r.number);
+}
+
 /** Volgende toetsdatum: laatste toetsing + interval in maanden (einde maand afgekapt, bijv. 31 jan + 1 = 28/29 feb). */
 export function addMonths(date: Date, months: number): Date {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));

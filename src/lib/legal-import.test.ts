@@ -41,6 +41,18 @@ test("suggestMapping gebruikt een kolom maar één keer", () => {
 
 test("findHeaderRow slaat titelregels over", () => {
   assert.equal(findHeaderRow([["Register wet- en regelgeving 2026"], [], ["Wet", "Artikel", "Status"], ["Bal", "3.1", "ja"]]), 2);
+  // groepskoppen boven de kopregel (samengevoegde cellen) worden overgeslagen
+  assert.equal(
+    findHeaderRow([
+      ["Risico’s"],
+      ["toelichting"],
+      [],
+      ["WAT", "BEOORDELING", "AANPAK"],
+      ["Nr.", "Omschrijving", "Thema", "Kans", "Effect", "Score"],
+      ["R01", "Compliance", "Wet", 3, 4, 12],
+    ]),
+    4,
+  );
 });
 
 test("parseCsv: puntkomma, aanhalingstekens en regeleinden", () => {
@@ -115,4 +127,90 @@ test("parseIntCell en parseYesNo", () => {
   assert.equal(parseYesNo("niet significant"), false);
   assert.equal(parseYesNo(""), null);
   assert.equal(parseYesNo("misschien"), null);
+});
+
+test("vinkje, streepje en emoji (registers Rouwmaat)", async () => {
+  const { parseYesNo, cellText, stripLeadingSymbols } = await import("./spreadsheet-import");
+  assert.equal(parseYesNo("✓"), true);
+  assert.equal(parseYesNo(" ✔ "), true);
+  assert.equal(cellText("-"), "");
+  assert.equal(cellText(" – "), "");
+  assert.equal(cellText("-5"), "-5");
+  assert.equal(stripLeadingSymbols("🌍 Milieu & Omgeving"), "Milieu & Omgeving");
+  assert.equal(stripLeadingSymbols("⚡ Energie & CO₂"), "Energie & CO₂");
+  assert.equal(parseStatus("Nog te beoordelen"), "NOT_ASSESSED");
+  assert.equal(parseCategory("🧪 Gevaarlijke stoffen"), "HEALTH_SAFETY");
+});
+
+test("kolommen van het register wet- en regelgeving van Rouwmaat worden herkend", async () => {
+  const { LEGAL_IMPORT_FIELDS: F } = await import("./legal-import");
+  const { suggestMapping: sm } = await import("./spreadsheet-import");
+  const h = [
+    "Nr.",
+    "Thema",
+    "Categorie",
+    "Wet- of regelgeving",
+    "Toepassing bij Rouwmaat",
+    "Van toepassing",
+    "ISO 14001",
+    "CO₂-PL",
+    "VCA / arbo",
+    "ISO 9001",
+    "Kernverplichtingen",
+    "Bewijslast",
+    "Eigenaar en frequentie",
+    "Status",
+    "Compliancebeoordeling",
+    "Uitkomst audit",
+    "Actie",
+    "Volgende stap",
+    "Impact",
+    "Laatste controle",
+    "Volgende controle",
+    "Signaal",
+    "Controle uitgevoerd",
+    "Risicoregister",
+    "Herkomst",
+    "Bron",
+  ];
+  const m = sm(h, F);
+  const expect: Record<string, string> = {
+    externalRef: "Nr.",
+    theme: "Thema",
+    regulationType: "Categorie",
+    title: "Wet- of regelgeving",
+    subject: "Toepassing bij Rouwmaat",
+    applicability: "Van toepassing",
+    appliesIso14001: "ISO 14001",
+    appliesCo2: "CO₂-PL",
+    appliesVca: "VCA / arbo",
+    appliesIso9001: "ISO 9001",
+    description: "Kernverplichtingen",
+    evidence: "Bewijslast",
+    owner: "Eigenaar en frequentie",
+    implementationStatus: "Status",
+    status: "Compliancebeoordeling",
+    explanation: "Actie",
+    nextStep: "Volgende stap",
+    impact: "Impact",
+    lastReviewDate: "Laatste controle",
+    nextReviewDate: "Volgende controle",
+    riskRefs: "Risicoregister",
+    origin: "Herkomst",
+    sourceUrl: "Bron",
+  };
+  for (const [k, header] of Object.entries(expect)) assert.equal(h[m[k]], header, k);
+  for (const ignored of ["Uitkomst audit", "Signaal", "Controle uitgevoerd"]) assert.ok(!Object.values(m).includes(h.indexOf(ignored)), ignored);
+});
+
+test("van toepassing, uitvoering en impact", async () => {
+  const { parseApplicability, parseImplementationStatus, parseImpact } = await import("./legal-import");
+  assert.equal(parseApplicability("Voorwaardelijk"), "CONDITIONAL");
+  assert.equal(parseApplicability("Nog bepalen"), "TO_DETERMINE");
+  assert.equal(parseApplicability("Nee"), "NO");
+  assert.equal(parseImplementationStatus("Geïmplementeerd"), "IMPLEMENTED");
+  assert.equal(parseImplementationStatus("In opzet"), "IN_PROGRESS");
+  assert.equal(parseImplementationStatus("Actie nodig"), "ACTION_NEEDED");
+  assert.equal(parseImplementationStatus("N.v.t."), "NOT_APPLICABLE");
+  assert.equal(parseImpact("Middel"), "MEDIUM");
 });

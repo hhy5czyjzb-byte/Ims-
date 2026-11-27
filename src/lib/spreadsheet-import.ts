@@ -7,7 +7,19 @@
 export type FieldKind = "text" | "date" | "int" | "decimal" | "period";
 
 /** Hoe de wizard een waarde in het voorbeeld toont (vertaling naar de waarde die wordt opgeslagen). */
-export type PreviewKind = "legalStatus" | "aspectSituation" | "aspectType" | "yesNo" | "legalCategory" | "period" | "decimal";
+export type PreviewKind =
+  | "legalStatus"
+  | "aspectSituation"
+  | "aspectType"
+  | "yesNo"
+  | "legalCategory"
+  | "period"
+  | "decimal"
+  | "riskType"
+  | "treatmentStatus"
+  | "applicability"
+  | "implementationStatus"
+  | "impactLevel";
 
 export type ImportField = { key: string; label: string; required?: boolean; hints: string[]; kind?: FieldKind; preview?: PreviewKind };
 
@@ -58,10 +70,16 @@ export function suggestMapping(headers: string[], fields: ImportField[]): Mappin
 
 /** Eerste rij met minstens twee gevulde cellen geldt als kopregel (registers beginnen vaak met een titelregel). */
 export function findHeaderRow(rows: unknown[][]): number {
-  for (let i = 0; i < Math.min(rows.length, 30); i++) {
-    const filled = rows[i].filter((c) => c !== null && c !== undefined && String(c).trim() !== "").length;
-    if (filled >= 2) return i;
+  // Kopregel = eerste regel met (bijna) evenveel tekstcellen als de breedste regel bovenin.
+  // Zo worden titelregels en groepskoppen boven de echte kopregel (bijv. "BEOORDELING", "AANPAK") overgeslagen.
+  const top = rows.slice(0, 30);
+  const textCells = (r: unknown[]) => r.filter((c) => typeof c === "string" && c.trim() !== "").length;
+  const widest = Math.max(0, ...top.map((r) => r.filter((c) => c !== null && c !== undefined && String(c).trim() !== "").length));
+  for (let i = 0; i < top.length; i++) {
+    const n = textCells(top[i]);
+    if (n >= 2 && n >= widest * 0.6) return i;
   }
+  for (let i = 0; i < top.length; i++) if (textCells(top[i]) >= 2) return i;
   return 0;
 }
 
@@ -143,6 +161,7 @@ export function parseIntCell(value: unknown): { value: number | null; invalid: b
 
 /** Ja/nee uit vrije tekst; `null` = niet herkend of leeg. */
 export function parseYesNo(value: unknown): boolean | null {
+  if (/^\s*[✓✔☑]\s*$/.test(String(value ?? ""))) return true; // vinkje
   const v = normText(String(value ?? ""));
   if (!v) return null;
   if (/^(ja|j|yes|y|x|v|waar|true|1|significant|s)$/.test(v)) return true;
@@ -153,7 +172,13 @@ export function parseYesNo(value: unknown): boolean | null {
 export function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toISOString().slice(0, 10);
-  return String(value).trim();
+  const t = String(value).trim();
+  return /^[-–—]$/.test(t) ? "" : t; // een los streepje betekent "leeg"
+}
+
+/** Tekst zonder emoji of symbolen vooraan, bijv. "🌍 Milieu & Omgeving" → "Milieu & Omgeving". */
+export function stripLeadingSymbols(text: string): string {
+  return text.replace(/^[^\p{L}\p{N}]+/u, "").trim();
 }
 
 /** Bouw importregels uit de ruwe rijen op basis van de koppeling; datums en getallen genormaliseerd. */

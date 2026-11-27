@@ -1,5 +1,5 @@
-import type { ComplianceStatus, LegalCategory, Prisma } from "@prisma/client";
-import { COMPLIANCE_STATUS_LABEL, LEGAL_CATEGORY_LABEL } from "@/lib/labels";
+import type { Applicability, ComplianceStatus, ImpactLevel, ImplementationStatus, LegalCategory, Prisma } from "@prisma/client";
+import { APPLICABILITY_LABEL, COMPLIANCE_STATUS_LABEL, IMPACT_LEVEL_LABEL, IMPLEMENTATION_STATUS_LABEL, LEGAL_CATEGORY_LABEL } from "@/lib/labels";
 
 export type LegalSearch = {
   q?: string;
@@ -10,6 +10,11 @@ export type LegalSearch = {
   eigenaar?: string;
   toetsing?: string;
   actief?: string;
+  thema?: string;
+  toepassing?: string;
+  geldtvoor?: string;
+  impact?: string;
+  uitvoering?: string;
 };
 
 /**
@@ -32,12 +37,18 @@ export function legalWhere(sp: LegalSearch, userId: string, now = new Date()): P
         { subject: { contains: sp.q, mode: "insensitive" } },
         { description: { contains: sp.q, mode: "insensitive" } },
         { externalRef: { contains: sp.q, mode: "insensitive" } },
+        { theme: { contains: sp.q, mode: "insensitive" } },
       ],
     });
   }
   if (sp.status === "actie") and.push({ status: { in: ["NON_COMPLIANT", "PARTIAL"] } });
   else if (sp.status && sp.status in COMPLIANCE_STATUS_LABEL) and.push({ status: sp.status as ComplianceStatus });
   if (sp.categorie && sp.categorie in LEGAL_CATEGORY_LABEL) and.push({ category: sp.categorie as LegalCategory });
+  if (sp.thema) and.push({ theme: sp.thema });
+  if (sp.toepassing && sp.toepassing in APPLICABILITY_LABEL) and.push({ applicability: sp.toepassing as Applicability });
+  if (sp.geldtvoor) and.push({ norms: { some: { id: sp.geldtvoor } } });
+  if (sp.impact && sp.impact in IMPACT_LEVEL_LABEL) and.push({ impact: sp.impact as ImpactLevel });
+  if (sp.uitvoering && sp.uitvoering in IMPLEMENTATION_STATUS_LABEL) and.push({ implementationStatus: sp.uitvoering as ImplementationStatus });
   if (sp.discipline) and.push({ disciplineId: sp.discipline });
   if (sp.locatie) and.push({ locationId: sp.locatie });
   if (sp.eigenaar === "mij") and.push({ ownerId: userId });
