@@ -85,7 +85,7 @@ async function loadEditable(id: string) {
   const user = await requireUser();
   const risk = await prisma.risk.findUnique({ where: { id } });
   if (!risk) throw new UserError("Risico niet gevonden.");
-  if (!canEditRisk(user, risk)) throw new UserError("Alleen de eigenaar, de aanmaker of KAM kan dit risico wijzigen.");
+  if (!canEditRisk(user, risk)) throw new UserError("Alleen de eigenaar, de aanmaker of QHSE kan dit risico wijzigen.");
   return { user, risk };
 }
 

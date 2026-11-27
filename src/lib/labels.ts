@@ -21,7 +21,7 @@ import type {
 
 /** Nederlandse labels voor enums. */
 export const ROLE_LABEL: Record<Role, string> = {
-  KAM: "KAM",
+  QHSE: "QHSE",
   DIRECTIE: "Directie",
   MIDDENKADER: "Middenkader",
 };

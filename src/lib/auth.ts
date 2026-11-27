@@ -1,12 +1,12 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import AzureADProvider from "next-auth/providers/azure-ad";
-import CredentialsProvider from "next-auth/providers/credentials";
 import type { JWT } from "next-auth/jwt";
 import type { Role } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { azureConfigured, devLoginEnabled, env } from "@/lib/env";
+import { azureConfigured, env, localMode } from "@/lib/env";
+import { getLocalSessionUser } from "@/lib/local-user";
 import { checkMemberGroups } from "@/lib/graph";
 import { logAudit } from "@/lib/audit";
 import { can, roleFromGroups, type Permission } from "@/lib/rbac";
@@ -52,7 +52,7 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
 
 /** Rol uit Entra ID-groepen: groepsclaim in het token, anders via Graph. */
 async function resolveEntraRole(profile: EntraProfile | undefined, accessToken: string | undefined): Promise<Role | null> {
-  const groupIds = [env.groups.kam, env.groups.directie, env.groups.middenkader].filter(Boolean) as string[];
+  const groupIds = [env.groups.qhse, env.groups.directie, env.groups.middenkader].filter(Boolean) as string[];
   let groups = profile?.groups;
   if (!groups && accessToken) {
     // Groepsclaim ontbreekt (bijv. 'group overage'): vraag lidmaatschap op via Graph.
@@ -71,23 +71,6 @@ if (azureConfigured) {
       // Single-tenant: alleen accounts uit de Rouwmaat-tenant.
       tenantId: env.azure.tenantId,
       authorization: { params: { scope: GRAPH_SCOPES } },
-    }),
-  );
-}
-
-if (devLoginEnabled) {
-  providers.push(
-    CredentialsProvider({
-      id: "dev",
-      name: "Ontwikkel-login",
-      credentials: { userId: { label: "Gebruiker", type: "text" } },
-      async authorize(credentials) {
-        // Dubbele controle: nooit in productie.
-        if (!devLoginEnabled || !credentials?.userId) return null;
-        const user = await prisma.user.findUnique({ where: { id: credentials.userId } });
-        if (!user || !user.active) return null;
-        return { id: user.id, name: user.name, email: user.email };
-      },
     }),
   );
 }
@@ -130,10 +113,7 @@ export const authOptions: NextAuthOptions = {
           token.refreshToken = account.refresh_token;
           token.accessTokenExpires = account.expires_at ? account.expires_at * 1000 : Date.now() + 3600_000;
         } else {
-          // Ontwikkel-login: rol uit de database (testgebruikers uit de seed).
-          const dbUser = await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-          role = dbUser.role;
-          dbUserId = dbUser.id;
+          throw new Error("Onbekende inlogmethode");
         }
 
         token.userId = dbUserId;
@@ -172,6 +152,8 @@ export type SessionUser = { id: string; name: string; email: string; role: Role 
 
 /** Huidige gebruiker in een servercomponent/-actie; stuurt door naar login als niet ingelogd. */
 export async function requireUser(): Promise<SessionUser> {
+  // Lokale modus (fase 1): geen inlog; de middleware staat alleen verzoeken via localhost toe.
+  if (localMode) return getLocalSessionUser();
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.role) redirect("/login");
   return session.user;
@@ -188,6 +170,7 @@ export async function requirePermission(permission: Permission): Promise<Session
 
 /** Graph-token van de huidige gebruiker (server-side, verlaat de server nooit). */
 export async function getGraphAccessToken(): Promise<string | null> {
+  if (localMode) return null;
   const { cookies, headers } = await import("next/headers");
   const { getToken } = await import("next-auth/jwt");
   const cookieStore = await cookies();

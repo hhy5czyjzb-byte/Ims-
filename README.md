@@ -6,21 +6,22 @@ Integraal managementsysteem (IMS) voor alle certificeringen van Rouwmaat Groep (
 
 ## Status (versie 0.1, fase 1)
 
-| Module                                                                                                                                      | Status                                              |
-| ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Inloggen met Microsoft 365 (Entra ID), rollen uit Entra ID-groepen                                                                          | ✅ gebouwd (nog te koppelen aan de app-registratie) |
-| Normenbeheer: normen, eisen/hoofdstukken, dekking met bewijs                                                                                | ✅                                                  |
-| Processen: proceskaart per discipline, processtappen, RACI, koppelingen                                                                     | ✅                                                  |
-| Documentbeheer: verwijzingen naar SharePoint, sync via Graph, koppelingen                                                                   | ✅ (sync nog te testen met echte bibliotheek)       |
-| Risico's en kansen (incl. RI&E): 5×5-matrix vóór/na maatregelen, filters, acties, CSV-export                                                | ✅                                                  |
-| Audits (intern, extern, klant): planning, checklist per norm, bevindingen met opvolging, planning over de certificatiecyclus                | ✅                                                  |
-| Wet- en regelgeving: register met compliancestatus, toetsingen (evaluatie naleving), acties, Excel-import met kolommen koppelen, CSV-export | ✅                                                  |
-| Milieuaspecten: register met scoring (F × E × O), significantie (instelbare drempel), acties, Excel-import, CSV-export                      | ✅                                                  |
-| Acties en verbeterpunten                                                                                                                    | ✅                                                  |
-| Dashboard                                                                                                                                   | ✅ eenvoudige versie                                |
-| Stamgegevens (locaties, disciplines, functies) en logboek (audit trail)                                                                     | ✅                                                  |
-| Datamodel voor leveranciers en stakeholders                                                                                                 | ✅ in database, schermen volgen                     |
-| CO2, directiebeoordeling, …                                                                                                                 | ⏳ volgende fasen                                   |
+| Module                                                                                                                                      | Status                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Lokale modus zonder inloggen (fase 1), met "Bekijken als" voor de andere rollen                                                             | ✅                                            |
+| Inloggen met Microsoft 365 (Entra ID), rollen uit Entra ID-groepen                                                                          | ✅ gebouwd, nog niet gekoppeld (fase 2)       |
+| Normenbeheer: normen, eisen/hoofdstukken, dekking met bewijs                                                                                | ✅                                            |
+| Processen: proceskaart per discipline, processtappen, RACI, koppelingen                                                                     | ✅                                            |
+| Documentbeheer: verwijzingen naar SharePoint, sync via Graph, koppelingen                                                                   | ✅ (sync nog te testen met echte bibliotheek) |
+| Risico's en kansen (incl. RI&E): 5×5-matrix vóór/na maatregelen, filters, acties, CSV-export                                                | ✅                                            |
+| Audits (intern, extern, klant): planning, checklist per norm, bevindingen met opvolging, planning over de certificatiecyclus                | ✅                                            |
+| Wet- en regelgeving: register met compliancestatus, toetsingen (evaluatie naleving), acties, Excel-import met kolommen koppelen, CSV-export | ✅                                            |
+| Milieuaspecten: register met scoring (F × E × O), significantie (instelbare drempel), acties, Excel-import, CSV-export                      | ✅                                            |
+| Acties en verbeterpunten                                                                                                                    | ✅                                            |
+| Dashboard                                                                                                                                   | ✅ eenvoudige versie                          |
+| Stamgegevens (locaties, disciplines, functies) en logboek (audit trail)                                                                     | ✅                                            |
+| Datamodel voor leveranciers en stakeholders                                                                                                 | ✅ in database, schermen volgen               |
+| CO2, directiebeoordeling, …                                                                                                                 | ⏳ volgende fasen                             |
 
 ## Snel starten (lokaal, laptop)
 
@@ -33,12 +34,12 @@ docker compose up -d
 # 2. Configuratie
 cp .env.example .env
 #    - vul NEXTAUTH_SECRET in:  openssl rand -base64 32
-#    - laat AUTH_DEV_LOGIN="true" staan zolang Microsoft 365 nog niet is gekoppeld
+#    - laat AUTH_MODE="local" staan: je komt zonder inloggen binnen (zet LOCAL_USER_NAME op je eigen naam)
 
 # 3. Installeren, database aanmaken en vullen
 npm install
 npm run db:deploy        # tabellen aanmaken
-npm run db:seed          # normen, disciplines, functies, testgebruikers
+npm run db:seed          # normen, disciplines, functies, lokale gebruiker en testgebruikers
 # of, met voorbeeldproces en voorbeeldacties:
 SEED_DEMO=true npm run db:seed
 
@@ -46,22 +47,27 @@ SEED_DEMO=true npm run db:seed
 npm run dev              # → http://localhost:3000
 ```
 
-Zolang Microsoft 365 nog niet is gekoppeld, log je in met de **ontwikkel-login** (kies een testgebruiker: KAM, Directie of Middenkader). Die login werkt alleen lokaal en wordt in productie altijd uitgeschakeld.
+**Inloggen is in fase 1 niet nodig.** Je komt direct binnen als de lokale gebruiker (`LOCAL_USER_NAME`, rol QHSE). Met **"Bekijken als"** onderin het menu kijk je mee met de rechten van een andere rol (testgebruikers QHSE, Directie, Middenkader); kies "jijzelf" om terug te gaan.
+
+Veiligheid van de lokale modus: de app is dan alleen bereikbaar via `localhost` (andere adressen krijgen een foutmelding) en `npm run dev` / `npm run start:local` luisteren alleen op de eigen laptop. Gebruik de lokale modus nooit op een server; daar geldt `AUTH_MODE="entra"` (Microsoft 365).
 
 ## Handige commando's
 
-| Commando                                                | Wat                                                     |
-| ------------------------------------------------------- | ------------------------------------------------------- |
-| `npm run dev`                                           | Ontwikkelserver                                         |
-| `npm run build` / `npm start`                           | Productiebuild / starten                                |
-| `npm test`                                              | Unit tests (Node test runner)                           |
-| `npm run lint` / `npm run typecheck` / `npm run format` | Codekwaliteit                                           |
-| `npm run db:migrate -- --name <naam>`                   | Nieuwe migratie na wijziging van `prisma/schema.prisma` |
-| `npm run db:deploy`                                     | Migraties toepassen (test/productie)                    |
-| `npm run db:seed`                                       | Basisgegevens (idempotent)                              |
-| `npm run db:studio`                                     | Database bekijken in de browser                         |
+| Commando                                                | Wat                                                            |
+| ------------------------------------------------------- | -------------------------------------------------------------- |
+| `npm run dev`                                           | Ontwikkelserver                                                |
+| `npm run build` / `npm run start:local`                 | Productiebuild / starten op de eigen laptop (alleen localhost) |
+| `npm start`                                             | Productiebuild / starten                                       |
+| `npm test`                                              | Unit tests (Node test runner)                                  |
+| `npm run lint` / `npm run typecheck` / `npm run format` | Codekwaliteit                                                  |
+| `npm run db:migrate -- --name <naam>`                   | Nieuwe migratie na wijziging van `prisma/schema.prisma`        |
+| `npm run db:deploy`                                     | Migraties toepassen (test/productie)                           |
+| `npm run db:seed`                                       | Basisgegevens (idempotent)                                     |
+| `npm run db:studio`                                     | Database bekijken in de browser                                |
 
-## Microsoft 365 koppelen (Entra ID)
+## Microsoft 365 koppelen (Entra ID) — fase 2
+
+Zet daarna `AUTH_MODE="entra"` in `.env` (of laat het leeg zodra de AZURE_AD_* zijn ingevuld). Het loginscherm verschijnt dan en de lokale modus en "Bekijken als" verdwijnen.
 
 Door de IT-beheerder van Rouwmaat in [Entra ID](https://entra.microsoft.com):
 
@@ -70,7 +76,7 @@ Door de IT-beheerder van Rouwmaat in [Entra ID](https://entra.microsoft.com):
 2. **Certificaten en geheimen** → nieuw clientgeheim. Zet in `.env`: `AZURE_AD_TENANT_ID`, `AZURE_AD_CLIENT_ID`, `AZURE_AD_CLIENT_SECRET`.
 3. **API-machtigingen** (gedelegeerd, Microsoft Graph): `User.Read`, `GroupMember.Read.All`, `Sites.Read.All`, `offline_access` → _beheerderstoestemming verlenen_.
 4. **Tokenconfiguratie** → _groepsclaim toevoegen_ → _beveiligingsgroepen_ (groeps-ID's in het ID-token).
-5. **Beveiligingsgroepen** aanmaken (bijv. `IMS-KAM`, `IMS-Directie`, `IMS-Middenkader`) en de object-ID's invullen bij `ENTRA_GROUP_KAM`, `ENTRA_GROUP_DIRECTIE`, `ENTRA_GROUP_MIDDENKADER`.
+5. **Beveiligingsgroepen** aanmaken (bijv. `IMS-QHSE`, `IMS-Directie`, `IMS-Middenkader`) en de object-ID's invullen bij `ENTRA_GROUP_QHSE`, `ENTRA_GROUP_DIRECTIE`, `ENTRA_GROUP_MIDDENKADER`.
 6. **MFA en conditional access** regel je in Entra ID (bijv. via een conditional-access-beleid op deze app). De app zelf bewaart geen wachtwoorden.
 
 Wie in geen van de drie groepen zit, komt er niet in. Rollen wijzig je **alleen in Microsoft 365**: bij de volgende login neemt de app de rol over.
@@ -84,9 +90,9 @@ De documenten staan in één SharePoint-bibliotheek (_IMS-documenten_). De app s
    daarna `GET /sites/{site-id}/drives` → `id` van _IMS-documenten_ = drive-ID.
 2. Vul `SHAREPOINT_SITE_ID` en `SHAREPOINT_DRIVE_ID` in `.env` in.
 3. Controleer de interne kolomnamen van de bibliotheek (bijv. `Revisiedatum`, `Eigenaar`) en pas zo nodig `FIELD_MAP` in `src/lib/graph.ts` aan.
-4. In Documentbeheer verschijnt dan de knop _Synchroniseren met SharePoint_ (alleen voor KAM, met de SharePoint-rechten van de ingelogde gebruiker).
+4. In Documentbeheer verschijnt dan de knop _Synchroniseren met SharePoint_ (alleen voor QHSE, met de SharePoint-rechten van de ingelogde gebruiker).
 
-Zolang de koppeling nog niet actief is, kan KAM documenten handmatig registreren met een link naar SharePoint.
+Zolang de koppeling nog niet actief is, kan QHSE documenten handmatig registreren met een link naar SharePoint.
 
 ## Omgevingen
 

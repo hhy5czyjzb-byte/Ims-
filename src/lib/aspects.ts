@@ -4,7 +4,7 @@ import type { AspectType, OperatingSituation } from "@prisma/client";
  * Milieuaspecten (ISO 14001 6.1.2): scoring en significantie.
  * Score = frequentie/kans (F) × ernst (E) × omvang (O), elk 1–5 → 1–125.
  * Significant als (a) score ≥ drempel, (b) er een bindende verplichting van toepassing is,
- * of (c) belanghebbenden er zorgen over hebben — tenzij KAM het handmatig heeft bepaald.
+ * of (c) belanghebbenden er zorgen over hebben — tenzij QHSE het handmatig heeft bepaald.
  */
 export const DEFAULT_SIGNIFICANCE_THRESHOLD = 27; // 3 × 3 × 3
 export const SIGNIFICANCE_THRESHOLD_KEY = "aspects.significanceThreshold";

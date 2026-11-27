@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useTransition } from "react";
+import { setViewAs } from "@/app/(app)/view-as-actions";
 import { brand } from "@/theme/brand";
 
 type NavItem = { href: string; label: string; soon?: boolean };
@@ -33,8 +35,11 @@ const NAV: { title?: string; items: NavItem[] }[] = [
   { title: "Instellingen", items: [{ href: "/beheer", label: "Stamgegevens" }] },
 ];
 
-export function Sidebar({ user }: { user: { name: string; roleLabel: string } }) {
+type ViewAs = { currentId: string; users: { id: string; label: string; isSelf: boolean; realId: string }[] } | null;
+
+export function Sidebar({ user, viewAs }: { user: { name: string; roleLabel: string }; viewAs: ViewAs }) {
   const pathname = usePathname();
+  const [pending, startTransition] = useTransition();
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
@@ -75,9 +80,29 @@ export function Sidebar({ user }: { user: { name: string; roleLabel: string } })
       <div className="border-t border-neutral-200 px-5 py-3 text-sm">
         <div className="font-medium">{user.name}</div>
         <div className="text-xs text-neutral-500">{user.roleLabel}</div>
-        <button type="button" onClick={() => signOut({ callbackUrl: "/login" })} className="btn-link mt-1 text-xs">
-          Uitloggen
-        </button>
+        {viewAs ? (
+          <label className="mt-2 block">
+            <span className="text-xs font-semibold tracking-wide text-neutral-400 uppercase">Bekijken als</span>
+            <select
+              className="input mt-1 py-1 text-xs"
+              aria-label="Bekijken als"
+              disabled={pending}
+              value={viewAs.users.find((u) => u.realId === viewAs.currentId)?.id ?? ""}
+              onChange={(e) => startTransition(() => setViewAs(e.target.value))}
+            >
+              {viewAs.users.map((u) => (
+                <option key={u.realId} value={u.id}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-[11px] leading-tight text-neutral-400">Lokale modus — zonder inloggen. Microsoft 365 volgt later.</span>
+          </label>
+        ) : (
+          <button type="button" onClick={() => signOut({ callbackUrl: "/login" })} className="btn-link mt-1 text-xs">
+            Uitloggen
+          </button>
+        )}
       </div>
     </aside>
   );

@@ -107,7 +107,7 @@ export async function setDocumentLinks(id: string, formData: FormData): Promise<
 
 /**
  * Synchroniseer de SharePoint-bibliotheek "IMS-documenten" via Microsoft Graph,
- * met het token (en dus de rechten) van de ingelogde KAM-gebruiker.
+ * met het token (en dus de rechten) van de ingelogde QHSE-gebruiker.
  */
 export async function syncSharePoint(): Promise<ActionResult> {
   return safeAction(async () => {

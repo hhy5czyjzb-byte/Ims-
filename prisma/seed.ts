@@ -5,7 +5,7 @@
  *   SEED_DEMO=true npm run db:seed  → idem, plus een voorbeeldproces en voorbeeldacties
  *
  * Normeisen: alleen de hoofdstukstructuur (High Level Structure) van ISO 9001 en
- * ISO 14001 is ingevuld. De overige normen staan klaar zonder eisen; KAM vult die
+ * ISO 14001 is ingevuld. De overige normen staan klaar zonder eisen; QHSE vult die
  * in via Normenbeheer (de normteksten zelf zijn auteursrechtelijk beschermd).
  */
 import { PrismaClient, type NormCategory } from "@prisma/client";
@@ -189,20 +189,20 @@ const NORMS: { code: string; name: string; version?: string; category: NormCateg
     code: "CO2-prestatieladder",
     name: "CO2-Prestatieladder (SKAO)",
     category: "CO2",
-    description: "Eisen per niveau en invalshoek nog in te voeren door KAM.",
+    description: "Eisen per niveau en invalshoek nog in te voeren door QHSE.",
   },
-  { code: "SCL", name: "Safety Culture Ladder", category: "SAFETY", description: "Eisen nog in te voeren door KAM." },
+  { code: "SCL", name: "Safety Culture Ladder", category: "SAFETY", description: "Eisen nog in te voeren door QHSE." },
   {
     code: "VCA**",
     name: "VCA** — Veiligheid, gezondheid en milieu Checklist Aannemers",
     category: "SAFETY",
     description: "Gedeeltelijk van toepassing; welke onderdelen is een open punt.",
   },
-  { code: "BRL 2000", name: "BRL 2000", category: "PRODUCT", description: "Eisen nog in te voeren door KAM." },
-  { code: "BRL 7000", name: "BRL 7000", category: "PRODUCT", description: "Eisen nog in te voeren door KAM." },
-  { code: "SVMS-007", name: "SVMS-007", category: "PRODUCT", description: "Eisen nog in te voeren door KAM." },
-  { code: "SC-530", name: "Asbestcertificering SC-530 (asbestinventarisatie)", category: "SAFETY", description: "Eisen nog in te voeren door KAM." },
-  { code: "SC-540", name: "Asbestcertificering SC-540 (asbestverwijdering)", category: "SAFETY", description: "Eisen nog in te voeren door KAM." },
+  { code: "BRL 2000", name: "BRL 2000", category: "PRODUCT", description: "Eisen nog in te voeren door QHSE." },
+  { code: "BRL 7000", name: "BRL 7000", category: "PRODUCT", description: "Eisen nog in te voeren door QHSE." },
+  { code: "SVMS-007", name: "SVMS-007", category: "PRODUCT", description: "Eisen nog in te voeren door QHSE." },
+  { code: "SC-530", name: "Asbestcertificering SC-530 (asbestinventarisatie)", category: "SAFETY", description: "Eisen nog in te voeren door QHSE." },
+  { code: "SC-540", name: "Asbestcertificering SC-540 (asbestverwijdering)", category: "SAFETY", description: "Eisen nog in te voeren door QHSE." },
   // BRL's voor grondbank en granulaat: nummers nog te bevestigen (open punt) — toevoegen via Normenbeheer.
 ];
 
@@ -210,7 +210,7 @@ const DISCIPLINES = ["Prefab", "Beton", "Afvalrecycling", "Infra"];
 const LOCATIONS = [{ name: "Groenlo", address: "Hoofdvestiging" }];
 const FUNCTIONS = [
   "Directeur",
-  "KAM-coördinator",
+  "QHSE-coördinator",
   "Bedrijfsleider",
   "Projectleider",
   "Werkvoorbereider",
@@ -259,11 +259,17 @@ async function main() {
     await prisma.jobFunction.upsert({ where: { name }, update: {}, create: { name } });
   }
 
-  const isProd = process.env.NODE_ENV === "production";
-  if (!isProd && process.env.AUTH_DEV_LOGIN === "true") {
-    console.log("Seed: testgebruikers voor de ontwikkel-login…");
+  // Lokale modus (geen Microsoft 365): de lokale gebruiker (QHSE) en testgebruikers voor "Bekijken als".
+  const localMode = process.env.AUTH_MODE === "local" || (process.env.AUTH_MODE !== "entra" && !process.env.AZURE_AD_CLIENT_ID);
+  if (localMode) {
+    console.log("Seed: lokale gebruiker en testgebruikers (lokale modus)…");
+    await prisma.user.upsert({
+      where: { email: "lokaal@ims.local" },
+      update: {},
+      create: { email: "lokaal@ims.local", name: process.env.LOCAL_USER_NAME || "Eelco", role: "QHSE" },
+    });
     const testUsers = [
-      { email: "test.kam@ims.local", name: "Test KAM", role: "KAM" as const },
+      { email: "test.qhse@ims.local", name: "Test QHSE", role: "QHSE" as const },
       { email: "test.directie@ims.local", name: "Test Directie", role: "DIRECTIE" as const },
       { email: "test.middenkader@ims.local", name: "Test Middenkader", role: "MIDDENKADER" as const },
     ];
@@ -287,7 +293,7 @@ async function seedDemo() {
 
   const beton = await prisma.discipline.findUniqueOrThrow({ where: { name: "Beton" } });
   const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
-  const kam = await prisma.user.findFirst({ where: { role: "KAM" } });
+  const qhse = await prisma.user.findFirst({ where: { role: "QHSE" } });
   const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
   const fn = async (name: string) => (await prisma.jobFunction.findUniqueOrThrow({ where: { name } })).id;
   const req = async (code: string, clause: string) => {
@@ -302,7 +308,7 @@ async function seedDemo() {
       webUrl: "https://example.sharepoint.com/sites/IMS/IMS-documenten/DEMO-WI-001.docx",
       status: "Vrijgegeven",
       version: "1.0",
-      ownerName: "KAM",
+      ownerName: "QHSE",
       revisionDate: new Date(Date.now() + 20 * 86_400_000),
       requirements: { connect: [{ id: await req("ISO 9001", "8.5") }] },
     },
@@ -316,7 +322,7 @@ async function seedDemo() {
       input: "Order met specificatie",
       output: "Geleverde betonmortel met afleverbon",
       disciplineId: beton.id,
-      ownerId: kam?.id,
+      ownerId: qhse?.id,
       documents: { connect: [{ id: doc.id }] },
       requirements: { connect: [{ id: await req("ISO 9001", "8.5") }, { id: await req("ISO 14001", "8.1") }] },
     },
@@ -344,7 +350,7 @@ async function seedDemo() {
       raci: [
         ["R", "Medewerker productie"],
         ["A", "Productieleider"],
-        ["C", "KAM-coördinator"],
+        ["C", "QHSE-coördinator"],
       ],
     },
     {
@@ -352,7 +358,7 @@ async function seedDemo() {
       raci: [
         ["R", "Productieleider"],
         ["A", "Bedrijfsleider"],
-        ["I", "KAM-coördinator"],
+        ["I", "QHSE-coördinator"],
       ],
     },
     {
@@ -378,7 +384,7 @@ async function seedDemo() {
         source: "AUDIT",
         priority: "HIGH",
         ownerId: mk?.id,
-        createdById: kam?.id,
+        createdById: qhse?.id,
         deadline: new Date(Date.now() - 5 * 86_400_000),
         disciplineId: beton.id,
         locationId: groenlo.id,
@@ -387,8 +393,8 @@ async function seedDemo() {
         title: "Werkinstructie mengen actualiseren (voorbeeld)",
         source: "MANUAL",
         priority: "MEDIUM",
-        ownerId: kam?.id,
-        createdById: kam?.id,
+        ownerId: qhse?.id,
+        createdById: qhse?.id,
         deadline: new Date(Date.now() + 14 * 86_400_000),
         disciplineId: beton.id,
       },
@@ -397,7 +403,7 @@ async function seedDemo() {
         source: "RISK",
         priority: "MEDIUM",
         ownerId: mk?.id,
-        createdById: kam?.id,
+        createdById: qhse?.id,
         deadline: new Date(Date.now() + 30 * 86_400_000),
         status: "IN_PROGRESS",
         locationId: groenlo.id,
@@ -408,7 +414,7 @@ async function seedDemo() {
 
 /** Voorbeeldrisico's en -kansen (idempotent op titel). */
 async function seedDemoRisks() {
-  const kam = await prisma.user.findFirst({ where: { role: "KAM" } });
+  const qhse = await prisma.user.findFirst({ where: { role: "QHSE" } });
   const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
   const disc = async (name: string) => (await prisma.discipline.findUniqueOrThrow({ where: { name } })).id;
   const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
@@ -451,7 +457,7 @@ async function seedDemoRisks() {
       likelihoodAfter: null,
       impactAfter: null,
       status: "OPEN" as const,
-      ownerId: kam?.id,
+      ownerId: qhse?.id,
       disciplineId: await disc("Beton"),
       locationId: groenlo.id,
       reviewDate: new Date(Date.now() - 3 * 86_400_000),
@@ -470,7 +476,7 @@ async function seedDemoRisks() {
       likelihoodAfter: 2,
       impactAfter: 3,
       status: "CONTROLLED" as const,
-      ownerId: kam?.id,
+      ownerId: qhse?.id,
       disciplineId: await disc("Beton"),
       locationId: null,
       reviewDate: in30,
@@ -489,7 +495,7 @@ async function seedDemoRisks() {
       likelihoodAfter: null,
       impactAfter: null,
       status: "OPEN" as const,
-      ownerId: kam?.id,
+      ownerId: qhse?.id,
       disciplineId: await disc("Beton"),
       locationId: null,
       reviewDate: in30,
@@ -520,7 +526,7 @@ async function seedDemoRisks() {
   for (const { requirements, processes, ...r } of risks) {
     if (await prisma.risk.findFirst({ where: { title: r.title } })) continue;
     const risk = await prisma.risk.create({
-      data: { ...r, createdById: kam?.id, requirements: { connect: requirements }, processes: { connect: processes } },
+      data: { ...r, createdById: qhse?.id, requirements: { connect: requirements }, processes: { connect: processes } },
     });
     if (r.category === "QUALITY") {
       await prisma.action.create({
@@ -529,7 +535,7 @@ async function seedDemoRisks() {
           source: "RISK",
           riskId: risk.id,
           ownerId: mk?.id,
-          createdById: kam?.id,
+          createdById: qhse?.id,
           disciplineId: r.disciplineId,
           deadline: in30,
         },
@@ -542,7 +548,7 @@ async function seedDemoRisks() {
 async function seedDemoAudits() {
   const marker = "Interne audit ISO 9001 productie beton (voorbeeld)";
   if (await prisma.audit.findFirst({ where: { title: marker } })) return;
-  const kam = await prisma.user.findFirst({ where: { role: "KAM" } });
+  const qhse = await prisma.user.findFirst({ where: { role: "QHSE" } });
   const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
   const iso9001 = await prisma.norm.findUniqueOrThrow({ where: { code: "ISO 9001" } });
   const iso14001 = await prisma.norm.findUniqueOrThrow({ where: { code: "ISO 14001" } });
@@ -566,7 +572,7 @@ async function seedDemoAudits() {
       title: marker,
       plannedDate: new Date(Date.now() - 30 * day),
       completedDate: new Date(Date.now() - 28 * day),
-      auditor: "Test KAM",
+      auditor: "Test QHSE",
       scope: "Productie en levering betonmortel, Groenlo",
       conclusion: "Systeem werkt in de praktijk; aandacht voor meetmiddelen en vastleggen van vrijgave.",
       status: "COMPLETED",
@@ -595,7 +601,7 @@ async function seedDemoAudits() {
       source: "AUDIT",
       findingId: minor.id,
       ownerId: mk?.id,
-      createdById: kam?.id,
+      createdById: qhse?.id,
       deadline: new Date(Date.now() + 21 * day),
       disciplineId: beton.id,
       locationId: groenlo.id,
@@ -652,7 +658,7 @@ async function seedDemoAudits() {
 async function seedDemoLegal() {
   const marker = "Besluit activiteiten leefomgeving (voorbeeld)";
   if (await prisma.legalRequirement.findFirst({ where: { title: marker } })) return;
-  const kam = await prisma.user.findFirst({ where: { role: "KAM" } });
+  const qhse = await prisma.user.findFirst({ where: { role: "QHSE" } });
   const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
   const disc = async (name: string) => (await prisma.discipline.findUniqueOrThrow({ where: { name } })).id;
   const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
@@ -694,7 +700,7 @@ async function seedDemoLegal() {
       explanation: "Meting breker: onder grenswaarde, maar meting bij onderhoudswerk ontbreekt.",
       lastReviewDate: ago(40),
       nextReviewDate: ahead(140),
-      ownerId: kam?.id,
+      ownerId: qhse?.id,
       disciplineId: await disc("Afvalrecycling"),
       locationId: groenlo.id,
       requirements: [],
@@ -711,7 +717,7 @@ async function seedDemoLegal() {
       explanation: "Klacht omwonenden; indicatieve meting in de avond boven de vergunde waarde.",
       lastReviewDate: ago(200),
       nextReviewDate: ago(15),
-      ownerId: kam?.id,
+      ownerId: qhse?.id,
       disciplineId: null,
       locationId: groenlo.id,
       requirements: [await req("6.1.3"), await req("9.1.2")],
@@ -728,7 +734,7 @@ async function seedDemoLegal() {
       explanation: null,
       lastReviewDate: null,
       nextReviewDate: ahead(20),
-      ownerId: kam?.id,
+      ownerId: qhse?.id,
       disciplineId: null,
       locationId: null,
       requirements: [await req("6.1.3")],
@@ -738,11 +744,11 @@ async function seedDemoLegal() {
 
   for (const { requirements, risks, ...data } of items) {
     const created = await prisma.legalRequirement.create({
-      data: { ...data, createdById: kam?.id, requirements: { connect: requirements }, risks: { connect: risks } },
+      data: { ...data, createdById: qhse?.id, requirements: { connect: requirements }, risks: { connect: risks } },
     });
     if (data.status !== "NOT_ASSESSED" && data.lastReviewDate) {
       await prisma.complianceAssessment.create({
-        data: { legalRequirementId: created.id, date: data.lastReviewDate, status: data.status, explanation: data.explanation, assessedById: kam?.id },
+        data: { legalRequirementId: created.id, date: data.lastReviewDate, status: data.status, explanation: data.explanation, assessedById: qhse?.id },
       });
     }
     if (data.status === "NON_COMPLIANT") {
@@ -753,7 +759,7 @@ async function seedDemoLegal() {
           priority: "HIGH",
           legalRequirementId: created.id,
           ownerId: mk?.id,
-          createdById: kam?.id,
+          createdById: qhse?.id,
           deadline: ahead(30),
           locationId: groenlo.id,
         },
@@ -765,7 +771,7 @@ async function seedDemoLegal() {
 /** Voorbeeldregister milieuaspecten (idempotent op activiteit + aspect). Significantie volgens de standaarddrempel 27. */
 async function seedDemoAspects() {
   if (await prisma.environmentalAspect.findFirst({ where: { activity: { endsWith: "(voorbeeld)" } } })) return;
-  const kam = await prisma.user.findFirst({ where: { role: "KAM" } });
+  const qhse = await prisma.user.findFirst({ where: { role: "QHSE" } });
   const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
   const disc = async (name: string) => (await prisma.discipline.findUniqueOrThrow({ where: { name } })).id;
   const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
@@ -891,8 +897,8 @@ async function seedDemoAspects() {
         stakeholderConcern: !!it.stakeholder,
         co2Relevant: it.aspectType === "ENERGY" || it.aspectType === "AIR",
         significant,
-        ownerId: it.discipline === "Beton" ? kam?.id : mk?.id,
-        createdById: kam?.id,
+        ownerId: it.discipline === "Beton" ? qhse?.id : mk?.id,
+        createdById: qhse?.id,
         disciplineId: await disc(it.discipline),
         locationId: groenlo.id,
         reviewDate: new Date(Date.now() + 180 * 86_400_000),

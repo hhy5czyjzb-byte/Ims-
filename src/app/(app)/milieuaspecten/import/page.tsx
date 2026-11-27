@@ -13,7 +13,7 @@ export default async function AspectImportPage() {
     return (
       <div className="card max-w-xl">
         <h2>Geen toegang</h2>
-        <p className="mt-2 text-sm text-neutral-600">Alleen KAM kan het milieuaspectenregister importeren.</p>
+        <p className="mt-2 text-sm text-neutral-600">Alleen QHSE kan het milieuaspectenregister importeren.</p>
       </div>
     );
   }

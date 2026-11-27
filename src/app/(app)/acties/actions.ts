@@ -42,7 +42,7 @@ async function loadEditable(id: string) {
   const user = await requireUser();
   const action = await prisma.action.findUnique({ where: { id } });
   if (!action) throw new UserError("Actie niet gevonden.");
-  if (!canEditAction(user, action)) throw new UserError("Alleen de eigenaar, de aanmaker of KAM kan deze actie wijzigen.");
+  if (!canEditAction(user, action)) throw new UserError("Alleen de eigenaar, de aanmaker of QHSE kan deze actie wijzigen.");
   return { user, action };
 }
 

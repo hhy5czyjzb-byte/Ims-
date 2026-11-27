@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { DEFAULT_SIGNIFICANCE_THRESHOLD, SIGNIFICANCE_THRESHOLD_KEY } from "@/lib/aspects";
 
-/** Drempel voor significantie van milieuaspecten (instelbaar door KAM). */
+/** Drempel voor significantie van milieuaspecten (instelbaar door QHSE). */
 export async function getSignificanceThreshold(): Promise<number> {
   const row = await prisma.appSetting.findUnique({ where: { key: SIGNIFICANCE_THRESHOLD_KEY } });
   const n = row ? Number(row.value) : NaN;

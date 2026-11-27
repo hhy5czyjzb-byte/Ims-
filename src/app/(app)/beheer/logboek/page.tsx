@@ -15,7 +15,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
     return (
       <div className="card max-w-xl">
         <h2>Geen toegang</h2>
-        <p className="mt-2 text-sm text-neutral-600">Je hebt geen rechten om het logboek te bekijken. Het logboek is alleen zichtbaar voor KAM.</p>
+        <p className="mt-2 text-sm text-neutral-600">Je hebt geen rechten om het logboek te bekijken. Het logboek is alleen zichtbaar voor QHSE.</p>
       </div>
     );
   }

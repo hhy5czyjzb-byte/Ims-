@@ -143,7 +143,7 @@ export default async function MasterDataPage() {
                 <td>{u.name}</td>
                 <td className="text-neutral-600">{u.email}</td>
                 <td>
-                  <Badge className={u.role === "KAM" ? "bg-brand-red text-white" : u.role === "DIRECTIE" ? "bg-neutral-800 text-white" : undefined}>
+                  <Badge className={u.role === "QHSE" ? "bg-brand-red text-white" : u.role === "DIRECTIE" ? "bg-neutral-800 text-white" : undefined}>
                     {ROLE_LABEL[u.role]}
                   </Badge>
                 </td>

@@ -18,7 +18,7 @@ datasource db {
 
 /// Rol wordt bij elke login afgeleid uit Entra ID-groepen; hier alleen gecachet.
 enum Role {
-  KAM
+  QHSE
   DIRECTIE
   MIDDENKADER
 }
@@ -89,7 +89,7 @@ model Discipline {
   suppliers            Supplier[]
 }
 
-/// Functie (bijv. Uitvoerder, KAM-coördinator) — gebruikt in RACI.
+/// Functie (bijv. Uitvoerder, QHSE-coördinator) — gebruikt in RACI.
 model JobFunction {
   id          String   @id @default(cuid())
   name        String   @unique
@@ -723,7 +723,7 @@ model EnvironmentalAspect {
   @@index([significant])
 }
 
-/// Instellingen die KAM in de app beheert (sleutel → waarde).
+/// Instellingen die QHSE in de app beheert (sleutel → waarde).
 model AppSetting {
   key         String   @id
   value       String

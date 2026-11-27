@@ -5,18 +5,18 @@ import type { Role } from "@prisma/client";
  * de app beheert zelf geen rechten. Deze tabel bepaalt wat een rol mag.
  */
 export const PERMISSIONS = {
-  "norms.edit": ["KAM"],
-  "processes.edit": ["KAM"],
-  "documents.edit": ["KAM"],
-  "masterdata.edit": ["KAM"],
-  "actions.create": ["KAM", "MIDDENKADER", "DIRECTIE"],
-  "actions.editAny": ["KAM"],
-  "risks.create": ["KAM", "MIDDENKADER"],
-  "risks.editAny": ["KAM"],
-  "audits.edit": ["KAM"],
-  "legal.edit": ["KAM"],
-  "aspects.edit": ["KAM"],
-  "auditlog.view": ["KAM"],
+  "norms.edit": ["QHSE"],
+  "processes.edit": ["QHSE"],
+  "documents.edit": ["QHSE"],
+  "masterdata.edit": ["QHSE"],
+  "actions.create": ["QHSE", "MIDDENKADER", "DIRECTIE"],
+  "actions.editAny": ["QHSE"],
+  "risks.create": ["QHSE", "MIDDENKADER"],
+  "risks.editAny": ["QHSE"],
+  "audits.edit": ["QHSE"],
+  "legal.edit": ["QHSE"],
+  "aspects.edit": ["QHSE"],
+  "auditlog.view": ["QHSE"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -26,20 +26,20 @@ export function can(role: Role | undefined | null, permission: Permission): bool
   return (PERMISSIONS[permission] as readonly Role[]).includes(role);
 }
 
-/** Mag deze gebruiker deze actie wijzigen? KAM altijd; anderen alleen als eigenaar of aanmaker. */
+/** Mag deze gebruiker deze actie wijzigen? QHSE altijd; anderen alleen als eigenaar of aanmaker. */
 export function canEditAction(user: { id: string; role: Role }, action: { ownerId: string | null; createdById: string | null }): boolean {
   if (can(user.role, "actions.editAny")) return true;
   return action.ownerId === user.id || action.createdById === user.id;
 }
 
-/** Mag deze gebruiker dit risico wijzigen? KAM altijd; middenkader alleen als eigenaar of aanmaker. */
+/** Mag deze gebruiker dit risico wijzigen? QHSE altijd; middenkader alleen als eigenaar of aanmaker. */
 export function canEditRisk(user: { id: string; role: Role }, risk: { ownerId: string | null; createdById: string | null }): boolean {
   if (can(user.role, "risks.editAny")) return true;
   if (!can(user.role, "risks.create")) return false;
   return risk.ownerId === user.id || risk.createdById === user.id;
 }
 
-/** Mag deze gebruiker een toetsing vastleggen? KAM altijd; anderen alleen als eigenaar van de eis (directie niet). */
+/** Mag deze gebruiker een toetsing vastleggen? QHSE altijd; anderen alleen als eigenaar van de eis (directie niet). */
 export function canAssessLegal(user: { id: string; role: Role }, req: { ownerId: string | null }): boolean {
   if (can(user.role, "legal.edit")) return true;
   return user.role === "MIDDENKADER" && req.ownerId === user.id;
@@ -47,12 +47,12 @@ export function canAssessLegal(user: { id: string; role: Role }, req: { ownerId:
 
 /**
  * Leid de rol af uit de Entra ID-groep-ID's in het token.
- * Hoogste rol wint (KAM > DIRECTIE > MIDDENKADER). Geen passende groep = geen toegang.
+ * Hoogste rol wint (QHSE > DIRECTIE > MIDDENKADER). Geen passende groep = geen toegang.
  */
-export function roleFromGroups(groups: readonly string[] | undefined, config: { kam?: string; directie?: string; middenkader?: string }): Role | null {
+export function roleFromGroups(groups: readonly string[] | undefined, config: { qhse?: string; directie?: string; middenkader?: string }): Role | null {
   if (!groups?.length) return null;
   const has = (id?: string) => !!id && groups.includes(id);
-  if (has(config.kam)) return "KAM";
+  if (has(config.qhse)) return "QHSE";
   if (has(config.directie)) return "DIRECTIE";
   if (has(config.middenkader)) return "MIDDENKADER";
   return null;

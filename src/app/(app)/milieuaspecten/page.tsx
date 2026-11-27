@@ -93,7 +93,7 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
           </div>
         </div>
         <p className="mt-3 text-xs text-neutral-500">
-          Significant bij score F × E × O ≥ {threshold}, een bindende verplichting, of zorgen bij belanghebbenden — of handmatig bepaald door KAM.
+          Significant bij score F × E × O ≥ {threshold}, een bindende verplichting, of zorgen bij belanghebbenden — of handmatig bepaald door QHSE.
         </p>
       </section>
 

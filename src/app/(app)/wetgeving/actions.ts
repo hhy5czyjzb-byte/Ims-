@@ -129,7 +129,7 @@ export async function recordAssessment(id: string, formData: FormData): Promise<
       include: { actions: { where: { status: { in: ["OPEN", "IN_PROGRESS"] } }, select: { id: true } } },
     });
     if (!req) throw new UserError("Eis niet gevonden.");
-    if (!canAssessLegal(user, req)) throw new UserError("Alleen KAM of de eigenaar van deze eis kan een toetsing vastleggen.");
+    if (!canAssessLegal(user, req)) throw new UserError("Alleen QHSE of de eigenaar van deze eis kan een toetsing vastleggen.");
     const data = parseForm(assessmentSchema, formData);
 
     // Bij 'voldoet niet' direct een actie: verplicht, tenzij er al een open actie loopt.
