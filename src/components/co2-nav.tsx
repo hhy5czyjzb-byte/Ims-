@@ -11,6 +11,7 @@ const TABS = [
   { href: "/co2/wagenpark", label: "Wagenpark" },
   { href: "/co2/plan", label: "Plan van aanpak" },
   { href: "/co2/doelstellingen", label: "Doelstellingen" },
+  { href: "/co2/rapportage", label: "Jaarverslag" },
   // Gegevens en beheer
   { href: "/co2/verbruik", label: "Verbruik", data: true },
   { href: "/co2/materieel", label: "Voertuigen", data: true },

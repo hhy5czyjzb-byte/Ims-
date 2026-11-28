@@ -3,9 +3,11 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { getLookups } from "@/lib/lookups";
-import { formatQuantity, formatTonnes, groupKg, PERIOD_PARTS, type PeriodPart, formatPct } from "@/lib/co2";
+import { carrierGroup, formatQuantity, formatTonnes, groupKg, PERIOD_PARTS, type PeriodPart, formatPct } from "@/lib/co2";
 import { latestDataYear, loadFactors, loadFootprint, targetStatus } from "@/lib/co2-data";
 import { SCOPE_LABEL } from "@/lib/labels";
+import { ChartCard } from "@/components/charts";
+import { GroupDonut } from "@/components/co2-charts";
 import { Badge, EmptyState, Field, PageHeader, ProgressBar, Select } from "@/components/ui";
 import { Co2Nav } from "@/components/co2-nav";
 
@@ -162,6 +164,37 @@ export default async function Co2Page({ searchParams }: { searchParams: Promise<
               ))}
             </ul>
           </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <ChartCard title={`CO2-footprint ${fp.range.label}`} subtitle="t CO2 per groep (zoals in het CO2-jaarverslag)">
+              <GroupDonut
+                items={fp.rows.map((r) => ({ group: carrierGroup(r.c.carrier), value: (r.kg ?? 0) / 1000 }))}
+                unit=" t"
+                centerLabel="t CO2"
+                decimals={1}
+              />
+            </ChartCard>
+            <ChartCard title={`Energiebalans ${fp.range.label}`} subtitle="GJ per groep">
+              <GroupDonut
+                items={fp.rows.map((r) => ({
+                  group: carrierGroup(r.c.carrier),
+                  value: r.c.carrier.energyPerUnit === null ? 0 : r.quantity * Number(r.c.carrier.energyPerUnit),
+                }))}
+                unit=" GJ"
+                centerLabel="GJ"
+              />
+            </ChartCard>
+          </div>
+          <Link
+            href={`/co2/rapportage?jaar=${year}`}
+            className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-neutral-900 px-5 py-4 text-white no-underline hover:no-underline print:hidden"
+          >
+            <span>
+              <span className="block text-xs font-semibold tracking-widest text-white/70 uppercase">Rapportage</span>
+              <span className="text-lg font-semibold">CO2-jaarverslag {year} bekijken, afdrukken of als Word downloaden</span>
+            </span>
+            <span className="rounded-full bg-brand-red px-4 py-2 text-sm font-semibold">Openen →</span>
+          </Link>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <section className="card">

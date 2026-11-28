@@ -322,6 +322,26 @@ export function carrierGroup(c: { name: string; reportGroup?: string | null; def
   return c.defaultScope === 2 ? "Overig scope 2" : "Overig";
 }
 
+/**
+ * Vaste volgorde (en daarmee vaste kleur) van de groepen in grafieken, zoals in het CO2-jaarverslag:
+ * een groep houdt in elke grafiek dezelfde kleur, ook als een andere groep ontbreekt.
+ */
+export const GROUP_ORDER = [
+  "Aardgasverbruik",
+  "Brandstofverbruik bedrijfsmiddelen",
+  "Brandstofverbruik wagenpark",
+  "Elektriciteitsverbruik vastgoed",
+  "Elektriciteitsverbruik wagenpark",
+  "Warmtelevering",
+  "Zakelijk vervoer",
+  "Vliegreizen",
+] as const;
+/** Index in het categorische palet voor een groep (onbekende groepen achteraan). */
+export function groupSlot(group: string, extra: string[] = []): number {
+  const i = (GROUP_ORDER as readonly string[]).indexOf(group);
+  return i >= 0 ? i : (GROUP_ORDER.length + Math.max(0, extra.indexOf(group))) % 8;
+}
+
 /** Emissiestroom voor het plan van aanpak (zoals de blokken in het PVA-tabblad). */
 export const STREAM_GROUPS = [
   "Scope 1 - Aardgasverbruik",

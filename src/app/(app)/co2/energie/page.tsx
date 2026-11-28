@@ -3,7 +3,9 @@ import { prisma } from "@/lib/db";
 import { carrierGroup, formatQuantity, overlapFraction } from "@/lib/co2";
 import { latestDataYear, loadInventory, loadProgress } from "@/lib/co2-data";
 import { PageHeader } from "@/components/ui";
-import { BarList, ChartCard, Columns } from "@/components/charts";
+import { ChartCard, Columns } from "@/components/charts";
+import { FuelPerYear, GroupDonut } from "@/components/co2-charts";
+import { fuelSummary } from "@/lib/co2-report";
 import { Co2Nav } from "@/components/co2-nav";
 import { Co2Filters, yearList } from "@/components/co2-filters";
 
@@ -122,15 +124,18 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
             ]}
           />
         </ChartCard>
-        <ChartCard title={`Energie per groep ${year}`} subtitle={unit}>
-          <BarList
-            items={[...new Set(inv.lines.map((l) => l.group))]
-              .map((gName) => ({ label: gName, value: Math.round(conv(inv.lines.filter((l) => l.group === gName).reduce((n, l) => n + (l.gj ?? 0), 0))) }))
-              .filter((x) => x.value !== 0)
-              .sort((a, b) => b.value - a.value)}
-          />
+        <ChartCard title={`Energiebalans ${year}`} subtitle={`${unit} per groep (figuur M2)`}>
+          <GroupDonut items={inv.lines.map((l) => ({ group: l.group, value: conv(l.gj ?? 0) }))} unit={` ${unit}`} centerLabel={unit} />
         </ChartCard>
       </div>
+      <ChartCard title="Brandstofverbruik per jaar" subtitle="liter per energiedrager (zoals in het CO2-jaarverslag)" className="mb-6">
+        <FuelPerYear
+          {...fuelSummary(
+            progress.map((p) => ({ year: p.year, lines: p.lines })),
+            year,
+          )}
+        />
+      </ChartCard>
 
       <section className="card mb-6 overflow-x-auto p-0">
         <table className="table">

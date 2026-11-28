@@ -8,6 +8,12 @@ import type { ReactNode } from "react";
  * Kleuren: gevalideerd categorisch palet (kleurenblind-veilig voor max. 3 reeksen); status-kleuren blijven voor status.
  */
 export const SERIES = ["#257de0", "#f47230", "#00b894"] as const;
+/**
+ * Volledig categorisch palet (8 kleuren, vaste volgorde): gevalideerd voor naast elkaar liggende vlakken
+ * (gestapelde balken, ringsegmenten). Gebruik het in deze volgorde en koppel kleuren aan de categorie,
+ * niet aan de rangorde; altijd met zichtbare labels/waarden (een aantal kleuren heeft < 3:1 contrast).
+ */
+export const CATEGORICAL = ["#257de0", "#f47230", "#00b894", "#f2a600", "#ee7fac", "#008a17", "#6a4ce2", "#ec4647"] as const;
 
 function Tip({ children }: { children: ReactNode }) {
   return (
@@ -104,7 +110,7 @@ export function Columns({
           ))}
         </div>
       )}
-      <div className="grid grid-cols-[2rem_1fr] gap-1">
+      <div className="grid grid-cols-[3rem_1fr] gap-1">
         <div className="relative text-right text-[10px] text-neutral-400" style={{ height }}>
           {ticks.map((t) => (
             <span key={t} className="absolute right-0 -translate-y-1/2 tabular-nums" style={{ top: height - (t / top) * plot }}>
@@ -216,6 +222,20 @@ export function sequentialRamp(n: number): string[] {
  * Gegroepeerde kolommen: per groep (bijv. brandstoftype) een kolom per reeks (bijv. jaar), naast elkaar.
  * Kolommen max. 24px met 4px afgeronde bovenkant, 2px tussenruimte, waarde boven de kolom, legenda en tooltip.
  */
+/** Afgeronde stapgrootte voor een as (1, 2, 2,5 of 5 × 10^n). */
+function niceStep(raw: number): number {
+  if (raw <= 0) return 1;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const f = raw / mag;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+}
+
+const nfCompact = new Intl.NumberFormat("nl-NL", { notation: "compact", maximumFractionDigits: 1 });
+/** Kort getal voor assen en labels: 1.556.388 → "1,6 mln.", 56.474 → "56K"; kleine getallen volledig. */
+function compact(v: number): string {
+  return Math.abs(v) < 100000 ? v.toLocaleString("nl-NL", { maximumFractionDigits: 1 }) : nfCompact.format(v);
+}
+
 export function GroupedColumns({
   groups,
   series,
@@ -230,11 +250,13 @@ export function GroupedColumns({
   unit?: string;
 }) {
   const max = Math.max(1, ...series.flatMap((s) => s.values));
-  const step = max <= 10 ? 2 : max <= 25 ? 5 : max <= 50 ? 10 : max <= 100 ? 20 : Math.ceil(max / 5 / 10) * 10;
+  const step = niceStep(max / 5);
   const top = Math.ceil(max / step) * step;
-  const ticks = Array.from({ length: top / step + 1 }, (_, i) => i * step);
+  const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
   const plot = height - 16;
   const palette = colors ?? sequentialRamp(series.length);
+  // Bij veel kolommen alleen de laatste reeks (bijv. het laatste jaar) als tekst; de rest via de tooltip.
+  const crowded = groups.length * series.length > 24;
   return (
     <div>
       <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
@@ -245,11 +267,11 @@ export function GroupedColumns({
           </span>
         ))}
       </div>
-      <div className="grid grid-cols-[2rem_1fr] gap-1">
+      <div className="grid grid-cols-[3rem_1fr] gap-1">
         <div className="relative text-right text-[10px] text-neutral-400" style={{ height }}>
           {ticks.map((t) => (
             <span key={t} className="absolute right-0 -translate-y-1/2 tabular-nums" style={{ top: height - (t / top) * plot }}>
-              {t}
+              {compact(t)}
             </span>
           ))}
         </div>
@@ -268,7 +290,9 @@ export function GroupedColumns({
                   const v = s.values[gi] ?? 0;
                   return (
                     <div key={s.name} className="group relative flex h-full max-w-6 flex-1 flex-col items-center justify-end">
-                      {v > 0 && <span className="mb-0.5 text-[9px] leading-none text-neutral-600 tabular-nums">{v}</span>}
+                      {v > 0 && (!crowded || si === series.length - 1) && (
+                        <span className="mb-0.5 text-[9px] leading-none whitespace-nowrap text-neutral-600 tabular-nums">{compact(v)}</span>
+                      )}
                       <span className="w-full rounded-t-[4px]" style={{ height: v > 0 ? Math.max((v / top) * plot - 2, 2) : 0, background: palette[si] }} />
                       <Tip>
                         {g} · {s.name}: {v.toLocaleString("nl-NL")}
@@ -282,13 +306,119 @@ export function GroupedColumns({
           </div>
           <div className="mt-1 flex gap-4 text-center text-xs text-neutral-600">
             {groups.map((g) => (
-              <span key={g} className="flex-1 truncate">
+              <span key={g} className="line-clamp-2 flex-1 leading-tight" title={g}>
                 {g}
               </span>
             ))}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Ringgrafiek ("taartgrafiek" met gat): segmenten in de opgegeven (vaste) volgorde, 2px witte naad,
+ * totaal in het midden, legenda met waarde en aandeel. Negatieve waarden tellen niet mee in de ring.
+ */
+export function Donut({
+  parts,
+  unit = "",
+  centerLabel,
+  decimals = 0,
+  size = 180,
+}: {
+  parts: { label: string; value: number; color: string }[];
+  unit?: string;
+  centerLabel?: string;
+  decimals?: number;
+  size?: number;
+}) {
+  const pos = parts.filter((p) => p.value > 0);
+  const total = pos.reduce((n, p) => n + p.value, 0);
+  const fmt = (v: number) => v.toLocaleString("nl-NL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  if (!total) return <p className="text-sm text-neutral-500">Geen gegevens.</p>;
+  const r = 42;
+  const w = 16;
+  const C = 2 * Math.PI * r;
+  let offset = 0;
+  return (
+    <div className="flex flex-wrap items-center gap-6">
+      <svg
+        viewBox="0 0 100 100"
+        width={size}
+        height={size}
+        role="img"
+        aria-label={`Verdeling: ${pos.map((p) => `${p.label} ${fmt(p.value)}${unit}`).join(", ")}`}
+        className="shrink-0"
+      >
+        <g transform="rotate(-90 50 50)">
+          {pos.map((p) => {
+            const len = (p.value / total) * C;
+            const seg = (
+              <circle
+                key={p.label}
+                cx="50"
+                cy="50"
+                r={r}
+                fill="none"
+                stroke={p.color}
+                strokeWidth={w}
+                strokeDasharray={`${len} ${C - len}`}
+                strokeDashoffset={-offset}
+              >
+                <title>{`${p.label}: ${fmt(p.value)} ${unit} (${((p.value / total) * 100).toLocaleString("nl-NL", { maximumFractionDigits: 1 })}%)`}</title>
+              </circle>
+            );
+            offset += len;
+            return seg;
+          })}
+          {/* Naden van 2px tussen de segmenten */}
+          {pos.length > 1 &&
+            pos.reduce<{ at: number; lines: ReactNode[] }>(
+              (acc, p, i) => {
+                const angle = (acc.at / total) * 2 * Math.PI;
+                acc.lines.push(
+                  <line
+                    key={i}
+                    x1={50 + (r - w / 2 - 1) * Math.cos(angle)}
+                    y1={50 + (r - w / 2 - 1) * Math.sin(angle)}
+                    x2={50 + (r + w / 2 + 1) * Math.cos(angle)}
+                    y2={50 + (r + w / 2 + 1) * Math.sin(angle)}
+                    stroke="#fff"
+                    strokeWidth="1.2"
+                  />,
+                );
+                acc.at += p.value;
+                return acc;
+              },
+              { at: 0, lines: [] },
+            ).lines}
+        </g>
+        <g>
+          <text x="50" y="48" textAnchor="middle" className="fill-neutral-900" style={{ fontSize: 11, fontWeight: 700 }}>
+            {fmt(total)}
+          </text>
+          <text x="50" y="60" textAnchor="middle" className="fill-neutral-500" style={{ fontSize: 6 }}>
+            {centerLabel ?? unit.trim()}
+          </text>
+        </g>
+      </svg>
+      <ul className="min-w-0 flex-1 space-y-1 text-sm">
+        {parts.map((p) => (
+          <li key={p.label} className="flex items-start gap-2 leading-snug">
+            <span className="mt-1 inline-block size-3 shrink-0 rounded-sm" style={{ background: p.color }} aria-hidden />
+            <span className="min-w-0 flex-1 text-neutral-700">{p.label}</span>
+            <span className="whitespace-nowrap text-neutral-900 tabular-nums">
+              {fmt(p.value)}
+              {unit}
+            </span>
+            <span className="w-12 text-right text-neutral-500 tabular-nums">
+              {total ? `${((Math.max(0, p.value) / total) * 100).toLocaleString("nl-NL", { maximumFractionDigits: p.value / total < 0.01 ? 1 : 0 })}%` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
