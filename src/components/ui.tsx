@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { PrintButton } from "@/components/print-button";
+import { ExportButtons } from "@/components/print-button";
 
 export function PageHeader({
   title,
@@ -13,7 +13,7 @@ export function PageHeader({
   description?: ReactNode;
   actions?: ReactNode;
   breadcrumb?: { href: string; label: string }[];
-  /** Knop "Afdrukken / PDF" tonen (standaard op elke pagina). */
+  /** Knoppen "Afdrukken / PDF", "Excel" en "Word" tonen (standaard op elke pagina). */
   print?: boolean;
 }) {
   return (
@@ -38,7 +38,7 @@ export function PageHeader({
         {(actions || print) && (
           <div className="flex flex-wrap gap-2 print:hidden">
             {actions}
-            {print && <PrintButton />}
+            {print && <ExportButtons />}
           </div>
         )}
       </div>

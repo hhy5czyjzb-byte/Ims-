@@ -216,6 +216,7 @@ export default async function DashboardPage() {
           </Link>
         </div>
       )}
+      <span hidden data-export-title="Dashboard IMS" />
       <PageHeader title={`Goedendag, ${user.name.split(" ")[0]}`} description="Stand van zaken van het integraal managementsysteem." />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

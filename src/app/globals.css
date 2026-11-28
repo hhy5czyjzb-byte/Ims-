@@ -127,7 +127,42 @@
 @media print {
   @page {
     size: A4;
-    margin: 15mm 14mm;
+    margin: 22mm 14mm 16mm;
+    /* Logo boven en voettekst onder op elke pagina (Chrome/Edge 131+). */
+    @top-left {
+      content: url("/brand/logo-afdruk.svg");
+      vertical-align: bottom;
+      padding-bottom: 2mm;
+    }
+    @bottom-left {
+      content: "Rouwmaat Groep · Integraal managementsysteem";
+      font:
+        7.5pt "Fira Sans",
+        Arial,
+        sans-serif;
+      color: #888;
+    }
+    @bottom-right {
+      content: "Pagina " counter(page) " van " counter(pages);
+      font:
+        7.5pt "Fira Sans",
+        Arial,
+        sans-serif;
+      color: #888;
+    }
+  }
+  /* Op de eerste pagina staat het logo in de kop van de pagina zelf (ook in browsers zonder paginakoppen). */
+  @page :first {
+    @top-left {
+      content: none;
+    }
+  }
+  .print-header {
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 1.5pt solid #e30613;
+    padding-bottom: 3mm;
+    margin-bottom: 6mm;
   }
   html,
   body {

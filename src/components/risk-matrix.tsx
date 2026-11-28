@@ -35,7 +35,7 @@ export function RiskMatrix({
           <span className="-rotate-180 text-xs font-semibold tracking-wide text-neutral-500 uppercase [writing-mode:vertical-rl]">Kans</span>
         </div>
         <div className="flex-1">
-          <table className="w-full border-separate border-spacing-1" aria-label={title ?? "Risicomatrix"}>
+          <table className="w-full border-separate border-spacing-1" aria-label={title ?? "Risicomatrix"} data-export-name={title ?? "Risicomatrix"}>
             <tbody>
               {[...RISK_SCALE].reverse().map((l) => (
                 <tr key={l}>

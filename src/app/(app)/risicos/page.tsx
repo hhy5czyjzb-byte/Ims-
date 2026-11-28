@@ -249,7 +249,7 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
         <EmptyState>Geen risico&apos;s of kansen gevonden met deze filters.</EmptyState>
       ) : (
         <div className="card overflow-x-auto p-0">
-          <table className="table">
+          <table className="table" data-export-name="Register">
             <thead>
               <tr>
                 <th>Nr.</th>
