@@ -12,7 +12,6 @@ import { Form } from "@/components/form";
 import { SubmitButton } from "@/components/submit-button";
 import { ContextNav } from "@/components/context-nav";
 import { RichTextEditor } from "@/components/rich-text-editor";
-import { PrintButton } from "@/components/print-button";
 import { addSectionAfter, approveContextAnalysis, createDraftFromAnalysis, deleteSection, updateSection, uploadSectionImage } from "./actions";
 
 export const metadata = { title: "Context en stakeholders" };
@@ -123,7 +122,6 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
         }
         actions={
           <>
-            <PrintButton />
             {analysis.sharepointUrl && (
               <a href={analysis.sharepointUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary print:hidden">
                 Openen in SharePoint ↗

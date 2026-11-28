@@ -171,4 +171,37 @@
   details:not([open]) {
     display: none !important;
   }
+  /* Niet op papier: menu's, tabbladen, filters, knoppen en formulieren om te wijzigen. */
+  main nav,
+  form[role="search"],
+  button,
+  .btn,
+  .btn-secondary,
+  .btn-link,
+  details {
+    display: none !important;
+  }
+  /* Tabellen volledig (niet afgekapt), kopregel op elke pagina, regels niet doorknippen. */
+  .overflow-x-auto,
+  .overflow-y-auto {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  table {
+    font-size: 9pt;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .badge {
+    border: 1px solid #d4d4d4;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

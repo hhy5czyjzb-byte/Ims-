@@ -1,16 +1,20 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { PrintButton } from "@/components/print-button";
 
 export function PageHeader({
   title,
   description,
   actions,
   breadcrumb,
+  print = true,
 }: {
   title: string;
   description?: ReactNode;
   actions?: ReactNode;
   breadcrumb?: { href: string; label: string }[];
+  /** Knop "Afdrukken / PDF" tonen (standaard op elke pagina). */
+  print?: boolean;
 }) {
   return (
     <div className="mb-6">
@@ -31,7 +35,12 @@ export function PageHeader({
           <h1>{title}</h1>
           {description && <p className="mt-1 max-w-3xl text-sm text-neutral-600">{description}</p>}
         </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+        {(actions || print) && (
+          <div className="flex flex-wrap gap-2 print:hidden">
+            {actions}
+            {print && <PrintButton />}
+          </div>
+        )}
       </div>
     </div>
   );
