@@ -22,6 +22,8 @@ export const PERMISSIONS = {
   "reports.create": ["QHSE", "MIDDENKADER", "DIRECTIE"],
   "reports.manage": ["QHSE"],
   "context.approve": ["QHSE", "DIRECTIE"],
+  "review.edit": ["QHSE"],
+  "review.approve": ["QHSE", "DIRECTIE"],
   "backup.manage": ["QHSE"],
   "auditlog.view": ["QHSE"],
 } as const satisfies Record<string, readonly Role[]>;

@@ -14,6 +14,7 @@ type WithOrigin = {
   environmentalAspect?: { id: string; number: number; externalRef: string | null } | null;
   reductionTarget?: { id: string; title: string } | null;
   locationAuditAnswer?: { auditId: string; audit: { number: number } } | null;
+  managementReview?: { id: string; year: number } | null;
 };
 
 /** Waar komt een actie vandaan? Code + link naar de herkomst (melding, auditbevinding, risico, …). */
@@ -26,5 +27,6 @@ export function actionOrigin(a: WithOrigin): { code: string; href: string } | nu
   if (a.legalRequirement) return { code: legalDisplayCode(a.legalRequirement), href: `/wetgeving/${a.legalRequirement.id}` };
   if (a.environmentalAspect) return { code: aspectDisplayCode(a.environmentalAspect), href: `/milieuaspecten/${a.environmentalAspect.id}` };
   if (a.reductionTarget) return { code: a.reductionTarget.title, href: `/co2/doelstellingen/${a.reductionTarget.id}` };
+  if (a.managementReview) return { code: `Directiebeoordeling ${a.managementReview.year}`, href: `/directiebeoordeling/${a.managementReview.id}` };
   return null;
 }

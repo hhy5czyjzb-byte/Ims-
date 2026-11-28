@@ -15,6 +15,16 @@ const nextConfig: NextConfig = {
   // Import van registers (Excel → gekoppelde regels) kan groter zijn dan de standaard 1 MB. Op Vercel geldt
   // daarnaast max. 4,5 MB per verzoek; Word-documenten worden daarom in de browser omgezet en in delen verstuurd.
   experimental: { serverActions: { bodySizeLimit: "5mb" } },
+  // pptxgenjs (PowerPoint maken in de browser) importeert node:fs/node:https alleen in Node; in de browser negeren.
+  webpack(config, { isServer, webpack }) {
+    if (!isServer) {
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(/^node:(fs|https)$/, (r: { request: string }) => (r.request = r.request.replace(/^node:/, ""))),
+      );
+      config.resolve.fallback = { ...config.resolve.fallback, fs: false, https: false };
+    }
+    return config;
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -49,6 +49,8 @@ model User {
   settingsChanged          AppSetting[]
   createdConsumptions      EnergyConsumption[]
   createdRisks             Risk[]                 @relation("RiskCreatedBy")
+  approvedReviews          ManagementReview[]     @relation("ReviewApprovedBy")
+  createdReviews           ManagementReview[]     @relation("ReviewCreatedBy")
   ownedStakeholders        Stakeholder[]          @relation("StakeholderOwner")
   raciAssignments          RaciAssignment[]
   supplierEvaluations      SupplierEvaluation[]
@@ -545,6 +547,8 @@ model Action {
   ownerText             String? // eigenaar als naam of functie (als die geen gebruiker is)
   reportId              String?
   report                Report?              @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  managementReviewId    String?
+  managementReview      ManagementReview?    @relation(fields: [managementReviewId], references: [id], onDelete: SetNull)
   verifiedAt            DateTime? // effectiviteit gecontroleerd op
   verificationNote      String? // uitkomst controle effectiviteit
   createdAt             DateTime             @default(now())
@@ -1239,4 +1243,69 @@ model Report {
 
   @@index([type, status])
   @@index([occurredAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Directiebeoordeling (managementreview) — dia's in het template van Rouwmaat
+// ─────────────────────────────────────────────────────────────
+
+enum ReviewStatus {
+  CONCEPT
+  APPROVED
+}
+
+/// Managementreview: een reeks dia's (opbouw en opmaak uit het eigen PowerPoint-template), bewerkbaar tot vaststelling.
+model ManagementReview {
+  id           String       @id @default(cuid())
+  number       Int          @unique @default(autoincrement())
+  title        String // bijv. "Managementreview 2025"
+  year         Int // beoordelingsjaar
+  status       ReviewStatus @default(CONCEPT)
+  meetingDate  DateTime?
+  approvedAt   DateTime?
+  approvedById String?
+  approvedBy   User?        @relation("ReviewApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  logoImageId  String? // logo op de dia's
+  stripImageId String? // standaard fotostrook links op de inhoudsdia's (per dia te kiezen)
+  footerText   String? // voettekst op de inhoudsdia's, bijv. "Managementreview 2025 · actualisatie 2026"
+  basedOnId    String? // vorige review waarvan deze een kopie is
+  notes        String?
+  createdById  String?
+  createdBy    User?        @relation("ReviewCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  slides  ReviewSlide[]
+  actions Action[]
+}
+
+/// Eén dia. `layout` bepaalt de opbouw; `data` bevat de elementen (kaarten, kengetallen, tabel, grafiek, …) met hun positie in inches.
+model ReviewSlide {
+  id        String           @id @default(cuid())
+  reviewId  String
+  review    ManagementReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  order     Int
+  layout    String // TITLE | CHAPTER | CONTENT | CONCLUSION
+  kicker    String? // rode regel boven de titel, bijv. "01 · RESULTATEN VOORGAANDE DOELSTELLINGEN"
+  title     String
+  data      Json
+  imageId   String? // foto (titel-, hoofdstuk- of conclusiedia) of fotostrook (inhoudsdia)
+  hidden    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([reviewId, order])
+}
+
+/// Afbeeldingen voor de directiebeoordeling (foto's, logo, iconen); gedeeld tussen reviews.
+model ReviewImage {
+  id        String   @id @default(uuid())
+  role      String // photo | strip | logo | icon
+  name      String?
+  hash      String   @unique // sha-256 van de inhoud (geen dubbele opslag)
+  mime      String
+  width     Int?
+  height    Int?
+  data      Bytes
+  createdAt DateTime @default(now())
 }

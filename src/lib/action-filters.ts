@@ -56,5 +56,6 @@ export const actionOriginInclude = {
   legalRequirement: { select: { id: true, number: true, externalRef: true } },
   environmentalAspect: { select: { id: true, number: true, externalRef: true } },
   reductionTarget: { select: { id: true, title: true } },
+  managementReview: { select: { id: true, year: true } },
   locationAuditAnswer: { select: { auditId: true, audit: { select: { number: true } } } },
 } as const;

@@ -26,11 +26,8 @@ const NAV: { title?: string; items: NavItem[] }[] = [
       { href: "/co2", label: "CO2-prestatieladder" },
       { href: "/meldingen", label: "Meldingen" },
       { href: "/acties", label: "Actielijst" },
+      { href: "/directiebeoordeling", label: "Directiebeoordeling" },
     ],
-  },
-  {
-    title: "Binnenkort",
-    items: [{ href: "#", label: "Directiebeoordeling", soon: true }],
   },
   { title: "Instellingen", items: [{ href: "/beheer", label: "Stamgegevens" }] },
 ];
