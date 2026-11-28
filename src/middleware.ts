@@ -12,7 +12,7 @@ export default function middleware(req: NextRequest, event: NextFetchEvent) {
   if (localMode) {
     if (!isLocalHost(req.headers.get("host"))) {
       return new NextResponse(
-        "De lokale modus (zonder inloggen) is alleen bereikbaar via localhost. Koppel Microsoft 365 om de app op een server te gebruiken.",
+        "De lokale modus (zonder inloggen) is alleen bereikbaar via localhost. Online: zet AUTH_MODE op 'password' (tijdelijke login met ADMIN_EMAIL en ADMIN_PASSWORD) of 'entra' (Microsoft 365) en publiceer opnieuw.",
         {
           status: 403,
           headers: { "content-type": "text/plain; charset=utf-8" },

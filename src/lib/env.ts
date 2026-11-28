@@ -27,12 +27,18 @@ export const azureConfigured = !!(env.azure.tenantId && env.azure.clientId && en
  * - "entra": inloggen met Microsoft 365 (Entra ID); rechten uit Entra ID-groepen.
  * Zonder AUTH_MODE: "entra" als Microsoft 365 is ingesteld, anders "local".
  */
+/** AUTH_MODE zonder spaties, aanhalingstekens of hoofdletters (veelvoorkomende typefouten in hosting-instellingen). */
+const authModeSetting = (process.env.AUTH_MODE ?? "")
+  .trim()
+  .replace(/^["']|["']$/g, "")
+  .trim()
+  .toLowerCase();
 export const authMode: "local" | "entra" | "password" =
-  process.env.AUTH_MODE === "entra"
+  authModeSetting === "entra"
     ? "entra"
-    : process.env.AUTH_MODE === "password"
+    : authModeSetting === "password"
       ? "password"
-      : process.env.AUTH_MODE === "local"
+      : authModeSetting === "local"
         ? "local"
         : azureConfigured
           ? "entra"
