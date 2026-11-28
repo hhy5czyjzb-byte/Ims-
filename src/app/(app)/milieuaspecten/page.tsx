@@ -1,3 +1,4 @@
+import { AspectCharts } from "@/components/module-charts";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -104,6 +105,7 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
           </>
         }
       />
+      <AspectCharts />
       <AspectNav />
 
       <section className="card mb-6">

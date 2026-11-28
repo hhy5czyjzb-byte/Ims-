@@ -1,3 +1,4 @@
+import { LegalCharts } from "@/components/module-charts";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -71,6 +72,7 @@ export default async function LegalRegisterPage({ searchParams }: { searchParams
           </>
         }
       />
+      <LegalCharts />
 
       <LegalNav />
 

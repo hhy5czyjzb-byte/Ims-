@@ -1,3 +1,4 @@
+import { NormCoverageChart } from "@/components/module-charts";
 import Link from "next/link";
 import { NormCategory } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
@@ -22,6 +23,7 @@ export default async function NormsPage() {
         title="Normenbeheer"
         description="Alle normen en certificeringen met hun eisen. Koppel documenten, processen en risico's aan eisen; één bewijsstuk kan meerdere normen afdekken."
       />
+      <NormCoverageChart />
 
       {canEdit && (
         <div className="mb-6">

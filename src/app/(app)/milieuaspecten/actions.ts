@@ -1,5 +1,6 @@
 "use server";
 
+import { disciplineMap } from "@/lib/masterdata";
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { z } from "zod";
@@ -324,14 +325,14 @@ export async function importAspects(rowsInput: ImportRow[], options: { updateExi
     if (rowsInput.length > 5000) return { error: "Maximaal 5000 regels per import." };
 
     const [disciplines, locations, users, legal, risks] = await Promise.all([
-      prisma.discipline.findMany({ select: { id: true, name: true } }),
+      prisma.discipline.findMany({ select: { id: true, name: true, aliases: true } }),
       prisma.location.findMany({ select: { id: true, name: true } }),
       prisma.user.findMany({ where: { active: true }, select: { id: true, name: true, email: true } }),
       prisma.legalRequirement.findMany({ where: { externalRef: { not: null } }, select: { id: true, externalRef: true } }),
       prisma.risk.findMany({ where: { externalRef: { not: null } }, select: { id: true, externalRef: true } }),
     ]);
     const key = (s: string) => s.trim().toLowerCase();
-    const discMap = new Map(disciplines.map((d) => [key(d.name), d.id]));
+    const discMap = disciplineMap(disciplines);
     const locMap = new Map(locations.map((l) => [key(l.name), l.id]));
     const userMap = new Map(users.flatMap((u) => [[key(u.name), u.id] as const, [key(u.email), u.id] as const]));
     const legalByRef = new Map(legal.map((l) => [l.externalRef!.toUpperCase(), l.id]));

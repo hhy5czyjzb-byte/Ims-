@@ -1,5 +1,6 @@
 "use server";
 
+import { disciplineMap } from "@/lib/masterdata";
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { z } from "zod";
@@ -244,12 +245,12 @@ export async function importRisks(rowsInput: ImportRow[], options: { updateExist
     if (rowsInput.length > 5000) return { error: "Maximaal 5000 regels per import." };
 
     const [disciplines, locations, users] = await Promise.all([
-      prisma.discipline.findMany({ select: { id: true, name: true } }),
+      prisma.discipline.findMany({ select: { id: true, name: true, aliases: true } }),
       prisma.location.findMany({ select: { id: true, name: true } }),
       prisma.user.findMany({ where: { active: true }, select: { id: true, name: true, email: true } }),
     ]);
     const k = (s: string) => normText(s);
-    const discMap = new Map(disciplines.map((d) => [k(d.name), d.id]));
+    const discMap = disciplineMap(disciplines);
     const locMap = new Map(locations.map((l) => [k(l.name), l.id]));
     const userMap = new Map(users.flatMap((u) => [[k(u.name), u.id] as const, [k(u.email), u.id] as const]));
 

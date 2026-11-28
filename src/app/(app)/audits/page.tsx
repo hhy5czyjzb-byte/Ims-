@@ -1,3 +1,4 @@
+import { AuditCharts } from "@/components/module-charts";
 import Link from "next/link";
 import type { AuditStatus, AuditType, Prisma } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
@@ -66,6 +67,7 @@ export default async function AuditsPage({ searchParams }: { searchParams: Promi
           </Link>
         }
       />
+      <AuditCharts />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label={`Gepland ${year}`} value={planned} />

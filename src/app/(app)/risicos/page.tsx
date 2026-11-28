@@ -1,3 +1,4 @@
+import { RiskCharts } from "@/components/module-charts";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -106,6 +107,7 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
           </>
         }
       />
+      <RiskCharts />
 
       {can(user.role, "risks.create") && (
         <div className="mb-6">

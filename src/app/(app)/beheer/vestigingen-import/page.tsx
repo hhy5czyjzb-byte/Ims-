@@ -24,7 +24,12 @@ export default async function LocationImportPage() {
         title="Vestigingen importeren"
         description="Bijvoorbeeld het tabblad Vestigingen uit het register wet- en regelgeving. Bestaande vestigingen worden op naam herkend en bijgewerkt."
       />
-      <ImportWizard fields={LOCATION_IMPORT_FIELDS} importAction={importLocations} registerHref="/beheer" matchHint="Herkend op de naam van de vestiging." />
+      <ImportWizard
+        fields={LOCATION_IMPORT_FIELDS}
+        importAction={importLocations}
+        registerHref="/beheer/vestigingen"
+        matchHint="Herkend op de naam van de vestiging."
+      />
     </>
   );
 }

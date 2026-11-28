@@ -69,6 +69,11 @@ model Location {
   city                   String? // plaats / gemeente
   activities             String? // activiteiten op de locatie
   energySavingObligation String? // boven drempel energiebesparingsplicht: Ja / Nee / Nog bepalen
+  kind                   String? // soort: vestiging, betoncentrale, kantoor, werkplaats, depot, …
+  postalCode             String?
+  managerText            String? // vestigingsmanager / contactpersoon
+  permitInfo             String? // omgevingsvergunning en meldingen
+  notes                  String?
   active                 Boolean  @default(true)
   sortOrder              Int      @default(0)
   createdAt              DateTime @default(now())
@@ -87,12 +92,15 @@ model Location {
 
 /// Discipline: prefab, beton, afvalrecycling, infra (uitbreidbaar).
 model Discipline {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  sortOrder Int      @default(0)
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String   @unique
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  description String?
+  managerText String? // BU-manager / directeur
+  aliases     String[] @default([]) // andere schrijfwijzen in Excel-registers (bijv. "Afval & Recycling"), gebruikt bij import
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   processes            Process[]
   actions              Action[]
