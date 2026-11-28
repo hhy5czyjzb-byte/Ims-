@@ -11,6 +11,8 @@ import { safeAction, UserError, type ActionResult } from "@/lib/action-result";
 import { optionalDate, optionalId, optionalText, parseForm, requiredText } from "@/lib/forms";
 import { parseDecimal } from "@/lib/co2";
 import { diffFields } from "@/lib/audit-diff";
+import { CO2_PVA_KEY, getPvaSettings } from "@/lib/co2-pva";
+import { loadPlanData } from "@/lib/co2-plan-data";
 
 const pctField = z
   .string()
@@ -53,6 +55,13 @@ const schema = z.object({
   currentYearActions: optionalText,
   tenderAdvantage: optionalText,
   notApplicableReason: optionalText,
+  deadlineText: optionalText,
+  indication: optionalText,
+  sortOrder: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v && Number.isInteger(Number(v)) ? Math.max(0, Math.min(10_000, Number(v))) : 0)),
 });
 
 function split(data: z.infer<typeof schema>) {
@@ -122,6 +131,8 @@ export async function updateCo2Measure(id: string, formData: FormData): Promise<
         term: "Termijn",
         progressNote: "Voortgang",
         investment: "Investering",
+        deadlineText: "Deadline (tekst)",
+        planning: "Planning",
       },
     );
     await logAudit({
@@ -133,5 +144,64 @@ export async function updateCo2Measure(id: string, formData: FormData): Promise<
       details: { changes, co2: true },
     });
     revalidate(id);
+  });
+}
+
+/** Teksten van de energiebeoordeling onder het plan van aanpak (inleiding en onderdelen). */
+export async function savePvaDocument(formData: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    const user = await requirePermission("co2.manage");
+    const cur = await getPvaSettings();
+    const sections: { title: string; text: string | null }[] = [];
+    for (let i = 0; i < 20; i++) {
+      const title = String(formData.get(`title_${i}`) ?? "").trim();
+      if (!title) continue;
+      const text = String(formData.get(`text_${i}`) ?? "").trim();
+      sections.push({ title: title.slice(0, 200), text: text ? text.slice(0, 8000) : null });
+    }
+    const intro =
+      String(formData.get("intro") ?? "")
+        .trim()
+        .slice(0, 4000) || null;
+    const value = JSON.stringify({ ...cur, doc: { intro, sections } });
+    await prisma.appSetting.upsert({
+      where: { key: CO2_PVA_KEY },
+      create: { key: CO2_PVA_KEY, value, updatedById: user.id },
+      update: { value, updatedById: user.id },
+    });
+    await logAudit({ user, action: "UPDATE", entityType: "AppSetting", entityId: CO2_PVA_KEY, summary: "Energiebeoordeling (plan van aanpak) gewijzigd" });
+    revalidate();
+  });
+}
+
+/** Doelstellingen per scope gelijkzetten aan de berekening uit de maatregelen (zoals 'PVA - berekening doelstelling'). */
+export async function syncScopeTargets(): Promise<ActionResult> {
+  return safeAction(async () => {
+    const user = await requirePermission("co2.manage");
+    const d = await loadPlanData();
+    const changes: string[] = [];
+    for (const sc of d.calc.scopes) {
+      if (sc.scope === 3 || sc.potentialPct <= 0) continue;
+      const pct = Math.round(sc.potentialPct * 100) / 100;
+      const nl = (n: number) => n.toLocaleString("nl-NL", { maximumFractionDigits: 1 });
+      const title = `Scope ${sc.scope}: −${nl(pct)}% in ${d.targetYear} t.o.v. ${d.baseYear}`;
+      const description = `Berekend uit het plan van aanpak: ${nl(pct)}% reductie op scope ${sc.scope}, dat is ${nl(sc.totalPct)}% van de totale uitstoot; energie (GJ) ${nl(sc.potentialGjPct)}%.`;
+      const existing = d.scopeTargets.find((t) => t.scope === sc.scope);
+      if (existing) await prisma.reductionTarget.update({ where: { id: existing.id }, data: { title, description, reductionPct: pct } });
+      else
+        await prisma.reductionTarget.create({
+          data: { title, description, baseYear: d.baseYear, targetYear: d.targetYear, scope: sc.scope, reductionPct: pct },
+        });
+      changes.push(title);
+    }
+    if (!changes.length) throw new UserError("Nog geen reductiepercentages ingevuld bij de maatregelen.");
+    await logAudit({
+      user,
+      action: "UPDATE",
+      entityType: "ReductionTarget",
+      summary: `Doelstelling per scope bijgewerkt: ${changes.join("; ")}`,
+      details: { changes },
+    });
+    revalidate();
   });
 }

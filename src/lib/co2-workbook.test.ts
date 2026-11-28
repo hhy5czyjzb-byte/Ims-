@@ -333,3 +333,115 @@ test("CO2-rekenhulpen: type uitstoot, groepen, emissiestroom en reductie", () =>
   assert.equal(Math.round(r!.kg / 1000), 149);
   assert.equal(r!.pctOfTotal.toFixed(2), "1.68");
 });
+
+test("plan van aanpak: onderdelen energiebeoordeling, volgorde en doelstelling per scope", () => {
+  const H = [
+    null,
+    "Type maatregel",
+    "Maatregelen",
+    "Toelichting maatregel",
+    "Deadline",
+    "Planning",
+    "SKAO/eigen maatregel?",
+    "Indien SKAO A/B/C",
+    "Termijn",
+    "Verantwoordelijke(n)",
+  ];
+  const plan = parsePlanSheet([
+    [null, null, null, null, "Onderdeel van het energiemanagement actieplan"],
+    H,
+    [null, null, "Scope 1 - Aardgasverbruik"],
+    [null, "Directe reductiemaatregel", "Warmtepomp", "uitleg", 2025, "Maart", "Eigen maatregel", "N.v.t.", "Korte termijn", "Facilitair"],
+    [null, null, "Scope 2 - Elektriciteitsverbruik"],
+    [null, "Directe reductiemaatregel", "Groene stroom", null, "Doorlopend", null, "SKAO", "A", "Korte termijn", "Directie"],
+    [null, null, "Scope 2 - Warmteverbruik"],
+    [null, null, null, "#REF!"],
+    [null, null, "Energiebeoordeling Beschrijf welke maatregelen zijn opgenomen"],
+    [null, null, "Maatregelen opgenomen in plan van aanpak"],
+    [null, null, "Verbetering van inzicht"],
+    [
+      null,
+      "Ondersteunende reductiemaatregel",
+      "App voor CO2-bewustzijn",
+      "Rouwmaat App",
+      "Doorlopend",
+      null,
+      "Eigen maatregel",
+      "N.v.t.",
+      "Korte termijn",
+      "QHSE",
+    ],
+    [null, null, "Bevindingen uit de directiebeoordeling voorgaande jaren"],
+    [null, null, "Geen bevindingen"],
+    [null, null, "Bevindingen uit de externe audit voorgaand"],
+    [null, null, "Optelsom Categorie A maatregel", 0],
+  ]);
+  assert.deepEqual(
+    plan.measures.map((m) => [m.streamGroup, m.title, m.deadline, m.sortOrder]),
+    [
+      ["Scope 1 - Aardgasverbruik", "Warmtepomp", "2025", 1],
+      ["Scope 2 - Elektriciteitsverbruik", "Groene stroom", "Doorlopend", 2],
+      ["Verbetering van inzicht", "App voor CO2-bewustzijn", "Doorlopend", 3],
+    ],
+  );
+  assert.match(plan.doc.intro ?? "", /^Beschrijf welke/);
+  assert.deepEqual(
+    plan.doc.sections.map((s) => [s.title, s.text]),
+    [
+      ["Maatregelen opgenomen in plan van aanpak", null],
+      ["Verbetering van inzicht", null],
+      ["Bevindingen uit de directiebeoordeling voorgaande jaren", "Geen bevindingen"],
+      ["Bevindingen uit de externe audit voorgaand jaar", null],
+    ],
+  );
+
+  const pva = parsePvaSheet([
+    [null, null, "Organisatie", "Rouwmaat"],
+    [null, null, "Laatst opgestelde doelstelling jaar", "2024"],
+    [null, null, "Basis jaar", "2025"],
+    [null, null, "Doel jaar", "2028"],
+    [null, null, "Type uitstoot ", "WTW"],
+    [null, null, "Doelstelling Scope 1, 2 & 3"],
+    [null, null, "Rouwmaat heeft het doel om in 2028 een CO2-reductie van 21% te realiseren ten opzichte van 2025."],
+    [null, null, "Doelstelling Scope 1 & 2"],
+    [null, null, "Rouwmaat heeft het doel om in 2028 een CO2-reductie van 21% te realiseren in scope 1 & 2."],
+    [null, null, "Reductiedoelstellingen", "Reductie op totaal (CO2)", "Reductie op totaal (GJ)"],
+    [null, null, "Scope 1", 0.1761, 0.1272],
+    [null, null, "Scope 2", 0.0379, -0.0437],
+    [null, null, "Scope 3", "0", "nvt"],
+    [null, null, "Totaal", 0.214, 0.0834],
+    [null, null, "Reductiepotentieel per scope", "Reductie op scope (CO2)", "Reductie t.o.v scope 1 & 2", "Reductie op scope (GJ)"],
+    [null, null, "Scope 1", 0.1871, 0.1761, 0.139],
+    [null, null, "Scope 2", 0.7729, 0.0379, -0.0437],
+    [null, null, "Scope 3", 0.075, "nvt", "nvt"],
+    [null, null, "Tussendoelstellingen", "Scope 1", "Scope 2", "Scope 3", "Totaal"],
+    [null, null, "2025"],
+    [null, null, "2026", 0.06, 0.25, null, 0.07],
+    [null, null, "Scope 1"],
+    [
+      null,
+      null,
+      "Maatregelen brandstofverbruik",
+      "Reductie op emissiestroom",
+      "Reductie op totaal (CO2)",
+      "Reductie op energie",
+      "Reductie op totaal (GJ)",
+      "indicatie",
+    ],
+    [null, null, "Elektrische shovel aanschaffen", 0.018, 0.0168, 0.0119, 0.0107, "1"],
+    [null, null, "Totaal op brandstofverbruik", 0.189],
+  ]);
+  assert.equal(pva.target.text12, "Rouwmaat heeft het doel om in 2028 een CO2-reductie van 21% te realiseren in scope 1 & 2.");
+  assert.equal(pva.target.lastTargetYear, 2024);
+  assert.deepEqual(
+    pva.target.scopes.map((s) => [s.scope, s.totalCo2Pct, s.potentialCo2Pct]),
+    [
+      [1, 17.61, 18.71],
+      [2, 3.79, 77.29],
+      [3, 0, 7.5],
+    ],
+  );
+  assert.equal(pva.target.totalCo2Pct, 21.4);
+  assert.deepEqual(pva.target.milestones, [{ year: 2026, scope1: 6, scope2: 25, scope3: null, total: 7, lastTarget: null, energy: null }]);
+  assert.deepEqual(pva.reductions.get("elektrische shovel aanschaffen"), { reductionPct: 1.8, energyReductionPct: 1.19, indication: "1" });
+});

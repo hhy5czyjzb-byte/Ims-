@@ -1079,6 +1079,9 @@ model ActionCo2 {
   currentYearActions  String? // actiepunten huidig jaar
   tenderAdvantage     String? // van toepassing op project met gunningvoordeel
   notApplicableReason String?
+  deadlineText        String? // deadline zoals in het plan van aanpak ("2025", "Doorlopend")
+  indication          String? // kolom 'indicatie' uit de PVA-berekening
+  sortOrder           Int            @default(0) // volgorde zoals in het plan van aanpak
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 }

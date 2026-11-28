@@ -3,7 +3,7 @@ import type { ActionResult } from "@/lib/action-result";
 import { Field, Select } from "@/components/ui";
 import { Form } from "@/components/form";
 import { SubmitButton } from "@/components/submit-button";
-import { STREAM_GROUPS } from "@/lib/co2";
+import { PLAN_GROUPS } from "@/lib/co2";
 import { ACTION_STATUS_LABEL, options } from "@/lib/labels";
 import { toDateInput } from "@/lib/format";
 
@@ -35,11 +35,12 @@ export function Co2MeasureForm({
       </Field>
       <Field label="Emissiestroom">
         <select name="streamGroup" defaultValue={c?.streamGroup ?? "Scope 1 - Brandstofverbruik"} className="input">
-          {STREAM_GROUPS.map((g) => (
+          {PLAN_GROUPS.map((g) => (
             <option key={g} value={g}>
               {g}
             </option>
           ))}
+          {c?.streamGroup && !(PLAN_GROUPS as readonly string[]).includes(c.streamGroup) && <option value={c.streamGroup}>{c.streamGroup}</option>}
         </select>
       </Field>
       <Field label="Toelichting maatregel" className="md:col-span-4">
@@ -79,7 +80,10 @@ export function Co2MeasureForm({
           <option value="Lange termijn">Lange termijn</option>
         </select>
       </Field>
-      <Field label="Deadline">
+      <Field label="Deadline (zoals in het plan)" hint="Bijv. 2027 of Doorlopend">
+        <input name="deadlineText" maxLength={100} defaultValue={c?.deadlineText ?? ""} className="input" />
+      </Field>
+      <Field label="Deadline (datum, voor de actielijst)">
         <input name="deadline" type="date" defaultValue={toDateInput(action?.deadline)} className="input" />
       </Field>
       <Field label="Verantwoordelijke (gebruiker)">
@@ -116,6 +120,12 @@ export function Co2MeasureForm({
           </Field>
           <Field label="Kennisbehoefte">
             <input name="knowledgeNeed" defaultValue={c?.knowledgeNeed ?? ""} className="input" />
+          </Field>
+          <Field label="Indicatie (PVA-berekening)">
+            <input name="indication" maxLength={50} defaultValue={c?.indication ?? ""} className="input" />
+          </Field>
+          <Field label="Volgorde in het plan" hint="Lager = hoger in de lijst">
+            <input name="sortOrder" type="number" min={0} defaultValue={c?.sortOrder || ""} className="input" />
           </Field>
           {t("flexibilityImpact", "Invloed flexibiliteit energiesysteem")}
           {t("legislation", "Wetgeving")}

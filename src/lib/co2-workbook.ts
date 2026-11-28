@@ -11,6 +11,8 @@
  * - "Plan van aanpak" + "PVA - berekening doelstelling": maatregelen met reductiepercentage op de emissiestroom.
  */
 
+import { PLAN_SECTIONS } from "@/lib/co2";
+
 export type Cell = string | number | boolean | Date | null | undefined;
 export type Rows = Cell[][];
 
@@ -323,13 +325,47 @@ export type WorkbookMeasure = {
   measureType: string | null;
   reductionPct: number | null; // uit het PVA-tabblad (fractie × 100)
   energyReductionPct: number | null;
+  indication: string | null;
+  sortOrder: number; // volgorde in het plan van aanpak
 };
 
-const STOP = /^(energiebeoordeling|maatregelen opgenomen|kansrijke maatregelen|verbetering van inzicht|overige \(organisatorische\)|bevindingen uit|optelsom)/i;
+/**
+ * Onderdelen onder "Energiebeoordeling" in het plan van aanpak. Maatregelen daaronder (bijv. bij "Verbetering
+ * van inzicht") worden ook ingelezen, met het onderdeel als groep.
+ */
+export const PVA_SECTIONS = PLAN_SECTIONS;
+const SECTION_RE =
+  /^(maatregelen opgenomen|kansrijke maatregelen|verbetering van inzicht|overige \(organisatorische\)|bevindingen uit de directie|bevindingen uit de externe)/i;
+const STOP = /^optelsom/i;
+
+/** Naam van een onderdeel zoals in PVA_SECTIONS (de tekst in het bestand kan iets afwijken). */
+export function sectionName(text: string): string {
+  const t = norm(text);
+  const key: [RegExp, (typeof PVA_SECTIONS)[number]][] = [
+    [/^maatregelen opgenomen/, PVA_SECTIONS[0]],
+    [/^kansrijke maatregelen/, PVA_SECTIONS[1]],
+    [/^verbetering van inzicht/, PVA_SECTIONS[2]],
+    [/^bevindingen uit de directie/, PVA_SECTIONS[3]],
+    [/^bevindingen uit de externe audit/, PVA_SECTIONS[4]],
+  ];
+  return key.find(([re]) => re.test(t))?.[1] ?? text.replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+export type PvaDocument = {
+  /** Tekst bij "Energiebeoordeling" (welke maatregelen wel/niet zijn opgenomen). */
+  intro: string | null;
+  /** Onderdelen met eventuele losse tekstregels (zonder maatregelkolommen). */
+  sections: { title: string; text: string | null }[];
+};
 
 export function parsePlanSheet(rows: Rows) {
   const h = findHeader(rows, ["Maatregelen", "Deadline"]);
-  if (h < 0) return { measures: [] as WorkbookMeasure[], warnings: ["Tabblad Plan van aanpak: kopregel niet gevonden."] };
+  if (h < 0)
+    return {
+      measures: [] as WorkbookMeasure[],
+      doc: { intro: null, sections: [] } as PvaDocument,
+      warnings: ["Tabblad Plan van aanpak: kopregel niet gevonden."],
+    };
   const header = rows[h];
   const col = (n: string) => colOf(header, n);
   const c = {
@@ -356,7 +392,9 @@ export function parsePlanSheet(rows: Rows) {
   };
   const v = (r: Cell[], i: number) => (i >= 0 ? str(r[i]) || null : null);
   const measures: WorkbookMeasure[] = [];
+  const doc: PvaDocument = { intro: null, sections: [] };
   let group = "Overig";
+  let inAssessment = false;
   for (let i = h + 1; i < rows.length; i++) {
     const r = rows[i] ?? [];
     const title = str(r[c.title]);
@@ -364,12 +402,29 @@ export function parsePlanSheet(rows: Rows) {
     if (STOP.test(title)) break;
     const others = Object.entries(c)
       .filter(([k]) => k !== "title" && k !== "term")
-      .some(([, idx]) => idx >= 0 && str(r[idx]));
-    if (/^scope\s*\d|^zakelijk|^scope 3/i.test(title) && !others) {
+      .some(([, idx]) => idx >= 0 && str(r[idx]) && !/^#ref/i.test(str(r[idx])));
+    if (/^energiebeoordeling/i.test(title)) {
+      inAssessment = true;
+      doc.intro = title.replace(/^energiebeoordeling\s*/i, "").trim() || null;
+      continue;
+    }
+    if (SECTION_RE.test(title) && !others) {
+      inAssessment = true;
+      group = sectionName(title);
+      doc.sections.push({ title: group, text: null });
+      continue;
+    }
+    if (!inAssessment && /^scope\s*\d|^zakelijk|^scope 3/i.test(title) && !others) {
       group = title;
       continue;
     }
     if (/^aan fte|^#ref/i.test(title)) continue;
+    if (inAssessment && !others) {
+      // Losse tekst in een onderdeel van de energiebeoordeling.
+      const sec = doc.sections[doc.sections.length - 1];
+      if (sec) sec.text = [sec.text, title].filter(Boolean).join("\n");
+      continue;
+    }
     measures.push({
       streamGroup: group,
       title: title.slice(0, 300),
@@ -394,45 +449,139 @@ export function parsePlanSheet(rows: Rows) {
       measureType: v(r, c.type),
       reductionPct: null,
       energyReductionPct: null,
+      indication: null,
+      sortOrder: measures.length + 1,
     });
   }
-  return { measures: measures.filter((m) => !/^#/.test(m.title)), warnings: [] as string[] };
+  return { measures: measures.filter((m) => !/^#/.test(m.title)), doc, warnings: [] as string[] };
 }
 
-/** Reductiepercentages per maatregel en de doelstelling uit "PVA - berekening doelstelling". */
+export type PvaScope = {
+  scope: 1 | 2 | 3;
+  totalCo2Pct: number | null;
+  totalGjPct: number | null;
+  potentialCo2Pct: number | null;
+  potentialGjPct: number | null;
+};
+export type PvaMilestone = {
+  year: number;
+  scope1: number | null;
+  scope2: number | null;
+  scope3: number | null;
+  total: number | null;
+  lastTarget: number | null;
+  energy: number | null;
+};
+export type PvaTarget = {
+  organisation: string | null;
+  lastTargetYear: number | null;
+  baseYear: number | null;
+  targetYear: number | null;
+  emissionType: string | null;
+  textAll: string | null; // doelstelling scope 1, 2 & 3
+  text12: string | null; // doelstelling scope 1 & 2
+  totalCo2Pct: number | null;
+  totalGjPct: number | null;
+  scopes: PvaScope[];
+  milestones: PvaMilestone[];
+};
+
+const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
+
+/** Percentage uit een cel: fractie (0,176) → 17,6; "0" en tekst → null of 0. */
+const pctOf = (v: Cell): number | null => {
+  const n = num(v);
+  return n === null ? null : Math.round(n * 100 * 10000) / 10000;
+};
+
+/** Reductiepercentages per maatregel en de doelstelling (gesplitst per scope) uit "PVA - berekening doelstelling". */
 export function parsePvaSheet(rows: Rows) {
-  const out = new Map<string, { reductionPct: number | null; energyReductionPct: number | null }>();
-  let baseYear: number | null = null;
-  let targetYear: number | null = null;
-  let targetText: string | null = null;
-  let inMeasures = false;
+  const out = new Map<string, { reductionPct: number | null; energyReductionPct: number | null; indication: string | null }>();
+  const target: PvaTarget = {
+    organisation: null,
+    lastTargetYear: null,
+    baseYear: null,
+    targetYear: null,
+    emissionType: null,
+    textAll: null,
+    text12: null,
+    totalCo2Pct: null,
+    totalGjPct: null,
+    scopes: [],
+    milestones: [],
+  };
+  let block: "none" | "goals" | "potential" | "milestones" | "measures" | "texts" = "none";
+  let pendingText: "all" | "12" | null = null;
   for (const r of rows) {
     const label = str(r?.[2]);
-    if (/^basis jaar/i.test(label)) baseYear = num(r[3]);
-    if (/^doel jaar/i.test(label)) targetYear = num(r[3]);
-    if (!targetText && /heeft het doel om in/i.test(label)) targetText = label;
-    if (/^maatregelen /i.test(label)) {
-      inMeasures = true;
-      continue;
-    }
-    if (/^totaal op/i.test(label) || /^scope \d$/i.test(label)) {
-      inMeasures = /^scope/i.test(label) ? false : inMeasures;
-      continue;
-    }
-    if (inMeasures && label && label !== "0") {
+    if (!label) continue;
+    if (/^organisatie$/i.test(label)) target.organisation = str(r[3]) || null;
+    else if (/^laatst opgestelde doelstelling/i.test(label)) target.lastTargetYear = num(r[3]);
+    else if (/^basis jaar/i.test(label)) target.baseYear = num(r[3]);
+    else if (/^doel jaar/i.test(label)) target.targetYear = num(r[3]);
+    else if (/^type uitstoot/i.test(label)) target.emissionType = str(r[3]) || null;
+    else if (/^doelstelling scope 1, 2 (&|en) 3/i.test(label)) pendingText = "all";
+    else if (/^doelstelling scope 1 (&|en) 2/i.test(label)) pendingText = "12";
+    else if (pendingText && /heeft het doel/i.test(label)) {
+      if (pendingText === "all") target.textAll = label;
+      else target.text12 = label;
+      pendingText = null;
+    } else if (/^reductiedoelstellingen/i.test(label)) block = "goals";
+    else if (/^reductiepotentieel per scope/i.test(label)) block = "potential";
+    else if (/^tussendoelstellingen/i.test(label)) block = "milestones";
+    else if (/^maatregelen /i.test(label)) block = "measures";
+    else if (/^totaal op/i.test(label)) block = "none";
+    else if (block === "goals" && /^scope [123]$/i.test(label)) {
+      const scope = Number(label.slice(-1)) as 1 | 2 | 3;
+      const cur = target.scopes.find((x) => x.scope === scope) ?? { scope, totalCo2Pct: null, totalGjPct: null, potentialCo2Pct: null, potentialGjPct: null };
+      cur.totalCo2Pct = pctOf(r[3]);
+      cur.totalGjPct = pctOf(r[4]);
+      if (!target.scopes.includes(cur)) target.scopes.push(cur);
+    } else if (block === "goals" && /^totaal$/i.test(label)) {
+      target.totalCo2Pct = pctOf(r[3]);
+      target.totalGjPct = pctOf(r[4]);
+      block = "none";
+    } else if (block === "potential" && /^scope [123]$/i.test(label)) {
+      const scope = Number(label.slice(-1)) as 1 | 2 | 3;
+      const cur = target.scopes.find((x) => x.scope === scope) ?? { scope, totalCo2Pct: null, totalGjPct: null, potentialCo2Pct: null, potentialGjPct: null };
+      cur.potentialCo2Pct = pctOf(r[3]);
+      cur.potentialGjPct = pctOf(r[5]);
+      if (!target.scopes.includes(cur)) target.scopes.push(cur);
+      if (scope === 3) block = "none";
+    } else if (block === "milestones" && /^20\d{2}$/.test(label)) {
+      const year = Number(label);
+      if (!target.milestones.some((m) => m.year === year))
+        target.milestones.push({
+          year,
+          scope1: pctOf(r[3]),
+          scope2: pctOf(r[4]),
+          scope3: pctOf(r[5]),
+          total: pctOf(r[6]),
+          lastTarget: pctOf(r[7]),
+          energy: pctOf(r[8]),
+        });
+    } else if (/^scope [123]$/i.test(label)) block = "none";
+    else if (block === "measures" && label !== "0" && !/^#ref/i.test(label)) {
       const d = num(r[3]);
       const f = num(r[5]);
-      if (d !== null || f !== null) out.set(norm(label), { reductionPct: d === null ? null : d * 100, energyReductionPct: f === null ? null : f * 100 });
+      const ind = str(r[7]);
+      if (d !== null || f !== null || ind)
+        out.set(norm(label), {
+          reductionPct: d === null ? null : round6(d * 100),
+          energyReductionPct: f === null ? null : round6(f * 100),
+          indication: ind || null,
+        });
     }
   }
-  return { reductions: out, baseYear, targetYear, targetText };
+  target.milestones = target.milestones.filter((m) => [m.scope1, m.scope2, m.scope3, m.total, m.lastTarget, m.energy].some((x) => x !== null && x !== 0));
+  return { reductions: out, baseYear: target.baseYear, targetYear: target.targetYear, targetText: target.textAll ?? target.text12, target };
 }
 
 /** Maatregelen uit het plan van aanpak aanvullen met de percentages uit de PVA-berekening (op naam). */
 export function mergePva(measures: WorkbookMeasure[], pva: ReturnType<typeof parsePvaSheet>): WorkbookMeasure[] {
   return measures.map((m) => {
     const hit = pva.reductions.get(norm(m.title));
-    return hit ? { ...m, reductionPct: hit.reductionPct, energyReductionPct: hit.energyReductionPct } : m;
+    return hit ? { ...m, reductionPct: hit.reductionPct, energyReductionPct: hit.energyReductionPct, indication: hit.indication } : m;
   });
 }
 
@@ -478,7 +627,8 @@ export function parseCo2Workbook(sheets: Record<string, Rows>) {
     dkmp: dkmpPart,
     kpis: dataPart ? selectKpis(dataPart.kpis) : [],
     measures: planPart ? uniqueTitles(pvaPart ? mergePva(planPart.measures, pvaPart) : planPart.measures) : [],
-    pva: pvaPart ? { baseYear: pvaPart.baseYear, targetYear: pvaPart.targetYear, targetText: pvaPart.targetText } : null,
+    pva: pvaPart ? { baseYear: pvaPart.baseYear, targetYear: pvaPart.targetYear, targetText: pvaPart.targetText, target: pvaPart.target } : null,
+    pvaDoc: planPart?.doc ?? null,
     missing: [!factorRows && "Scope 1&2 Input keuzevariabelen", !dataRows && "Data scope 1&2", !dkmpRows && "DKMP", !planRows && "Plan van aanpak"].filter(
       Boolean,
     ) as string[],

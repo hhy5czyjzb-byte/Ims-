@@ -333,6 +333,18 @@ export const STREAM_GROUPS = [
 ] as const;
 export type StreamGroup = (typeof STREAM_GROUPS)[number];
 
+/** Onderdelen van de energiebeoordeling onder het plan van aanpak (zoals in het CO2-dashboard). */
+export const PLAN_SECTIONS = [
+  "Maatregelen opgenomen in plan van aanpak",
+  "Kansrijke maatregelen ter inspiratie",
+  "Verbetering van inzicht",
+  "Bevindingen uit de directiebeoordeling voorgaande jaren",
+  "Bevindingen uit de externe audit voorgaand jaar",
+] as const;
+/** Alle groepen in het plan van aanpak, in de volgorde van het dashboard. */
+export const PLAN_GROUPS = [...STREAM_GROUPS, ...PLAN_SECTIONS] as const;
+export const scopeOfGroup = (g: string): 1 | 2 | 3 | null => (/^scope 1/i.test(g) ? 1 : /^scope 2/i.test(g) ? 2 : /^scope 3|^zakelijk/i.test(g) ? 3 : null);
+
 export function streamGroupOf(c: { name: string; reportGroup?: string | null; defaultScope: number }): StreamGroup {
   const g = carrierGroup(c);
   if (g === "Aardgasverbruik") return "Scope 1 - Aardgasverbruik";

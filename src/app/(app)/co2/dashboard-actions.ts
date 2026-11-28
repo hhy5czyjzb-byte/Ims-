@@ -8,6 +8,7 @@ import { requirePermission } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { UserError } from "@/lib/action-result";
 import { CO2_SETTINGS_KEY, getCo2Settings } from "@/lib/co2-settings";
+import { CO2_PVA_KEY, pvaDocSchema, pvaTargetSchema, type PvaTargetData } from "@/lib/co2-pva";
 import { parseStreamGroup } from "@/lib/co2";
 
 /**
@@ -325,11 +326,47 @@ const measuresSchema = z.object({
         measureType: opt(200),
         reductionPct: z.number().nullable(),
         energyReductionPct: z.number().nullable(),
+        indication: opt(50).optional().default(null),
+        sortOrder: z.number().int().min(0).max(10_000).optional().default(0),
       }),
     )
     .max(500),
-  pva: z.object({ baseYear: z.number().int().nullable(), targetYear: z.number().int().nullable(), targetText: z.string().max(2000).nullable() }).nullable(),
+  pva: z
+    .object({
+      baseYear: z.number().int().nullable(),
+      targetYear: z.number().int().nullable(),
+      targetText: z.string().max(2000).nullable(),
+      target: pvaTargetSchema.nullable().optional(),
+    })
+    .nullable(),
+  pvaDoc: pvaDocSchema.nullable().optional(),
+  /** Maatregelen (bron CO2-reductie) die niet meer in het plan van aanpak staan laten vervallen. */
+  cancelMissing: z.boolean().optional(),
 });
+
+const fmtPct = (n: number) => n.toLocaleString("nl-NL", { maximumFractionDigits: 1 });
+
+/** Doelstelling per scope (uit "PVA - berekening doelstelling") vastleggen of bijwerken. */
+async function upsertScopeTargets(t: PvaTargetData) {
+  if (!t.baseYear || !t.targetYear) return 0;
+  let n = 0;
+  for (const sc of t.scopes) {
+    if (sc.scope === 3 || sc.potentialCo2Pct === null || sc.potentialCo2Pct <= 0) continue;
+    const title = `Scope ${sc.scope}: −${fmtPct(sc.potentialCo2Pct)}% in ${t.targetYear} t.o.v. ${t.baseYear}`;
+    const description = `Uit 'PVA - berekening doelstelling': ${fmtPct(sc.potentialCo2Pct)}% reductie op scope ${sc.scope}${
+      sc.totalCo2Pct !== null ? `, dat is ${fmtPct(sc.totalCo2Pct)}% van de totale uitstoot` : ""
+    }${sc.potentialGjPct !== null ? `; energie (GJ) ${fmtPct(sc.potentialGjPct)}%` : ""}.`;
+    const existing = await prisma.reductionTarget.findFirst({ where: { baseYear: t.baseYear, targetYear: t.targetYear, scope: sc.scope, disciplineId: null } });
+    if (existing)
+      await prisma.reductionTarget.update({ where: { id: existing.id }, data: { title, description, reductionPct: sc.potentialCo2Pct, active: true } });
+    else
+      await prisma.reductionTarget.create({
+        data: { title, description, baseYear: t.baseYear, targetYear: t.targetYear, scope: sc.scope, reductionPct: sc.potentialCo2Pct },
+      });
+    n++;
+  }
+  return n;
+}
 
 function deadlineFrom(text: string | null): Date | null {
   if (!text) return null;
@@ -346,8 +383,18 @@ export async function importCo2Measures(input: unknown): Promise<Result> {
     const user = await requirePermission("co2.manage");
     const p = measuresSchema.safeParse(input);
     if (!p.success) return { error: "Ongeldige gegevens uit het plan van aanpak." };
-    const { measures, pva } = p.data;
+    const { measures, pva, pvaDoc, cancelMissing } = p.data;
     let targetId: string | null = null;
+    // Energiebeoordeling en doelstelling (verdeling per scope, tussendoelstellingen) bewaren zoals in het bestand.
+    if (pvaDoc || pva?.target) {
+      const value = JSON.stringify({ doc: pvaDoc ?? null, target: pva?.target ?? null, importedAt: new Date().toISOString() });
+      await prisma.appSetting.upsert({
+        where: { key: CO2_PVA_KEY },
+        create: { key: CO2_PVA_KEY, value, updatedById: user.id },
+        update: { value, updatedById: user.id },
+      });
+    }
+    const scopeTargets = pva?.target ? await upsertScopeTargets(pva.target) : 0;
     if (pva?.baseYear && pva.targetYear) {
       const pct = Number(pva.targetText?.match(/(\d+(?:[.,]\d+)?)\s*%/)?.[1]?.replace(",", ".") ?? NaN);
       const existing = await prisma.reductionTarget.findFirst({
@@ -376,7 +423,7 @@ export async function importCo2Measures(input: unknown): Promise<Result> {
       const deadline = deadlineFrom(m.deadline);
       const actionData = {
         title: m.title,
-        description: [m.description, m.planning && `Planning: ${m.planning}`].filter(Boolean).join("\n\n") || null,
+        description: m.description,
         ownerText: m.owner && !/^afdeling\/functie/i.test(m.owner) ? m.owner : null,
         deadline,
         reductionTargetId: targetId,
@@ -390,7 +437,10 @@ export async function importCo2Measures(input: unknown): Promise<Result> {
         skao: m.skao,
         skaoCategory: m.skaoCategory,
         term: m.term,
-        planning: m.planning ?? (m.deadline && !deadline ? m.deadline : null),
+        planning: m.planning,
+        deadlineText: m.deadline,
+        indication: m.indication,
+        sortOrder: m.sortOrder,
         knowledgeNeed: m.knowledgeNeed,
         progressNote: m.progressNote,
         trl: m.trl,
@@ -416,7 +466,21 @@ export async function importCo2Measures(input: unknown): Promise<Result> {
         created++;
       }
     }
-    const summary = `${created} nieuwe en ${updated} bijgewerkte maatregelen${targetId ? ", gekoppeld aan de doelstelling" : ""}`;
+    // Maatregelen die niet (meer) in het plan van aanpak staan: vervallen (blijven als historie bewaard).
+    let cancelled = 0;
+    if (cancelMissing) {
+      const titles = new Set(measures.map((m) => m.title));
+      const obsolete = await prisma.action.findMany({
+        where: { source: "CO2_REDUCTION", status: { in: ["OPEN", "IN_PROGRESS"] } },
+        select: { id: true, title: true, description: true },
+      });
+      const note = `Vervallen: niet meer in het plan van aanpak (ingelezen ${new Date().toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" })}).`;
+      for (const a of obsolete.filter((o) => !titles.has(o.title))) {
+        await prisma.action.update({ where: { id: a.id }, data: { status: "CANCELLED", description: [a.description, note].filter(Boolean).join("\n\n") } });
+        cancelled++;
+      }
+    }
+    const summary = `${created} nieuwe en ${updated} bijgewerkte maatregelen${cancelled ? `, ${cancelled} vervallen (niet meer in het plan)` : ""}${targetId ? ", gekoppeld aan de doelstelling" : ""}${scopeTargets ? `; doelstelling gesplitst over ${scopeTargets} scope(s)` : ""}`;
     await logAudit({ user, action: "CREATE", entityType: "Action", summary: `Plan van aanpak ingelezen uit het CO2-dashboard: ${summary}` });
     revalidate();
     return { summary };

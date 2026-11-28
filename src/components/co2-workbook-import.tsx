@@ -17,6 +17,7 @@ export function Co2WorkbookImport() {
   const [parts, setParts] = useState<Record<Part, boolean>>({ setup: true, data: true, dkmp: true, plan: true });
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cancelMissing, setCancelMissing] = useState(true);
   const [log, setLog] = useState<{ part: string; ok: boolean; text: string; warnings?: string[] }[]>([]);
 
   async function onFile(f: File | undefined) {
@@ -61,7 +62,8 @@ export function Co2WorkbookImport() {
         return setBusy(null);
     if (parsed.data) await step("data", "Verbruik en kengetallen", () => importCo2Data({ consumptions: parsed.selected, kpis: parsed.kpis }));
     if (parsed.dkmp) await step("dkmp", "DKMP", () => importCo2Dkmp(parsed.dkmp!.items));
-    if (parsed.measures.length) await step("plan", "Plan van aanpak", () => importCo2Measures({ measures: parsed.measures, pva: parsed.pva }));
+    if (parsed.measures.length)
+      await step("plan", "Plan van aanpak", () => importCo2Measures({ measures: parsed.measures, pva: parsed.pva, pvaDoc: parsed.pvaDoc, cancelMissing }));
     setBusy(null);
     router.refresh();
   }
@@ -121,8 +123,17 @@ export function Co2WorkbookImport() {
             part="plan"
             title="Plan van aanpak → maatregelen (acties)"
             available={parsed.measures.length > 0}
-            detail={`${parsed.measures.length} maatregelen${parsed.pva?.targetText ? `; doelstelling: ${parsed.pva.targetText}` : ""}. Reductiepercentages uit 'PVA - berekening doelstelling'.`}
+            detail={`${parsed.measures.length} maatregelen met alle kolommen en de volgorde uit het plan van aanpak${parsed.pva?.targetText ? `; doelstelling: ${parsed.pva.targetText}` : ""}. Reductiepercentages en de doelstelling per scope uit 'PVA - berekening doelstelling'.`}
           />
+          {parsed.measures.length > 0 && (
+            <label className="ml-8 flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-0.5" checked={cancelMissing} disabled={!!busy} onChange={(e) => setCancelMissing(e.target.checked)} />
+              <span>
+                Maatregelen die niet meer in het plan van aanpak staan laten vervallen
+                <span className="block text-xs text-neutral-500">Ze blijven als historie bewaard in de actielijst (status &lsquo;vervallen&rsquo;).</span>
+              </span>
+            </label>
+          )}
           {(parsed.factors?.warnings.length ?? 0) + (parsed.data?.warnings.length ?? 0) > 0 && (
             <details className="text-sm text-neutral-600">
               <summary className="cursor-pointer">
