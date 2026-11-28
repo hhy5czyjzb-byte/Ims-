@@ -7,9 +7,12 @@ import {
   type ChapterData,
   type ConclusionData,
   type ContentData,
+  type FmtMap,
   type SlideElement,
+  type TextFmt,
   type TitleData,
 } from "@/lib/review-model";
+import { fmtCss } from "@/lib/review-fmt";
 
 /**
  * Voorbeeld van een dia in HTML, op schaal (container-eenheden): 1 inch = 100/13,333 cqw, 1 pt = 1/72 inch.
@@ -21,6 +24,9 @@ const pt = (n: number) => `${(n / 72) * IN}cqw`;
 const inch = (n: number) => `${n * IN}cqw`;
 const c = (hex?: string) => (hex ? `#${hex}` : undefined);
 export const reviewImageSrc = (id: string) => `/directiebeoordeling/afbeelding/${id}`;
+/** Opmaak van een veld (lettertype, grootte, kleur, stijl, uitlijning) als CSS. */
+const F = (f?: TextFmt) => fmtCss(f, pt);
+const fm = (m: FmtMap | undefined, k: string) => F(m?.[k]);
 
 const FONT = `"${T.font}", "Fira Sans", system-ui, sans-serif`;
 const LIGHT = `"${T.fontLight}", "Fira Sans", system-ui, sans-serif`;
@@ -73,7 +79,9 @@ function ChartPreview({ e }: { e: Extract<SlideElement, { type: "chart" }> }) {
     const order = e.categories.map((_, i) => i).reverse();
     return (
       <Box x={e.x} y={e.y} w={e.w} h={e.h}>
-        {e.title && <div style={{ fontFamily: FONT, fontSize: pt(11), color: c(T.ink), textAlign: "center", height: inch(titleH) }}>{e.title}</div>}
+        {e.title && (
+          <div style={{ fontFamily: FONT, fontSize: pt(11), color: c(T.ink), textAlign: "center", height: inch(titleH), ...fm(e.fmt, "title") }}>{e.title}</div>
+        )}
         {order.map((i, row) => (
           <div
             key={i}
@@ -114,7 +122,9 @@ function ChartPreview({ e }: { e: Extract<SlideElement, { type: "chart" }> }) {
   const plotH = e.h - titleH - 0.55;
   return (
     <Box x={e.x} y={e.y} w={e.w} h={e.h}>
-      {e.title && <div style={{ fontFamily: FONT, fontSize: pt(11), color: c(T.ink), textAlign: "center", height: inch(titleH) }}>{e.title}</div>}
+      {e.title && (
+        <div style={{ fontFamily: FONT, fontSize: pt(11), color: c(T.ink), textAlign: "center", height: inch(titleH), ...fm(e.fmt, "title") }}>{e.title}</div>
+      )}
       {e.categories.map((cat, i) => {
         const multi = e.series.length > 1;
         return (
@@ -180,6 +190,7 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
                   fontWeight: 700,
                   fontSize: pt(9),
                   color: c(T.muted),
+                  ...fm(e.fmt, "caption"),
                 }}
               >
                 {e.caption}
@@ -195,11 +206,23 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
                   fontSize: pt(30),
                   color: c(e.color ?? T.ink),
                   lineHeight: 1.1,
+                  ...fm(e.fmt, "value"),
                 }}
               >
                 {e.value}
               </div>
-              <div style={{ position: "absolute", left: inch(0.22), top: inch(1.4), right: inch(0.22), fontFamily: LIGHT, fontSize: pt(11), color: c(T.ink) }}>
+              <div
+                style={{
+                  position: "absolute",
+                  left: inch(0.22),
+                  top: inch(1.4),
+                  right: inch(0.22),
+                  fontFamily: LIGHT,
+                  fontSize: pt(11),
+                  color: c(T.ink),
+                  ...fm(e.fmt, "label"),
+                }}
+              >
                 {e.label}
               </div>
             </>
@@ -216,6 +239,7 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
                   fontSize: pt(28),
                   color: c(e.color ?? T.ink),
                   lineHeight: 1.1,
+                  ...fm(e.fmt, "value"),
                 }}
               >
                 {e.value}
@@ -230,6 +254,7 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
                   fontSize: pt(10.5),
                   color: c(T.muted),
                   lineHeight: 1.2,
+                  ...fm(e.fmt, "label"),
                 }}
               >
                 {e.label}
@@ -273,6 +298,7 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
               fontWeight: 700,
               fontSize: pt(13),
               color: c(T.ink),
+              ...fm(e.fmt, "title"),
             }}
           >
             {e.title}
@@ -288,6 +314,7 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
               fontSize: pt(e.bodySize ?? 12),
               color: c(T.muted),
               lineHeight: 1.25,
+              ...fm(e.fmt, "body"),
             }}
           >
             {lines(e.body).map((l, i) => (
@@ -304,8 +331,8 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
         <Box x={e.x} y={e.y} w={e.w} h={e.h} style={{ background: c(T.judgment), ...outline }}>
           {e.stacked ? (
             <div style={{ position: "absolute", left: inch(0.2), top: inch(0.1), right: inch(0.15), fontSize: pt(10.5), lineHeight: 1.25 }}>
-              <div style={{ fontFamily: FONT, fontWeight: 700, color: c(T.redDark), marginBottom: pt(4) }}>{e.label}</div>
-              <div style={{ fontFamily: LIGHT, color: c(T.ink) }}>{e.text}</div>
+              <div style={{ fontFamily: FONT, fontWeight: 700, color: c(T.redDark), marginBottom: pt(4), ...fm(e.fmt, "label") }}>{e.label}</div>
+              <div style={{ fontFamily: LIGHT, color: c(T.ink), ...fm(e.fmt, "text") }}>{e.text}</div>
             </div>
           ) : (
             <div
@@ -322,8 +349,8 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
               }}
             >
               <span>
-                <b style={{ fontFamily: FONT, color: c(T.redDark) }}>{e.label}</b>
-                <span style={{ fontFamily: LIGHT, color: c(T.ink) }}>
+                <b style={{ fontFamily: FONT, color: c(T.redDark), ...fm(e.fmt, "label") }}>{e.label}</b>
+                <span style={{ fontFamily: LIGHT, color: c(T.ink), ...fm(e.fmt, "text") }}>
                   {"   "}
                   {e.text}
                 </span>
@@ -336,9 +363,22 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
       return (
         <Box x={e.x} y={e.y} w={e.w} h={e.h} style={{ background: c(T.redDark), color: "#fff", ...outline }}>
           <div style={{ position: "absolute", left: inch(0.3), top: inch(0.3), right: inch(0.29) }}>
-            <div style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(11), letterSpacing: pt(2), marginBottom: pt(12) }}>{e.heading}</div>
+            <div style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(11), letterSpacing: pt(2), marginBottom: pt(12), ...fm(e.fmt, "heading") }}>
+              {e.heading}
+            </div>
             {e.items.map((t, i) => (
-              <div key={i} style={{ fontFamily: LIGHT, fontSize: pt(13), marginBottom: pt(8), paddingLeft: pt(13), textIndent: `-${pt(13)}`, lineHeight: 1.2 }}>
+              <div
+                key={i}
+                style={{
+                  fontFamily: LIGHT,
+                  fontSize: pt(13),
+                  marginBottom: pt(8),
+                  paddingLeft: pt(13),
+                  textIndent: `-${pt(13)}`,
+                  lineHeight: 1.2,
+                  ...fm(e.fmt, "items"),
+                }}
+              >
                 • {t}
               </div>
             ))}
@@ -372,6 +412,7 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
               fontSize: pt(12),
               color: c(T.ink),
               lineHeight: 1.2,
+              ...fm(e.fmt, "text"),
             }}
           >
             {e.text}
@@ -393,6 +434,8 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
                 lineHeight: 1.2,
                 paddingLeft: p.bullet ? pt(11) : 0,
                 textIndent: p.bullet ? `-${pt(11)}` : 0,
+                ...F({ font: p.font, italic: p.italic, underline: p.underline, align: p.align }),
+                ...(p.bold ? { fontWeight: 700 } : {}),
               }}
             >
               {p.bullet && "• "}
@@ -428,6 +471,7 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
                         letterSpacing: pt(1),
                         color: c(T.muted),
                         borderBottom: `${pt(1)} solid #${T.ink}`,
+                        ...fm(e.fmt, "header"),
                       }}
                     >
                       {h}
@@ -453,6 +497,10 @@ export function ElementPreview({ e, selected }: { e: SlideElement; selected?: bo
                           borderBottom: `${pt(0.75)} solid #${T.rule}`,
                           lineHeight: 1.2,
                           whiteSpace: "pre-line",
+                          ...fm(e.fmt, "body"),
+                          // Status/vet per cel gaat voor op de opmaak van de hele tabel.
+                          ...(cell.color ? { color: c(cell.color) } : {}),
+                          ...(cell.bold ? { fontWeight: 700 } : {}),
                         }}
                       >
                         {cell.text}
@@ -506,7 +554,13 @@ export function SlidePreview({
       <div style={{ ...frame, background: c(T.chapterBg) }}>
         <Img id={slide.imageId} x={0} y={0} w={SLIDE_W} h={7.5} />
         <Box x={0} y={0} w={7.6} h={7.5} style={{ background: "rgba(0,0,0,.7)" }} />
-        <Box x={0.7} y={1.55} w={6} h={0.35} style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(12), color: c(T.red), letterSpacing: pt(3) }}>
+        <Box
+          x={0.7}
+          y={1.55}
+          w={6}
+          h={0.35}
+          style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(12), color: c(T.red), letterSpacing: pt(3), ...fm(d.fmt, "brand") }}
+        >
           {d.brand}
         </Box>
         <Box
@@ -514,20 +568,29 @@ export function SlidePreview({
           y={1.95}
           w={6.7}
           h={1.6}
-          style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(44), color: white, display: "flex", alignItems: "center", lineHeight: 1.05 }}
+          style={{
+            fontFamily: FONT,
+            fontWeight: 700,
+            fontSize: pt(44),
+            color: white,
+            display: "flex",
+            alignItems: "center",
+            lineHeight: 1.05,
+            ...fm(d.fmt, "title"),
+          }}
         >
           {slide.title}
         </Box>
-        <Box x={0.7} y={3.6} w={6.7} h={0.55} style={{ fontFamily: LIGHT, fontSize: pt(22), color: white }}>
+        <Box x={0.7} y={3.6} w={6.7} h={0.55} style={{ fontFamily: LIGHT, fontSize: pt(22), color: white, ...fm(d.fmt, "subtitle") }}>
           {d.subtitle}
         </Box>
-        <Box x={0.7} y={4.3} w={6.7} h={0.4} style={{ fontFamily: LIGHT, fontSize: pt(12), color: "#d9d9d9" }}>
+        <Box x={0.7} y={4.3} w={6.7} h={0.4} style={{ fontFamily: LIGHT, fontSize: pt(12), color: "#d9d9d9", ...fm(d.fmt, "normsLine") }}>
           {d.normsLine}
         </Box>
-        <Box x={0.7} y={5.6} w={5} h={0.35} style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(13), color: white }}>
+        <Box x={0.7} y={5.6} w={5} h={0.35} style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(13), color: white, ...fm(d.fmt, "tagline") }}>
           {d.tagline}
         </Box>
-        <Box x={0.7} y={5.95} w={5} h={0.3} style={{ fontFamily: LIGHT, fontSize: pt(12), color: "#d9d9d9" }}>
+        <Box x={0.7} y={5.95} w={5} h={0.3} style={{ fontFamily: LIGHT, fontSize: pt(12), color: "#d9d9d9", ...fm(d.fmt, "dateText") }}>
           {d.dateText}
         </Box>
         <Img id={review.logoImageId} x={0.7} y={6.6} w={2.2} h={0.457} fit="contain" />
@@ -545,14 +608,29 @@ export function SlidePreview({
           y={1.2}
           w={5.5}
           h={1.5}
-          style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(96), color: c(T.red), display: "flex", alignItems: "flex-end", lineHeight: 1 }}
+          style={{
+            fontFamily: FONT,
+            fontWeight: 700,
+            fontSize: pt(96),
+            color: c(T.red),
+            display: "flex",
+            alignItems: "flex-end",
+            lineHeight: 1,
+            ...fm(d.fmt, "number"),
+          }}
         >
           {d.number}
         </Box>
-        <Box x={6.7} y={2.8} w={6.1} h={1.6} style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(38), color: white, lineHeight: 1.1 }}>
+        <Box
+          x={6.7}
+          y={2.8}
+          w={6.1}
+          h={1.6}
+          style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(38), color: white, lineHeight: 1.1, ...fm(d.fmt, "title") }}
+        >
           {slide.title}
         </Box>
-        <Box x={6.7} y={4.5} w={5.9} h={1.9} style={{ fontFamily: LIGHT, fontSize: pt(14), color: c(T.chapterText), lineHeight: 1.45 }}>
+        <Box x={6.7} y={4.5} w={5.9} h={1.9} style={{ fontFamily: LIGHT, fontSize: pt(14), color: c(T.chapterText), lineHeight: 1.45, ...fm(d.fmt, "items") }}>
           {d.items.map((t, i) => (
             <div key={i}>{t}</div>
           ))}
@@ -571,7 +649,13 @@ export function SlidePreview({
       <div style={{ ...frame, background: c(T.chapterBg) }}>
         <Img id={slide.imageId} x={0} y={0} w={SLIDE_W} h={7.5} />
         <Box x={0} y={0} w={SLIDE_W} h={7.5} style={{ background: "rgba(0,0,0,.82)" }} />
-        <Box x={0.7} y={0.9} w={6} h={0.35} style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(12), color: c(T.red), letterSpacing: pt(3) }}>
+        <Box
+          x={0.7}
+          y={0.9}
+          w={6}
+          h={0.35}
+          style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(12), color: c(T.red), letterSpacing: pt(3), ...fm(d.fmt, "kicker") }}
+        >
           {slide.kicker || slide.title}
         </Box>
         {d.columns.map((col, i) => {
@@ -579,10 +663,16 @@ export function SlidePreview({
           return (
             <div key={i}>
               <Box x={x} y={3.34} w={Math.min(colW, 3.6)} h={0.03} style={{ background: c(T.red) }} />
-              <Box x={x} y={3.55} w={colW} h={0.8} style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(20), color: white, lineHeight: 1.1 }}>
+              <Box
+                x={x}
+                y={3.55}
+                w={colW}
+                h={0.8}
+                style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(20), color: white, lineHeight: 1.1, ...fm(d.fmt, "colTitle") }}
+              >
                 {col.title}
               </Box>
-              <Box x={x} y={4.45} w={colW} h={1.9} style={{ fontFamily: LIGHT, fontSize: pt(14), color: white, lineHeight: 1.25 }}>
+              <Box x={x} y={4.45} w={colW} h={1.9} style={{ fontFamily: LIGHT, fontSize: pt(14), color: white, lineHeight: 1.25, ...fm(d.fmt, "colText") }}>
                 {col.text}
               </Box>
             </div>
@@ -618,6 +708,7 @@ export function SlidePreview({
             whiteSpace: "pre",
             display: "flex",
             alignItems: "center",
+            ...fm(d.fmt, "kicker"),
           }}
         >
           {slide.kicker}
@@ -628,7 +719,7 @@ export function SlidePreview({
         y={0.72}
         w={9.5}
         h={0.8}
-        style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(26), color: c(T.ink), display: "flex", alignItems: "center" }}
+        style={{ fontFamily: FONT, fontWeight: 700, fontSize: pt(26), color: c(T.ink), display: "flex", alignItems: "center", ...fm(d.fmt, "title") }}
       >
         {slide.title}
       </Box>

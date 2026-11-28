@@ -45,7 +45,27 @@ const hex = z
 const num = z.number().finite().min(-2).max(20);
 const text = (max = 4000) => z.string().max(max);
 
-const box = { id: z.string().min(1).max(40), x: num, y: num, w: num, h: num };
+/** Lettertypen die je per titel of tekst kunt kiezen (leeg = zoals in het template). */
+export const FONT_CHOICES = ["Trade Gothic Next", "Trade Gothic Next Light", "Fira Sans", "Arial", "Calibri", "Georgia", "Verdana", "Times New Roman"] as const;
+
+/**
+ * Opmaak van één titel of tekst (lettertype, grootte, kleur, stijl, uitlijning). Alles optioneel:
+ * wat leeg is volgt het template. Opgeslagen per veldnaam in `fmt` (bijv. `fmt.title`, `fmt.body`).
+ */
+export const textFmtSchema = z.object({
+  font: z.enum(FONT_CHOICES).optional(),
+  size: z.number().min(5).max(120).optional(),
+  color: hex.optional(),
+  bold: z.boolean().optional(),
+  italic: z.boolean().optional(),
+  underline: z.boolean().optional(),
+  align: z.enum(["left", "center", "right"]).optional(),
+});
+export type TextFmt = z.infer<typeof textFmtSchema>;
+export const fmtSchema = z.record(z.string().max(40), textFmtSchema).optional();
+export type FmtMap = z.infer<typeof fmtSchema>;
+
+const box = { id: z.string().min(1).max(40), x: num, y: num, w: num, h: num, fmt: fmtSchema };
 
 export const paraSchema = z.object({
   text: text(),
@@ -53,6 +73,10 @@ export const paraSchema = z.object({
   color: hex.optional(),
   size: z.number().min(5).max(120).optional(),
   bullet: z.boolean().optional(),
+  italic: z.boolean().optional(),
+  underline: z.boolean().optional(),
+  font: z.enum(FONT_CHOICES).optional(),
+  align: z.enum(["left", "center", "right"]).optional(),
 });
 export type Para = z.infer<typeof paraSchema>;
 
@@ -112,15 +136,18 @@ export const titleDataSchema = z.object({
   normsLine: text(500).default(""),
   tagline: text(200).default(""),
   dateText: text(60).default(""),
+  fmt: fmtSchema,
 });
-export const chapterDataSchema = z.object({ number: text(10).default(""), items: z.array(text(300)).max(20).default([]) });
+export const chapterDataSchema = z.object({ number: text(10).default(""), items: z.array(text(300)).max(20).default([]), fmt: fmtSchema });
 export const conclusionDataSchema = z.object({
   columns: z
     .array(z.object({ title: text(200), text: text(1500) }))
     .max(4)
     .default([]),
+  fmt: fmtSchema,
 });
-export const contentDataSchema = z.object({ elements: z.array(elementSchema).max(80).default([]) });
+/** `fmt` op dia-niveau: opmaak van de titel en kopregel (`title`, `kicker`). */
+export const contentDataSchema = z.object({ elements: z.array(elementSchema).max(80).default([]), fmt: fmtSchema });
 
 export type TitleData = z.infer<typeof titleDataSchema>;
 export type ChapterData = z.infer<typeof chapterDataSchema>;

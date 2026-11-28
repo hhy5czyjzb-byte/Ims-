@@ -6,9 +6,14 @@ import {
   type ChapterData,
   type ConclusionData,
   type ContentData,
+  type FmtMap,
   type SlideElement,
   type TitleData,
 } from "@/lib/review-model";
+import { fmtPptx } from "@/lib/review-fmt";
+
+/** Opmaak van een veld (lettertype, grootte, kleur, stijl, uitlijning) als pptx-opties. */
+const fm = (m: FmtMap | undefined, k: string) => fmtPptx(m?.[k]);
 
 /**
  * PowerPoint maken van een directiebeoordeling, in de opmaak van het template (posities, kleuren, lettertypen).
@@ -59,6 +64,7 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
           color: T.muted,
           margin: 0,
           valign: "middle",
+          ...fm(e.fmt, "caption"),
         });
         slide.addText(e.value, {
           x: x + 0.22,
@@ -71,6 +77,7 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
           color: e.color ?? T.ink,
           margin: 0,
           valign: "middle",
+          ...fm(e.fmt, "value"),
         });
         slide.addText(e.label, {
           x: x + 0.22,
@@ -82,6 +89,7 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
           color: T.ink,
           margin: 0,
           valign: "top",
+          ...fm(e.fmt, "label"),
         });
       } else {
         slide.addText(e.value, {
@@ -95,6 +103,7 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
           color: e.color ?? T.ink,
           margin: 0,
           valign: "middle",
+          ...fm(e.fmt, "value"),
         });
         slide.addText(e.label, {
           x: x + 0.22,
@@ -106,6 +115,7 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
           color: T.muted,
           margin: 0,
           valign: "top",
+          ...fm(e.fmt, "label"),
         });
       }
       return;
@@ -132,6 +142,7 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
         color: T.ink,
         margin: 0,
         valign: "middle",
+        ...fm(e.fmt, "title"),
       });
       const size = e.bodySize ?? 12;
       const body = lines(e.body);
@@ -141,7 +152,18 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
             text: t,
             options: e.bullets ? { bullet: { indent: 11 }, paraSpaceAfter: 4, breakLine: true } : { paraSpaceAfter: 4, breakLine: true },
           })),
-          { x: x + 0.25, y: y + 0.88, w: w - 0.5, h: Math.max(h - 1.03, 0.3), fontFace: LIGHT, fontSize: size, color: T.muted, margin: 0, valign: "top" },
+          {
+            x: x + 0.25,
+            y: y + 0.88,
+            w: w - 0.5,
+            h: Math.max(h - 1.03, 0.3),
+            fontFace: LIGHT,
+            fontSize: size,
+            color: T.muted,
+            margin: 0,
+            valign: "top",
+            ...fm(e.fmt, "body"),
+          },
         );
       return;
     }
@@ -150,16 +172,16 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
       if (e.stacked) {
         slide.addText(
           [
-            { text: e.label, options: { bold: true, color: T.redDark, fontFace: FONT, breakLine: true, paraSpaceAfter: 4 } },
-            { text: e.text, options: { color: T.ink, fontFace: LIGHT } },
+            { text: e.label, options: { bold: true, color: T.redDark, fontFace: FONT, breakLine: true, paraSpaceAfter: 4, ...fm(e.fmt, "label") } },
+            { text: e.text, options: { color: T.ink, fontFace: LIGHT, ...fm(e.fmt, "text") } },
           ],
           { x: x + 0.2, y: y + 0.1, w: w - 0.35, h: h - 0.2, fontSize: 10.5, margin: 0, valign: "top" },
         );
       } else {
         slide.addText(
           [
-            { text: `${e.label}   `, options: { bold: true, color: T.redDark, fontFace: FONT } },
-            { text: e.text, options: { color: T.ink, fontFace: LIGHT } },
+            { text: `${e.label}   `, options: { bold: true, color: T.redDark, fontFace: FONT, ...fm(e.fmt, "label") } },
+            { text: e.text, options: { color: T.ink, fontFace: LIGHT, ...fm(e.fmt, "text") } },
           ],
           { x: x + 0.25, y, w: w - 0.5, h, fontSize: 12.5, margin: 0, valign: "middle" },
         );
@@ -170,8 +192,14 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
       rect(slide, pptx, x, y, w, h, T.redDark);
       slide.addText(
         [
-          { text: e.heading, options: { bold: true, fontSize: 11, charSpacing: 2, fontFace: FONT, breakLine: true, paraSpaceAfter: 12 } },
-          ...e.items.map((t) => ({ text: t, options: { fontSize: 13, fontFace: LIGHT, bullet: { indent: 13 }, paraSpaceAfter: 8, breakLine: true } })),
+          {
+            text: e.heading,
+            options: { bold: true, fontSize: 11, charSpacing: 2, fontFace: FONT, breakLine: true, paraSpaceAfter: 12, ...fm(e.fmt, "heading") },
+          },
+          ...e.items.map((t) => ({
+            text: t,
+            options: { fontSize: 13, fontFace: LIGHT, bullet: { indent: 13 }, paraSpaceAfter: 8, breakLine: true, ...fm(e.fmt, "items") },
+          })),
         ],
         { x: x + 0.3, y: y + 0.3, w: w - 0.59, h: h - 0.55, color: "FFFFFF", margin: 0, valign: "top" },
       );
@@ -187,7 +215,7 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
         fill: { color: "FFFFFF" },
         line: { color: T.red, width: 1.5 },
       });
-      slide.addText(e.text, { x: x + 0.7, y, w: w - 0.9, h, fontFace: LIGHT, fontSize: 12, color: T.ink, margin: 0, valign: "middle" });
+      slide.addText(e.text, { x: x + 0.7, y, w: w - 0.9, h, fontFace: LIGHT, fontSize: 12, color: T.ink, margin: 0, valign: "middle", ...fm(e.fmt, "text") });
       return;
     }
     case "text": {
@@ -203,6 +231,7 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
             breakLine: true,
             paraSpaceAfter: 4,
             ...(p.bullet ? { bullet: { indent: 11 } } : {}),
+            ...fmtPptx({ font: p.font, italic: p.italic, underline: p.underline, align: p.align }),
           },
         })),
         { x, y, w, h, margin: 0, valign: "top" },
@@ -221,6 +250,7 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
           fontFace: FONT,
           charSpacing: 1,
           valign: "bottom" as const,
+          ...fm(e.fmt, "header"),
           border: [none, none, { type: "solid" as const, pt: 1, color: T.ink }, none] as [
             PptxGenJS.BorderProps,
             PptxGenJS.BorderProps,
@@ -240,6 +270,10 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
               fontSize: fs,
               fontFace: c.bold ? FONT : LIGHT,
               valign: "middle" as const,
+              ...fm(e.fmt, "body"),
+              // Status/vet per cel gaat voor op de opmaak van de hele tabel.
+              ...(c.color ? { color: c.color } : {}),
+              ...(c.bold ? { bold: true } : {}),
               border: [none, none, { type: "solid" as const, pt: 0.75, color: T.rule }, none] as [
                 PptxGenJS.BorderProps,
                 PptxGenJS.BorderProps,
@@ -286,7 +320,15 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
           valAxisHidden: true,
           valGridLine: { color: T.rule, size: 0.5 },
           showLegend: multi,
-          ...(e.title ? { showTitle: true, title: e.title, titleFontSize: 11, titleColor: T.ink, titleFontFace: FONT } : {}),
+          ...(e.title
+            ? {
+                showTitle: true,
+                title: e.title,
+                titleFontSize: e.fmt?.title?.size ?? 11,
+                titleColor: e.fmt?.title?.color ?? T.ink,
+                titleFontFace: e.fmt?.title?.font ?? FONT,
+              }
+            : {}),
           legendPos: "b",
           legendFontSize: 9,
           legendFontFace: FONT,
@@ -297,7 +339,7 @@ function addElement(slide: Slide, pptx: PptxGenJS, e: SlideElement, images: Expo
   }
 }
 
-function contentChrome(slide: Slide, pptx: PptxGenJS, review: ExportReview, images: ExportImages, s: ExportSlide) {
+function contentChrome(slide: Slide, pptx: PptxGenJS, review: ExportReview, images: ExportImages, s: ExportSlide, f: FmtMap | undefined) {
   const { kicker, title } = s;
   if (!img(slide, images, s.imageId ?? review.stripImageId, 0, 0, 2.9, 7.5, "cover") && !img(slide, images, review.stripImageId, 0, 0, 2.9, 7.5, "cover"))
     rect(slide, pptx, 0, 0, 2.9, 7.5, T.chapterBg);
@@ -318,8 +360,21 @@ function contentChrome(slide: Slide, pptx: PptxGenJS, review: ExportReview, imag
       charSpacing: 2,
       margin: 0,
       valign: "middle",
+      ...fm(f, "kicker"),
     });
-  slide.addText(title, { x: 3.35, y: 0.72, w: 9.5, h: 0.8, fontFace: FONT, fontSize: 26, bold: true, color: T.ink, margin: 0, valign: "middle" });
+  slide.addText(title, {
+    x: 3.35,
+    y: 0.72,
+    w: 9.5,
+    h: 0.8,
+    fontFace: FONT,
+    fontSize: 26,
+    bold: true,
+    color: T.ink,
+    margin: 0,
+    valign: "middle",
+    ...fm(f, "title"),
+  });
 }
 
 /** Presentatie opbouwen. `Pptx` is de constructor van pptxgenjs (dynamisch geladen in de browser). */
@@ -337,23 +392,86 @@ export function buildReviewPptx(Pptx: typeof PptxGenJS, review: ExportReview, im
       const d = safeSlideData("TITLE", s.data) as TitleData;
       if (!img(slide, images, s.imageId, 0, 0, 13.333, 7.5, "cover")) slide.background = { color: T.chapterBg };
       rect(slide, pptx, 0, 0, 7.6, 7.5, "000000", 30);
-      slide.addText(d.brand, { x: 0.7, y: 1.55, w: 6.0, h: 0.35, fontFace: FONT, fontSize: 12, bold: true, color: T.red, charSpacing: 3, margin: 0 });
-      slide.addText(s.title, { x: 0.7, y: 1.95, w: 6.7, h: 1.6, fontFace: FONT, fontSize: 44, bold: true, color: "FFFFFF", margin: 0, valign: "middle" });
-      if (d.subtitle) slide.addText(d.subtitle, { x: 0.7, y: 3.6, w: 6.7, h: 0.55, fontFace: LIGHT, fontSize: 22, color: "FFFFFF", margin: 0 });
-      if (d.normsLine) slide.addText(d.normsLine, { x: 0.7, y: 4.3, w: 6.7, h: 0.4, fontFace: LIGHT, fontSize: 12, color: "D9D9D9", margin: 0 });
-      if (d.tagline) slide.addText(d.tagline, { x: 0.7, y: 5.6, w: 5.0, h: 0.35, fontFace: FONT, fontSize: 13, bold: true, color: "FFFFFF", margin: 0 });
-      if (d.dateText) slide.addText(d.dateText, { x: 0.7, y: 5.95, w: 5.0, h: 0.3, fontFace: LIGHT, fontSize: 12, color: "D9D9D9", margin: 0 });
+      slide.addText(d.brand, {
+        x: 0.7,
+        y: 1.55,
+        w: 6.0,
+        h: 0.35,
+        fontFace: FONT,
+        fontSize: 12,
+        bold: true,
+        color: T.red,
+        charSpacing: 3,
+        margin: 0,
+        ...fm(d.fmt, "brand"),
+      });
+      slide.addText(s.title, {
+        x: 0.7,
+        y: 1.95,
+        w: 6.7,
+        h: 1.6,
+        fontFace: FONT,
+        fontSize: 44,
+        bold: true,
+        color: "FFFFFF",
+        margin: 0,
+        valign: "middle",
+        ...fm(d.fmt, "title"),
+      });
+      if (d.subtitle)
+        slide.addText(d.subtitle, { x: 0.7, y: 3.6, w: 6.7, h: 0.55, fontFace: LIGHT, fontSize: 22, color: "FFFFFF", margin: 0, ...fm(d.fmt, "subtitle") });
+      if (d.normsLine)
+        slide.addText(d.normsLine, { x: 0.7, y: 4.3, w: 6.7, h: 0.4, fontFace: LIGHT, fontSize: 12, color: "D9D9D9", margin: 0, ...fm(d.fmt, "normsLine") });
+      if (d.tagline)
+        slide.addText(d.tagline, {
+          x: 0.7,
+          y: 5.6,
+          w: 5.0,
+          h: 0.35,
+          fontFace: FONT,
+          fontSize: 13,
+          bold: true,
+          color: "FFFFFF",
+          margin: 0,
+          ...fm(d.fmt, "tagline"),
+        });
+      if (d.dateText)
+        slide.addText(d.dateText, { x: 0.7, y: 5.95, w: 5.0, h: 0.3, fontFace: LIGHT, fontSize: 12, color: "D9D9D9", margin: 0, ...fm(d.fmt, "dateText") });
       img(slide, images, review.logoImageId, 0.7, 6.6, 2.2, 0.457);
     } else if (s.layout === "CHAPTER") {
       const d = safeSlideData("CHAPTER", s.data) as ChapterData;
       slide.background = { color: T.chapterBg };
       img(slide, images, s.imageId, 0, 0, 6.0, 7.5, "cover");
-      slide.addText(d.number, { x: 6.7, y: 1.2, w: 5.5, h: 1.5, fontFace: FONT, fontSize: 96, bold: true, color: T.red, margin: 0, valign: "bottom" });
-      slide.addText(s.title, { x: 6.7, y: 2.8, w: 6.1, h: 1.6, fontFace: FONT, fontSize: 38, bold: true, color: "FFFFFF", margin: 0, valign: "top" });
+      slide.addText(d.number, {
+        x: 6.7,
+        y: 1.2,
+        w: 5.5,
+        h: 1.5,
+        fontFace: FONT,
+        fontSize: 96,
+        bold: true,
+        color: T.red,
+        margin: 0,
+        valign: "bottom",
+        ...fm(d.fmt, "number"),
+      });
+      slide.addText(s.title, {
+        x: 6.7,
+        y: 2.8,
+        w: 6.1,
+        h: 1.6,
+        fontFace: FONT,
+        fontSize: 38,
+        bold: true,
+        color: "FFFFFF",
+        margin: 0,
+        valign: "top",
+        ...fm(d.fmt, "title"),
+      });
       if (d.items.length)
         slide.addText(
           d.items.map((t) => ({ text: t, options: { breakLine: true, paraSpaceAfter: 6 } })),
-          { x: 6.7, y: 4.5, w: 5.9, h: 1.9, fontFace: LIGHT, fontSize: 14, color: T.chapterText, margin: 0, valign: "top" },
+          { x: 6.7, y: 4.5, w: 5.9, h: 1.9, fontFace: LIGHT, fontSize: 14, color: T.chapterText, margin: 0, valign: "top", ...fm(d.fmt, "items") },
         );
       img(slide, images, review.logoImageId, 10.6, 6.75, 2.0, 0.415);
     } else if (s.layout === "CONCLUSION") {
@@ -371,6 +489,7 @@ export function buildReviewPptx(Pptx: typeof PptxGenJS, review: ExportReview, im
         color: T.red,
         charSpacing: 3,
         margin: 0,
+        ...fm(d.fmt, "kicker"),
       });
       const n = Math.max(d.columns.length, 1);
       const colW = n >= 3 ? 3.6 : n === 2 ? 5.6 : 11.9;
@@ -378,13 +497,36 @@ export function buildReviewPptx(Pptx: typeof PptxGenJS, review: ExportReview, im
       d.columns.forEach((c, i) => {
         const x = 0.7 + i * (colW + gap);
         slide.addShape(pptx.ShapeType.line, { x, y: 3.35, w: Math.min(colW, 3.6), h: 0, line: { color: T.red, width: 2 } });
-        slide.addText(c.title, { x, y: 3.55, w: colW, h: 0.8, fontFace: FONT, fontSize: 20, bold: true, color: "FFFFFF", margin: 0, valign: "top" });
-        slide.addText(c.text, { x, y: 4.45, w: colW, h: 1.9, fontFace: LIGHT, fontSize: 14, color: "FFFFFF", margin: 0, valign: "top" });
+        slide.addText(c.title, {
+          x,
+          y: 3.55,
+          w: colW,
+          h: 0.8,
+          fontFace: FONT,
+          fontSize: 20,
+          bold: true,
+          color: "FFFFFF",
+          margin: 0,
+          valign: "top",
+          ...fm(d.fmt, "colTitle"),
+        });
+        slide.addText(c.text, {
+          x,
+          y: 4.45,
+          w: colW,
+          h: 1.9,
+          fontFace: LIGHT,
+          fontSize: 14,
+          color: "FFFFFF",
+          margin: 0,
+          valign: "top",
+          ...fm(d.fmt, "colText"),
+        });
       });
       img(slide, images, review.logoImageId, 0.7, 6.6, 2.2, 0.457);
     } else {
       const d = safeSlideData("CONTENT", s.data) as ContentData;
-      contentChrome(slide, pptx, review, images, s);
+      contentChrome(slide, pptx, review, images, s, d.fmt);
       for (const e of d.elements) addElement(slide, pptx, e, images);
       slide.slideNumber = { x: 12.35, y: 7.0, w: 0.5, h: 0.28, fontFace: LIGHT, fontSize: 8.5, color: T.faint, align: "right" };
     }

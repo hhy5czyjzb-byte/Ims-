@@ -21,6 +21,7 @@ import {
   type SlideElement,
   type TitleData,
 } from "@/lib/review-model";
+import { FmtBar, Styled, setFmt } from "@/components/review/fmt-bar";
 import { chart as chartPreset, judgment as judgmentPreset, kpiRow, cardGrid, table as tablePreset } from "@/lib/review-presets";
 
 export type EditorImage = { id: string; role: string; name: string | null };
@@ -332,6 +333,19 @@ function TableEditor({ e, set }: { e: Extract<SlideElement, { type: "table" }>; 
         <L label="Lettergrootte (pt)">
           <Num value={e.fontSize ?? 10.5} step={0.5} onChange={(v) => set({ fontSize: v })} />
         </L>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Styled label="Opmaak kopregel" fmt={e.fmt?.header} onFmt={(v) => set({ fmt: setFmt(e.fmt, "header", v) })} defaults={{ bold: true, size: 8.5 }}>
+          <span />
+        </Styled>
+        <Styled
+          label="Opmaak tekst in de tabel"
+          fmt={e.fmt?.body}
+          onFmt={(v) => set({ fmt: setFmt(e.fmt, "body", v) })}
+          defaults={{ size: e.fontSize ?? 10.5 }}
+        >
+          <span className="text-xs text-neutral-500">Status en vet per cel (keuzelijst onder elke cel) gaan voor.</span>
+        </Styled>
         <span className="text-xs text-neutral-500">
           Totale breedte:{" "}
           {e.colW
@@ -358,9 +372,15 @@ function ChartEditor({ e, set }: { e: Extract<SlideElement, { type: "chart" }>; 
             <option value="bar">Staven (horizontaal)</option>
           </select>
         </L>
-        <L label="Titel boven de grafiek" className="sm:col-span-2">
+        <Styled
+          label="Titel boven de grafiek"
+          className="sm:col-span-2"
+          fmt={e.fmt?.title}
+          onFmt={(v) => set({ fmt: setFmt(e.fmt, "title", v) })}
+          defaults={{ size: 11 }}
+        >
           <Txt value={e.title ?? ""} onChange={(v) => set({ title: v || undefined })} />
-        </L>
+        </Styled>
       </div>
       <table className="w-full text-sm">
         <thead>
@@ -476,15 +496,32 @@ function ParasEditor({ paras, set }: { paras: Para[]; set: (p: Para[]) => void }
             rows={Math.min(5, Math.max(1, Math.ceil(p.text.length / 70)))}
             onChange={(v) => set(paras.map((x, j) => (j === i ? { ...x, text: v } : x)))}
           />
+          <div className="mt-1">
+            <FmtBar
+              value={{ bold: p.bold, size: p.size, color: p.color, font: p.font, italic: p.italic, underline: p.underline, align: p.align }}
+              defaults={{ size: 11 }}
+              onChange={(v) =>
+                set(
+                  paras.map((x, j) =>
+                    j === i
+                      ? {
+                          text: x.text,
+                          bullet: x.bullet,
+                          bold: v?.bold,
+                          size: v?.size,
+                          color: v?.color,
+                          font: v?.font,
+                          italic: v?.italic,
+                          underline: v?.underline,
+                          align: v?.align,
+                        }
+                      : x,
+                  ),
+                )
+              }
+            />
+          </div>
           <div className="mt-1 flex flex-wrap items-center gap-3 text-xs">
-            <label className="flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={!!p.bold}
-                onChange={(ev) => set(paras.map((x, j) => (j === i ? { ...x, bold: ev.target.checked || undefined } : x)))}
-              />{" "}
-              vet
-            </label>
             <label className="flex items-center gap-1">
               <input
                 type="checkbox"
@@ -493,19 +530,6 @@ function ParasEditor({ paras, set }: { paras: Para[]; set: (p: Para[]) => void }
               />{" "}
               opsommingsteken
             </label>
-            <span className="flex items-center gap-1">
-              pt{" "}
-              <input
-                className="input w-16 py-0.5 text-xs"
-                type="number"
-                step={0.5}
-                value={p.size ?? 11}
-                onChange={(ev) => set(paras.map((x, j) => (j === i ? { ...x, size: Number(ev.target.value) || 11 } : x)))}
-              />
-            </span>
-            <span className="w-44">
-              <ColorSelect value={p.color} allowEmpty="Standaard (grijs)" onChange={(v) => set(paras.map((x, j) => (j === i ? { ...x, color: v } : x)))} />
-            </span>
             <button type="button" className="btn-link" onClick={() => set(paras.filter((_, j) => j !== i))}>
               Verwijderen
             </button>
@@ -531,33 +555,35 @@ function ElementFields({
   onUploaded: (i: EditorImage) => void;
 }) {
   const s = set as (p: Record<string, unknown>) => void;
+  /** Opmaak van een veld van dit element. */
+  const f = (k: string) => ({ fmt: e.fmt?.[k], onFmt: (v: Parameters<typeof setFmt>[2]) => s({ fmt: setFmt(e.fmt, k, v) }) });
   switch (e.type) {
     case "kpi":
       return (
         <div className="grid gap-3 sm:grid-cols-2">
-          <L label="Waarde (groot)">
+          <Styled label="Waarde (groot)" {...f("value")} defaults={{ bold: true, size: e.caption ? 30 : 28 }}>
             <Txt value={e.value} onChange={(v) => s({ value: v })} />
-          </L>
+          </Styled>
           <L label="Kleur van de waarde">
             <ColorSelect value={e.color} allowEmpty="Zwart" onChange={(v) => s({ color: v })} />
           </L>
-          <L label="Toelichting" className="sm:col-span-2">
+          <Styled label="Toelichting" className="sm:col-span-2" {...f("label")} defaults={{ size: e.caption ? 11 : 10.5 }}>
             <Txt value={e.label} onChange={(v) => s({ label: v })} />
-          </L>
-          <L label="Kopje boven de waarde (optioneel)" className="sm:col-span-2">
+          </Styled>
+          <Styled label="Kopje boven de waarde (optioneel)" className="sm:col-span-2" {...f("caption")} defaults={{ bold: true, size: 9 }}>
             <Txt value={e.caption ?? ""} onChange={(v) => s({ caption: v || undefined })} />
-          </L>
+          </Styled>
         </div>
       );
     case "card":
       return (
         <div className="grid gap-3 sm:grid-cols-2">
-          <L label="Titel" className="sm:col-span-2">
+          <Styled label="Titel" className="sm:col-span-2" {...f("title")} defaults={{ bold: true, size: 13 }}>
             <Txt value={e.title} onChange={(v) => s({ title: v })} />
-          </L>
-          <L label="Tekst (elke regel een punt)" className="sm:col-span-2">
+          </Styled>
+          <Styled label="Tekst (elke regel een punt)" className="sm:col-span-2" {...f("body")} defaults={{ size: e.bodySize ?? 12 }}>
             <Txt value={e.body} rows={5} onChange={(v) => s({ body: v })} />
-          </L>
+          </Styled>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={!!e.bullets} onChange={(ev) => s({ bullets: ev.target.checked })} /> Opsommingstekens
           </label>
@@ -576,12 +602,12 @@ function ElementFields({
     case "judgment":
       return (
         <div className="grid gap-3">
-          <L label="Kopje">
+          <Styled label="Kopje" {...f("label")} defaults={{ bold: true, size: e.stacked ? 10.5 : 12.5 }}>
             <Txt value={e.label} onChange={(v) => s({ label: v })} />
-          </L>
-          <L label="Tekst">
+          </Styled>
+          <Styled label="Tekst" {...f("text")} defaults={{ size: e.stacked ? 10.5 : 12.5 }}>
             <Txt value={e.text} rows={3} onChange={(v) => s({ text: v })} />
-          </L>
+          </Styled>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={!!e.stacked} onChange={(ev) => s({ stacked: ev.target.checked })} /> Kopje boven de tekst (smal vak)
           </label>
@@ -590,19 +616,19 @@ function ElementFields({
     case "decisions":
       return (
         <div className="grid gap-3">
-          <L label="Kopje">
+          <Styled label="Kopje" {...f("heading")} defaults={{ bold: true, size: 11 }}>
             <Txt value={e.heading} onChange={(v) => s({ heading: v })} />
-          </L>
-          <L label="Besluiten (elke regel een besluit)">
+          </Styled>
+          <Styled label="Besluiten (elke regel een besluit)" {...f("items")} defaults={{ size: 13 }}>
             <Txt value={e.items.join("\n")} rows={6} onChange={(v) => s({ items: linesOf(v) })} />
-          </L>
+          </Styled>
         </div>
       );
     case "check":
       return (
-        <L label="Actie">
+        <Styled label="Actie" {...f("text")} defaults={{ size: 12 }}>
           <Txt value={e.text} rows={2} onChange={(v) => s({ text: v })} />
-        </L>
+        </Styled>
       );
     case "text":
       return <ParasEditor paras={e.paras} set={(paras) => s({ paras })} />;
@@ -729,6 +755,11 @@ export function SlideEditor({
     };
   }, [save, dirty]);
 
+  /** Opmaak van een veld op dia-niveau (titel, kopregel, velden van titel-/hoofdstuk-/conclusiedia). */
+  const sf = (k: string) => ({
+    fmt: (data as { fmt?: Record<string, Parameters<typeof setFmt>[2]> }).fmt?.[k],
+    onFmt: (v: Parameters<typeof setFmt>[2]) => update<{ fmt?: Parameters<typeof setFmt>[0] }>((d) => ({ ...d, fmt: setFmt(d.fmt, k, v) })),
+  });
   const previewSlide = useMemo(() => ({ layout, kicker: kicker || null, title, imageId, data }), [layout, kicker, title, imageId, data]);
   const content = layout === "CONTENT" ? (data as ContentData) : null;
 
@@ -779,18 +810,24 @@ export function SlideEditor({
       <div className="space-y-4">
         <section className="card space-y-3">
           {layout === "CONTENT" && (
-            <L label="Kopregel (rood, boven de titel)">
+            <Styled label="Kopregel (rood, boven de titel)" {...sf("kicker")} defaults={{ bold: true, size: 10 }}>
               <Txt value={kicker} onChange={(v) => (setKicker(v), touch())} placeholder="01  ·  RESULTATEN VOORGAANDE DOELSTELLINGEN" />
-            </L>
+            </Styled>
           )}
           {layout === "CONCLUSION" && (
-            <L label="Kopregel (rood)">
+            <Styled label="Kopregel (rood)" {...sf("kicker")} defaults={{ bold: true, size: 12 }}>
               <Txt value={kicker} onChange={(v) => (setKicker(v), touch())} placeholder="CONCLUSIE" />
-            </L>
+            </Styled>
           )}
-          <L label={layout === "CONCLUSION" ? "Naam van de dia (alleen in de app)" : "Titel"}>
-            <Txt value={title} onChange={(v) => (setTitle(v), touch())} />
-          </L>
+          {layout === "CONCLUSION" ? (
+            <L label="Naam van de dia (alleen in de app)">
+              <Txt value={title} onChange={(v) => (setTitle(v), touch())} />
+            </L>
+          ) : (
+            <Styled label="Titel" {...sf("title")} defaults={{ bold: true, size: layout === "TITLE" ? 44 : layout === "CHAPTER" ? 38 : 26 }}>
+              <Txt value={title} onChange={(v) => (setTitle(v), touch())} />
+            </Styled>
+          )}
           <div>
             <span className="label">{layout === "CONTENT" ? "Fotostrook links" : "Foto"}</span>
             <ImagePicker
@@ -818,21 +855,27 @@ export function SlideEditor({
                 ["dateText", "Datum"],
               ] as const
             ).map(([k, label]) => (
-              <L key={k} label={label} className={k === "normsLine" || k === "subtitle" ? "sm:col-span-2" : ""}>
+              <Styled
+                key={k}
+                label={label}
+                className={k === "normsLine" || k === "subtitle" ? "sm:col-span-2" : ""}
+                {...sf(k)}
+                defaults={{ bold: k === "brand" || k === "tagline", size: { brand: 12, subtitle: 22, normsLine: 12, tagline: 13, dateText: 12 }[k] }}
+              >
                 <Txt value={(data as TitleData)[k]} onChange={(v) => update<TitleData>((d) => ({ ...d, [k]: v }))} />
-              </L>
+              </Styled>
             ))}
           </section>
         )}
 
         {layout === "CHAPTER" && (
           <section className="card grid gap-3">
-            <L label="Hoofdstuknummer">
+            <Styled label="Hoofdstuknummer" {...sf("number")} defaults={{ bold: true, size: 96 }}>
               <Txt value={(data as ChapterData).number} onChange={(v) => update<ChapterData>((d) => ({ ...d, number: v }))} />
-            </L>
-            <L label="Onderwerpen (elke regel één)">
+            </Styled>
+            <Styled label="Onderwerpen (elke regel één)" {...sf("items")} defaults={{ size: 14 }}>
               <Txt value={(data as ChapterData).items.join("\n")} rows={6} onChange={(v) => update<ChapterData>((d) => ({ ...d, items: linesOf(v) }))} />
-            </L>
+            </Styled>
           </section>
         )}
 
@@ -840,23 +883,23 @@ export function SlideEditor({
           <section className="card space-y-3">
             {(data as ConclusionData).columns.map((col, i) => (
               <div key={i} className="rounded border border-neutral-200 p-3">
-                <L label={`Kolom ${i + 1}: titel`}>
+                <Styled label={`Kolom ${i + 1}: titel`} {...sf("colTitle")} defaults={{ bold: true, size: 20 }}>
                   <Txt
                     value={col.title}
-                    onChange={(v) => update<ConclusionData>((d) => ({ columns: d.columns.map((c, j) => (j === i ? { ...c, title: v } : c)) }))}
+                    onChange={(v) => update<ConclusionData>((d) => ({ ...d, columns: d.columns.map((c, j) => (j === i ? { ...c, title: v } : c)) }))}
                   />
-                </L>
-                <L label="Tekst" className="mt-2">
+                </Styled>
+                <Styled label="Tekst" className="mt-2" {...sf("colText")} defaults={{ size: 14 }}>
                   <Txt
                     value={col.text}
                     rows={3}
-                    onChange={(v) => update<ConclusionData>((d) => ({ columns: d.columns.map((c, j) => (j === i ? { ...c, text: v } : c)) }))}
+                    onChange={(v) => update<ConclusionData>((d) => ({ ...d, columns: d.columns.map((c, j) => (j === i ? { ...c, text: v } : c)) }))}
                   />
-                </L>
+                </Styled>
                 <button
                   type="button"
                   className="btn-link mt-1 text-sm"
-                  onClick={() => update<ConclusionData>((d) => ({ columns: d.columns.filter((_, j) => j !== i) }))}
+                  onClick={() => update<ConclusionData>((d) => ({ ...d, columns: d.columns.filter((_, j) => j !== i) }))}
                 >
                   Kolom verwijderen
                 </button>
@@ -866,7 +909,7 @@ export function SlideEditor({
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => update<ConclusionData>((d) => ({ columns: [...d.columns, { title: "", text: "" }] }))}
+                onClick={() => update<ConclusionData>((d) => ({ ...d, columns: [...d.columns, { title: "", text: "" }] }))}
               >
                 + Kolom
               </button>
