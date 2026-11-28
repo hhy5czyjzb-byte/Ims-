@@ -24,26 +24,23 @@ const p2 = (v: number) => `${v.toLocaleString("nl-NL", { minimumFractionDigits: 
 type Data = Awaited<ReturnType<typeof loadPlanData>>;
 type Measure = Data["measures"][number];
 
-/** Kolommen zoals het tabblad "Plan van aanpak" van het CO2-dashboard (trede 2 = vanaf trede 2 verplicht). */
-const COLUMNS: { label: string; value: (m: Measure) => ReactNode; trede2?: boolean; w?: string }[] = [
-  { label: "Toelichting maatregel", value: (m) => m.description, w: "min-w-64" },
-  { label: "Deadline", value: (m) => m.co2Measure?.deadlineText ?? (m.deadline ? formatDate(m.deadline) : null), w: "w-24" },
-  { label: "Planning", value: (m) => m.co2Measure?.planning, w: "min-w-40" },
-  { label: "SKAO/eigen maatregel?", value: (m) => m.co2Measure?.skao, w: "w-28" },
-  { label: "Indien SKAO A/B/C", value: (m) => m.co2Measure?.skaoCategory, w: "w-20" },
-  { label: "Termijn", value: (m) => m.co2Measure?.term, w: "w-28" },
-  { label: "Verantwoordelijke(n)/ sleutelpersoon", value: (m) => m.owner?.name ?? m.ownerText, w: "w-36" },
-  { label: "Kennisbehoefte", value: (m) => m.co2Measure?.knowledgeNeed, w: "min-w-36" },
-  { label: "Voortgang (status update) per jaar", value: (m) => m.co2Measure?.progressNote, w: "min-w-40" },
-  { label: "TRL", value: (m) => m.co2Measure?.trl, trede2: true, w: "w-32" },
-  { label: "Invloed flexibiliteit energiesysteem", value: (m) => m.co2Measure?.flexibilityImpact, trede2: true, w: "w-24" },
-  { label: "Investering", value: (m) => m.co2Measure?.investment, trede2: true, w: "min-w-36" },
-  { label: "Wetgeving", value: (m) => m.co2Measure?.legislation, w: "min-w-36" },
-  { label: "Benodigde middelen/ voorbereidende acties", value: (m) => m.co2Measure?.resources, w: "min-w-40" },
-  { label: "Toepassing op waardeketen?", value: (m) => m.co2Measure?.valueChain, trede2: true, w: "w-24" },
-  { label: "Actiepunten voor huidig jaar", value: (m) => m.co2Measure?.currentYearActions, w: "min-w-40" },
-  { label: "Van toepassing op project met gunningvoordeel", value: (m) => m.co2Measure?.tenderAdvantage, w: "min-w-32" },
-  { label: "Onderbouwing indien niet van toepassing", value: (m) => m.co2Measure?.notApplicableReason, w: "min-w-40" },
+/** Kolommen zoals het tabblad "Plan van aanpak" van het CO2-dashboard (zonder de kolommen die pas vanaf trede 2 gelden). */
+/** `pw` = breedte bij afdrukken (% van de pagina), zodat korte kolommen niet te smal worden. */
+const COLUMNS: { label: string; value: (m: Measure) => ReactNode; w?: string; pw: number }[] = [
+  { label: "Toelichting maatregel", pw: 11, value: (m) => m.description, w: "min-w-64" },
+  { label: "Deadline", pw: 5, value: (m) => m.co2Measure?.deadlineText ?? (m.deadline ? formatDate(m.deadline) : null), w: "w-24" },
+  { label: "Planning", pw: 7, value: (m) => m.co2Measure?.planning, w: "min-w-40" },
+  { label: "SKAO/eigen maatregel?", pw: 5, value: (m) => m.co2Measure?.skao, w: "w-28" },
+  { label: "Indien SKAO A/B/C", pw: 3.5, value: (m) => m.co2Measure?.skaoCategory, w: "w-20" },
+  { label: "Termijn", pw: 4.5, value: (m) => m.co2Measure?.term, w: "w-28" },
+  { label: "Verantwoordelijke(n)/ sleutelpersoon", pw: 6, value: (m) => m.owner?.name ?? m.ownerText, w: "w-36" },
+  { label: "Kennisbehoefte", pw: 6, value: (m) => m.co2Measure?.knowledgeNeed, w: "min-w-36" },
+  { label: "Voortgang (status update) per jaar", pw: 7, value: (m) => m.co2Measure?.progressNote, w: "min-w-40" },
+  { label: "Wetgeving", pw: 6, value: (m) => m.co2Measure?.legislation, w: "min-w-36" },
+  { label: "Benodigde middelen/ voorbereidende acties", pw: 6, value: (m) => m.co2Measure?.resources, w: "min-w-40" },
+  { label: "Actiepunten voor huidig jaar", pw: 6, value: (m) => m.co2Measure?.currentYearActions, w: "min-w-40" },
+  { label: "Van toepassing op project met gunningvoordeel", pw: 4.5, value: (m) => m.co2Measure?.tenderAdvantage, w: "min-w-32" },
+  { label: "Onderbouwing indien niet van toepassing", pw: 6, value: (m) => m.co2Measure?.notApplicableReason, w: "min-w-40" },
 ];
 
 function MeasureTable({ title, list, compact, calc }: { title: string; list: Measure[]; compact: boolean; calc: Data["calc"] }) {
@@ -53,8 +50,14 @@ function MeasureTable({ title, list, compact, calc }: { title: string; list: Mea
       <table className="table text-xs" data-export-name={title}>
         <thead>
           <tr>
-            {!compact && <th className="w-32">Type maatregel</th>}
-            <th className="min-w-56 text-sm">{title}</th>
+            {!compact && (
+              <th className="w-32" style={{ ["--pw" as string]: "6%" }}>
+                Type maatregel
+              </th>
+            )}
+            <th className="min-w-56 text-sm" style={compact ? undefined : { ["--pw" as string]: "9%" }}>
+              {title}
+            </th>
             {compact ? (
               <>
                 <th>Deadline</th>
@@ -68,13 +71,12 @@ function MeasureTable({ title, list, compact, calc }: { title: string; list: Mea
               </>
             ) : (
               COLUMNS.map((c) => (
-                <th key={c.label} className={c.w}>
+                <th key={c.label} className={c.w} style={{ ["--pw" as string]: `${c.pw}%` }}>
                   {c.label}
-                  {c.trede2 && <span className="block font-normal tracking-normal normal-case text-neutral-400">vanaf trede 2</span>}
                 </th>
               ))
             )}
-            <th>Status</th>
+            <th style={compact ? undefined : { ["--pw" as string]: "4.5%" }}>Status</th>
           </tr>
         </thead>
         <tbody>

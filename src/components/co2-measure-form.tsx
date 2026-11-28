@@ -105,18 +105,10 @@ export function Co2MeasureForm({
       {t("currentYearActions", "Actiepunten huidig jaar")}
       {t("resources", "Benodigde middelen / voorbereidende acties")}
       <details className="md:col-span-4">
-        <summary className="cursor-pointer text-sm text-neutral-600">
-          Meer velden (vanaf trede 2: TRL, flexibiliteit, investering, wetgeving, waardeketen, …)
-        </summary>
+        <summary className="cursor-pointer text-sm text-neutral-600">Meer velden (type maatregel, wetgeving, gunningvoordeel, …)</summary>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
           <Field label="Type maatregel">
             <input name="measureType" defaultValue={c?.measureType ?? ""} className="input" />
-          </Field>
-          <Field label="TRL">
-            <input name="trl" defaultValue={c?.trl ?? ""} className="input" placeholder="bijv. Gevestigde technologie" />
-          </Field>
-          <Field label="Investering">
-            <input name="investment" defaultValue={c?.investment ?? ""} className="input" />
           </Field>
           <Field label="Kennisbehoefte">
             <input name="knowledgeNeed" defaultValue={c?.knowledgeNeed ?? ""} className="input" />
@@ -127,9 +119,7 @@ export function Co2MeasureForm({
           <Field label="Volgorde in het plan" hint="Lager = hoger in de lijst">
             <input name="sortOrder" type="number" min={0} defaultValue={c?.sortOrder || ""} className="input" />
           </Field>
-          {t("flexibilityImpact", "Invloed flexibiliteit energiesysteem")}
           {t("legislation", "Wetgeving")}
-          {t("valueChain", "Toepassing op waardeketen")}
           {t("tenderAdvantage", "Van toepassing op project met gunningvoordeel")}
           {t("notApplicableReason", "Onderbouwing indien niet van toepassing", "md:col-span-4")}
         </div>

@@ -208,6 +208,29 @@ main .grid > * {
     word-break: normal;
     padding: 1mm 1.2mm !important;
   }
+  /* Zeer brede tabellen (12+ kolommen, bijv. het plan van aanpak): vaste kolombreedtes, kleiner en met woordafbreking,
+     zodat ook lange woorden de tabel niet breder dan de pagina maken. */
+  main table:has(thead tr > :nth-child(12)) {
+    table-layout: auto;
+    font-size: 6.5pt !important;
+  }
+  main table:has(thead tr > :nth-child(12)) th:not([style*="--pw"]),
+  main table:has(thead tr > :nth-child(12)) td {
+    width: auto !important;
+  }
+  main table:has(thead tr > :nth-child(12)) th,
+  main table:has(thead tr > :nth-child(12)) td {
+    min-width: 0 !important;
+    font-size: 6.5pt !important;
+    letter-spacing: 0 !important;
+    hyphens: auto;
+    overflow-wrap: anywhere;
+    padding: 0.8mm 0.8mm !important;
+  }
+  /* Vaste afdrukbreedte per kolom waar de pagina die opgeeft (style="--pw: 6%"). */
+  main table th[style*="--pw"] {
+    width: var(--pw) !important;
+  }
   /* Codes (W-014, AU-001/2, kentekens) niet afbreken. */
   main table .font-mono,
   main table .whitespace-nowrap {
