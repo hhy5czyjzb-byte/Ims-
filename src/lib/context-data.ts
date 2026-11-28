@@ -6,7 +6,8 @@ export async function getAnalysis(versionId?: string) {
   if (versionId) return prisma.contextAnalysis.findUnique({ where: { id: versionId }, include });
   return (
     (await prisma.contextAnalysis.findFirst({ where: { status: "APPROVED" }, orderBy: { approvedAt: "desc" }, include })) ??
-    (await prisma.contextAnalysis.findFirst({ orderBy: { createdAt: "desc" }, include }))
+    // een afgebroken upload (nog geen paragrafen) telt niet mee
+    (await prisma.contextAnalysis.findFirst({ where: { sections: { some: {} } }, orderBy: { createdAt: "desc" }, include }))
   );
 }
 

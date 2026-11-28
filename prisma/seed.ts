@@ -276,8 +276,8 @@ async function main() {
     await prisma.energyCarrier.upsert({ where: { name: c.name }, update: {}, create: { ...c, sortOrder: (i + 1) * 10 } });
   }
 
-  // Lokale modus (geen Microsoft 365): de lokale gebruiker (QHSE) en testgebruikers voor "Bekijken als".
-  const localMode = process.env.AUTH_MODE === "local" || (process.env.AUTH_MODE !== "entra" && !process.env.AZURE_AD_CLIENT_ID);
+  // Alleen in de lokale modus: lokale gebruiker en testgebruikers (niet online, niet in de wachtwoord- of Microsoft 365-modus).
+  const localMode = process.env.AUTH_MODE === "local" || (!process.env.AUTH_MODE && !process.env.AZURE_AD_CLIENT_ID);
   if (localMode) {
     console.log("Seed: lokale gebruiker en testgebruikers (lokale modus)…");
     await prisma.user.upsert({

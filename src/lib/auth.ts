@@ -1,11 +1,13 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import AzureADProvider from "next-auth/providers/azure-ad";
+import CredentialsProvider from "next-auth/providers/credentials";
 import type { JWT } from "next-auth/jwt";
 import type { Role } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { azureConfigured, env, localMode } from "@/lib/env";
+import { adminLogin, authMode, azureConfigured, env, localMode, MIN_PASSWORD_LENGTH, passwordConfigured } from "@/lib/env";
+import { checkAdminCredentials, isLockedOut, LOCK_MINUTES } from "@/lib/password-login";
 import { getLocalSessionUser } from "@/lib/local-user";
 import { checkMemberGroups } from "@/lib/graph";
 import { logAudit } from "@/lib/audit";
@@ -75,6 +77,32 @@ if (azureConfigured) {
   );
 }
 
+if (authMode === "password" && passwordConfigured) {
+  providers.push(
+    CredentialsProvider({
+      id: "credentials",
+      name: "E-mail en wachtwoord",
+      credentials: { email: { label: "E-mail", type: "email" }, password: { label: "Wachtwoord", type: "password" } },
+      async authorize(credentials) {
+        const email = String(credentials?.email ?? "")
+          .trim()
+          .toLowerCase()
+          .slice(0, 200);
+        // Slot na te veel mislukte pogingen (bijgehouden in het logboek, werkt ook met meerdere serverinstanties).
+        const failures = await prisma.auditLog.count({
+          where: { entityType: "LoginAttempt", userEmail: email, createdAt: { gte: new Date(Date.now() - LOCK_MINUTES * 60_000) } },
+        });
+        if (isLockedOut(failures)) return null;
+        if (!checkAdminCredentials({ email, password: credentials?.password }, adminLogin, MIN_PASSWORD_LENGTH)) {
+          await logAudit({ user: { email }, action: "LOGIN", entityType: "LoginAttempt", summary: "Inloggen mislukt (onjuist e-mailadres of wachtwoord)" });
+          return null;
+        }
+        return { id: email, email, name: adminLogin.name };
+      },
+    }),
+  );
+}
+
 export const authOptions: NextAuthOptions = {
   providers,
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 }, // werkdag
@@ -112,6 +140,16 @@ export const authOptions: NextAuthOptions = {
           token.accessToken = account.access_token;
           token.refreshToken = account.refresh_token;
           token.accessTokenExpires = account.expires_at ? account.expires_at * 1000 : Date.now() + 3600_000;
+        } else if (account.provider === "credentials" && authMode === "password") {
+          // Tijdelijke beheerderslogin (wachtwoordmodus): rol QHSE.
+          role = "QHSE";
+          const email = (user.email ?? "").toLowerCase();
+          const dbUser = await prisma.user.upsert({
+            where: { email },
+            update: { name: user.name ?? email, role, lastLoginAt: new Date(), active: true },
+            create: { name: user.name ?? email, email, role, lastLoginAt: new Date() },
+          });
+          dbUserId = dbUser.id;
         } else {
           throw new Error("Onbekende inlogmethode");
         }

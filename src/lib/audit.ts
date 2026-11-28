@@ -8,7 +8,7 @@ export type AuditAction = "LOGIN" | "VIEW" | "CREATE" | "UPDATE" | "DELETE" | "S
  * gebruiker niet blokkeren, maar wordt wel naar de serverlog geschreven.
  */
 export async function logAudit(entry: {
-  user?: { id: string; email?: string | null } | null;
+  user?: { id?: string | null; email?: string | null } | null;
   action: AuditAction;
   entityType: string;
   entityId?: string | null;
@@ -18,7 +18,7 @@ export async function logAudit(entry: {
   try {
     await prisma.auditLog.create({
       data: {
-        userId: entry.user?.id,
+        userId: entry.user?.id || undefined,
         userEmail: entry.user?.email ?? undefined,
         action: entry.action,
         entityType: entry.entityType,

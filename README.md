@@ -100,6 +100,36 @@ Zolang de app op de laptop draait, staan alle gegevens alleen daar. Maak daarom 
 - In de app: Stamgegevens → Back-ups (knop "Nu back-up maken" en overzicht). Het dashboard waarschuwt QHSE als de laatste geteste back-up ouder is dan 2 dagen.
 - Back-upbestanden bevatten bedrijfsgegevens: niet mailen of in git zetten.
 
+## Online op Vercel (zonder iets te installeren)
+
+Alles gaat in de browser. De app draait dan in Frankfurt (EU) met een Neon-database (Postgres, Frankfurt).
+
+1. **Account**: ga naar [vercel.com](https://vercel.com) → _Sign Up_ → _Continue with GitHub_ (het GitHub-account waar deze repository staat).
+2. **Project**: _Add New…_ → _Project_ → kies de repository **Ims-** → nog niet op _Deploy_ klikken.
+3. **Database**: in het project → _Storage_ → _Create Database_ → **Neon** (Postgres) → regio **Frankfurt (eu-central-1)** → koppelen aan het project. De verbindingsgegevens (`DATABASE_URL`, `DATABASE_URL_UNPOOLED`) worden automatisch ingevuld.
+4. **Instellingen**: _Settings_ → _Environment Variables_ → voeg toe (voor _Production_):
+
+   | Naam              | Waarde                                                                                       |
+   | ----------------- | -------------------------------------------------------------------------------------------- |
+   | `AUTH_MODE`       | `password`                                                                                   |
+   | `ADMIN_EMAIL`     | je eigen e-mailadres                                                                         |
+   | `ADMIN_PASSWORD`  | een sterk wachtwoord van minimaal 12 tekens (alleen hier, nergens anders opschrijven)        |
+   | `ADMIN_NAME`      | je naam (bijv. `Eelco`)                                                                      |
+   | `NEXTAUTH_SECRET` | een lange willekeurige reeks tekens (minimaal 32), bijv. uit een wachtwoordgenerator         |
+   | `NEXTAUTH_URL`    | het adres van de app, bijv. `https://ims-rouwmaat.vercel.app` (na de eerste deploy invullen) |
+
+5. **Deploy**: _Deployments_ → _Redeploy_ (of de eerste _Deploy_). Bij elke deploy worden de database-migraties en de basisvulling (normen, disciplines) automatisch uitgevoerd (`scripts/vercel-build.sh`).
+6. **Inloggen** op het adres van de app met `ADMIN_EMAIL` en `ADMIN_PASSWORD`. Na 10 mislukte pogingen is inloggen 15 minuten geblokkeerd; elke poging staat in het logboek.
+7. **Vullen**: lees de registers in (zie _Bestaande registers inlezen_).
+
+Goed om te weten:
+
+- **Kosten en voorwaarden**: het gratis Hobby-abonnement van Vercel is voor niet-commercieel gebruik; voor zakelijk gebruik is Vercel _Pro_ nodig. Neon heeft een gratis instap.
+- **AVG**: Vercel en Neon zijn Amerikaanse bedrijven (servers in de EU). Sluit hun verwerkersovereenkomst (DPA) af en leg dit voor aan directie/IT. De specificatie gaat voor fase 2 uit van Azure.
+- **Wachtwoordmodus is tijdelijk** en alleen voor één beheerder (rol QHSE). Voordat het middenkader erbij komt: Microsoft 365 koppelen (hieronder) en `AUTH_MODE` op `entra` zetten.
+- **Back-ups** regelt Neon (herstel naar een eerder moment); de back-upknop in de app is alleen voor de lokale modus.
+- Per verzoek geldt bij Vercel een limiet van 4,5 MB; Word-documenten worden daarom in de browser omgezet en in delen verstuurd (afbeeldingen max. 4 MB per stuk).
+
 ## Microsoft 365 koppelen (Entra ID) — fase 2
 
 Zet daarna `AUTH_MODE="entra"` in `.env` (of laat het leeg zodra de AZURE_AD_* zijn ingevuld). Het loginscherm verschijnt dan en de lokale modus en "Bekijken als" verdwijnen.

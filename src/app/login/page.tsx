@@ -2,9 +2,9 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { azureConfigured } from "@/lib/env";
+import { authMode, azureConfigured, passwordConfigured } from "@/lib/env";
 import { brand } from "@/theme/brand";
-import { MicrosoftLoginButton } from "./login-buttons";
+import { MicrosoftLoginButton, PasswordLoginForm } from "./login-buttons";
 
 export const metadata = { title: "Inloggen" };
 
@@ -29,7 +29,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <div className="card p-8">
             <Image src={brand.logo.color} alt={brand.companyName} width={260} height={58} priority className="mx-auto h-auto w-[260px]" />
             <h1 className="mt-6 text-center text-xl">Integraal managementsysteem</h1>
-            <p className="mt-1 text-center text-sm text-neutral-600">Log in met je Rouwmaat Microsoft 365-account.</p>
+            <p className="mt-1 text-center text-sm text-neutral-600">
+              {authMode === "password" ? "Log in met je e-mailadres en wachtwoord." : "Log in met je Rouwmaat Microsoft 365-account."}
+            </p>
 
             {error && (
               <div role="alert" className="mt-4 rounded-md border border-brand-red/30 bg-red-50 px-3 py-2 text-sm text-brand-red-dark">
@@ -38,7 +40,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             )}
 
             <div className="mt-6">
-              {azureConfigured ? (
+              {authMode === "password" ? (
+                passwordConfigured ? (
+                  <PasswordLoginForm callbackUrl={safeCallback} />
+                ) : (
+                  <p className="rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600">
+                    Inloggen met wachtwoord is nog niet ingesteld: vul ADMIN_EMAIL en ADMIN_PASSWORD (minimaal 12 tekens) in bij de instellingen (Vercel →
+                    Settings → Environment Variables).
+                  </p>
+                )
+              ) : azureConfigured ? (
                 <MicrosoftLoginButton callbackUrl={safeCallback} />
               ) : (
                 <p className="rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600">

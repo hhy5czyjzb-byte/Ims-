@@ -12,9 +12,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: "standalone",
-  // Import van registers (Excel → gekoppelde regels) kan groter zijn dan de standaard 1 MB.
-  // 25 MB: Word-documenten met afbeeldingen (context- en stakeholderanalyse); Excel-imports blijven ruim daaronder.
-  experimental: { serverActions: { bodySizeLimit: "25mb" } },
+  // Import van registers (Excel → gekoppelde regels) kan groter zijn dan de standaard 1 MB. Op Vercel geldt
+  // daarnaast max. 4,5 MB per verzoek; Word-documenten worden daarom in de browser omgezet en in delen verstuurd.
+  experimental: { serverActions: { bodySizeLimit: "5mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

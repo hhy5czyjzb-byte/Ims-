@@ -3,7 +3,6 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import mammoth from "mammoth";
 import { z } from "zod";
 import { ContextFactorKind, ObligationCharacter, type Prisma } from "@prisma/client";
 import { safeAction, UserError, type ActionResult } from "@/lib/action-result";
@@ -14,108 +13,128 @@ import { addMonths } from "@/lib/compliance";
 import { optionalDate, optionalText, optionalUrl, parseForm, requiredText } from "@/lib/forms";
 import { matchObligationStakeholders, parseContextHtml, sanitizeContextHtml } from "@/lib/context-import";
 
-const MAX_DOCX = 25 * 1024 * 1024;
-const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
-
 function revalidateContext() {
   revalidatePath("/context", "layout");
   revalidatePath("/");
 }
 
 // ── Inlezen van een nieuwe versie (Word) ──────────────────────
+// Het Word-bestand wordt in de browser omgezet (mammoth); daarna gaan de afbeeldingen één voor één en de tekst apart naar de
+// server. Zo blijft elk verzoek klein (Vercel: max. 4,5 MB). De server vertrouwt de browser niet: afbeeldingen worden op
+// inhoud gecontroleerd en de HTML wordt opgeschoond.
 
-const uploadSchema = z.object({
+const MAX_IMAGE_UPLOAD = 4 * 1024 * 1024;
+
+/** Bestandstype op basis van de inhoud (niet van wat de browser zegt). */
+function sniffImage(b: Uint8Array): string | null {
+  if (b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b.length > 6 && String.fromCharCode(...b.subarray(0, 4)) === "GIF8") return "image/gif";
+  if (b.length > 12 && String.fromCharCode(...b.subarray(0, 4)) === "RIFF" && String.fromCharCode(...b.subarray(8, 12)) === "WEBP") return "image/webp";
+  return null;
+}
+
+async function loadUpload(analysisId: string, userId: string) {
+  const a = await prisma.contextAnalysis.findUnique({ where: { id: analysisId }, include: { _count: { select: { sections: true } } } });
+  if (!a || a.status !== "CONCEPT" || a.uploadedById !== userId || a._count.sections > 0)
+    throw new UserError("Deze upload is niet (meer) open. Begin opnieuw.");
+  return a;
+}
+
+/** Stap 1: lege conceptversie aanmaken. */
+export async function beginContextUpload(fileName: string): Promise<{ error?: string; id?: string }> {
+  try {
+    const user = await requirePermission("context.edit");
+    const name = String(fileName ?? "").slice(0, 300);
+    if (!/\.docx$/i.test(name)) return { error: "Alleen Word-bestanden (.docx) kunnen worden ingelezen." };
+    const a = await prisma.contextAnalysis.create({ data: { title: name.replace(/\.docx$/i, ""), fileName: name, status: "CONCEPT", uploadedById: user.id } });
+    return { id: a.id };
+  } catch (err) {
+    if (err instanceof UserError) return { error: err.message };
+    console.error("[context] upload starten mislukt", err);
+    return { error: "Inlezen kon niet worden gestart." };
+  }
+}
+
+/** Stap 2: één afbeelding opslaan; geeft het adres terug. */
+export async function addUploadImage(analysisId: string, formData: FormData): Promise<{ error?: string; src?: string }> {
+  try {
+    const user = await requirePermission("context.edit");
+    await loadUpload(analysisId, user.id);
+    const file = formData.get("image");
+    if (!(file instanceof File) || file.size === 0) return { error: "Lege afbeelding." };
+    if (file.size > MAX_IMAGE_UPLOAD) return { error: "Afbeelding groter dan 4 MB." };
+    const data = new Uint8Array(await file.arrayBuffer());
+    const contentType = sniffImage(data);
+    if (!contentType) return { error: "Geen PNG-, JPEG-, GIF- of WebP-afbeelding." };
+    const id = randomUUID();
+    const alt = String(formData.get("alt") ?? "").slice(0, 300) || null;
+    await prisma.contextImage.create({ data: { id, analysisId, contentType, data, size: data.length, alt } });
+    return { src: `/context/afbeelding/${id}` };
+  } catch (err) {
+    if (err instanceof UserError) return { error: err.message };
+    console.error("[context] afbeelding opslaan mislukt", err);
+    return { error: "Afbeelding opslaan mislukt." };
+  }
+}
+
+const finishSchema = z.object({
+  html: z.string().min(1, "Het document is leeg.").max(4_000_000, "Het document is te groot."),
   approvedAt: optionalDate,
   sharepointUrl: optionalUrl,
+  skippedImages: z.coerce.number().int().min(0).max(10_000).default(0),
 });
 
 /**
- * Lees de analyse in uit Word: tekst en afbeeldingen per paragraaf, plus contextfactoren, stakeholders en verplichtingen
- * (bijgewerkt op naam; bestaande koppelingen blijven staan). Elke upload is een nieuwe versie; oudere versies blijven leesbaar.
+ * Stap 3: tekst verwerken. Opdelen in delen en paragrafen, opschonen, en contextfactoren, stakeholders en verplichtingen
+ * bijwerken op naam (bestaande koppelingen blijven staan; niets wordt verwijderd).
  */
-export async function uploadContextAnalysis(formData: FormData): Promise<ActionResult> {
-  let newId = "";
+export async function finishContextUpload(analysisId: string, formData: FormData): Promise<ActionResult> {
   const result = await safeAction(async () => {
     const user = await requirePermission("context.edit");
-    const file = formData.get("file");
-    if (!(file instanceof File) || file.size === 0) throw new UserError("Kies het Word-bestand (.docx).");
-    if (!/\.docx$/i.test(file.name)) throw new UserError("Alleen Word-bestanden (.docx) kunnen worden ingelezen.");
-    if (file.size > MAX_DOCX) throw new UserError("Het bestand is groter dan 25 MB.");
-    const buffer = Buffer.from(await file.arrayBuffer());
-    if (buffer.subarray(0, 2).toString() !== "PK") throw new UserError("Dit is geen geldig Word-bestand (.docx).");
-    const { approvedAt, sharepointUrl } = parseForm(uploadSchema, formData);
-
-    const images: { id: string; contentType: string; data: Buffer; alt: string | null }[] = [];
-    let skippedImages = 0;
-    let converted: { value: string };
-    try {
-      converted = await mammoth.convertToHtml(
-        { buffer },
-        {
-          convertImage: mammoth.images.imgElement(async (image) => {
-            const altText = (image as { altText?: string }).altText; // wel aanwezig, ontbreekt in de typen
-            if (!IMAGE_TYPES.includes(image.contentType)) {
-              skippedImages++;
-              return { src: "", alt: altText ?? "afbeelding (formaat niet ondersteund)" };
-            }
-            const id = randomUUID();
-            images.push({ id, contentType: image.contentType, data: await image.readAsBuffer(), alt: altText ?? null });
-            return { src: `/context/afbeelding/${id}`, alt: altText ?? "" };
-          }),
-        },
-      );
-    } catch (err) {
-      console.error("[context] omzetten mislukt", err);
-      throw new UserError("Het Word-bestand kon niet worden gelezen.");
-    }
-    const parsed = parseContextHtml(converted.value);
+    const upload = await loadUpload(analysisId, user.id);
+    const { html, approvedAt, sharepointUrl, skippedImages } = parseForm(finishSchema, formData);
+    if (approvedAt && approvedAt.getTime() > Date.now()) throw new UserError("De datum van vaststelling kan niet in de toekomst liggen.");
+    const parsed = parseContextHtml(html);
     if (parsed.sections.length < 2) throw new UserError("Geen hoofdstukken gevonden. Gebruik de kopstijlen van Word (Kop 1 en Kop 2).");
+    const imageCount = await prisma.contextImage.count({ where: { analysisId } });
 
-    const reviewMonths = 12;
-    const analysis = await prisma.$transaction(
+    await prisma.$transaction(
       async (tx) => {
         if (approvedAt) await tx.contextAnalysis.updateMany({ where: { status: "APPROVED" }, data: { status: "SUPERSEDED" } });
-        const a = await tx.contextAnalysis.create({
+        await tx.contextAnalysis.update({
+          where: { id: analysisId },
           data: {
-            title: parsed.meta.title ?? file.name.replace(/\.docx$/i, ""),
+            title: parsed.meta.title ?? upload.title,
             versionLabel: parsed.meta.versionLabel,
-            fileName: file.name,
             sharepointUrl,
             ownerText: parsed.meta.ownerText,
             reviewCycle: parsed.meta.reviewCycle,
             approvedByText: parsed.meta.approvedByText,
             status: approvedAt ? "APPROVED" : "CONCEPT",
             approvedAt,
-            approvedById: approvedAt ? user.id : undefined,
-            nextReviewDate: approvedAt ? addMonths(approvedAt, reviewMonths) : undefined,
-            uploadedById: user.id,
-            sections: {
-              create: parsed.sections.map((s, i) => ({
-                part: s.part,
-                partTitle: s.partTitle,
-                partSubtitle: s.partSubtitle,
-                partKern: s.partKern,
-                number: s.number,
-                title: s.title,
-                anchor: s.anchor,
-                html: sanitizeContextHtml(s.html),
-                sortOrder: i,
-              })),
-            },
+            approvedById: approvedAt ? user.id : null,
+            nextReviewDate: approvedAt ? addMonths(approvedAt, 12) : null,
           },
         });
-        for (const img of images) {
-          await tx.contextImage.create({
-            data: { id: img.id, analysisId: a.id, contentType: img.contentType, data: new Uint8Array(img.data), size: img.data.length, alt: img.alt },
-          });
-        }
-        return a;
+        await tx.contextSection.createMany({
+          data: parsed.sections.map((s, i) => ({
+            analysisId,
+            part: s.part,
+            partTitle: s.partTitle,
+            partSubtitle: s.partSubtitle,
+            partKern: s.partKern,
+            number: s.number,
+            title: s.title,
+            anchor: s.anchor,
+            html: sanitizeContextHtml(s.html),
+            sortOrder: i,
+          })),
+        });
       },
       { timeout: 60_000 },
     );
-    newId = analysis.id;
 
-    // Contextfactoren, stakeholders en verplichtingen bijwerken op naam (niets wordt verwijderd).
     let factorsNew = 0;
     let stakeholdersNew = 0;
     let obligationsNew = 0;
@@ -146,12 +165,12 @@ export async function uploadContextAnalysis(formData: FormData): Promise<ActionR
     }
     const allStakeholders = await prisma.stakeholder.findMany({ select: { id: true, name: true } });
     for (const [i, o] of parsed.obligations.entries()) {
-      const ids = matchObligationStakeholders(o.stakeholderText, allStakeholders);
       const existing = await prisma.stakeholderObligation.findUnique({
         where: { stakeholderText_obligation: { stakeholderText: o.stakeholderText, obligation: o.obligation } },
       });
       if (existing) await prisma.stakeholderObligation.update({ where: { id: existing.id }, data: { character: o.character, sortOrder: i } });
       else {
+        const ids = matchObligationStakeholders(o.stakeholderText, allStakeholders);
         await prisma.stakeholderObligation.create({
           data: {
             stakeholderText: o.stakeholderText,
@@ -169,13 +188,13 @@ export async function uploadContextAnalysis(formData: FormData): Promise<ActionR
       user,
       action: "CREATE",
       entityType: "ContextAnalysis",
-      entityId: analysis.id,
-      summary: `Context- en stakeholderanalyse ingelezen (${file.name}): ${parsed.sections.length} paragrafen, ${images.length} afbeeldingen; ${parsed.factors.length} contextfactoren (${factorsNew} nieuw), ${parsed.stakeholders.length} stakeholders (${stakeholdersNew} nieuw), ${parsed.obligations.length} verplichtingen (${obligationsNew} nieuw)${skippedImages ? `; ${skippedImages} afbeelding(en) in een niet-ondersteund formaat overgeslagen` : ""}`,
+      entityId: analysisId,
+      summary: `Context- en stakeholderanalyse ingelezen (${upload.fileName}): ${parsed.sections.length} paragrafen, ${imageCount} afbeeldingen; ${parsed.factors.length} contextfactoren (${factorsNew} nieuw), ${parsed.stakeholders.length} stakeholders (${stakeholdersNew} nieuw), ${parsed.obligations.length} verplichtingen (${obligationsNew} nieuw)${skippedImages ? `; ${skippedImages} afbeelding(en) overgeslagen` : ""}`,
     });
     revalidateContext();
   });
   if (result?.error) return result;
-  redirect(`/context?versie=${newId}`);
+  redirect(`/context?versie=${analysisId}`);
 }
 
 const approveSchema = z.object({ approvedAt: optionalDate, approvedByText: optionalText });
@@ -566,8 +585,6 @@ export async function deleteSection(sectionId: string): Promise<ActionResult> {
   });
 }
 
-const MAX_IMAGE = 8 * 1024 * 1024;
-
 /** Afbeelding toevoegen aan een conceptversie (vanuit de editor); geeft het adres terug om in de tekst te plaatsen. */
 export async function uploadSectionImage(analysisId: string, formData: FormData): Promise<{ error?: string; src?: string }> {
   try {
@@ -575,11 +592,12 @@ export async function uploadSectionImage(analysisId: string, formData: FormData)
     await loadConcept(analysisId);
     const file = formData.get("image");
     if (!(file instanceof File) || file.size === 0) return { error: "Kies een afbeelding." };
-    if (!IMAGE_TYPES.includes(file.type)) return { error: "Alleen PNG, JPEG, GIF of WebP." };
-    if (file.size > MAX_IMAGE) return { error: "De afbeelding is groter dan 8 MB." };
+    if (file.size > MAX_IMAGE_UPLOAD) return { error: "De afbeelding is groter dan 4 MB." };
     const data = new Uint8Array(await file.arrayBuffer());
+    const contentType = sniffImage(data);
+    if (!contentType) return { error: "Alleen PNG, JPEG, GIF of WebP." };
     const id = randomUUID();
-    await prisma.contextImage.create({ data: { id, analysisId, contentType: file.type, data, size: data.length, alt: file.name.slice(0, 200) } });
+    await prisma.contextImage.create({ data: { id, analysisId, contentType, data, size: data.length, alt: file.name.slice(0, 200) } });
     await logAudit({ user, action: "UPDATE", entityType: "ContextAnalysis", entityId: analysisId, summary: `Afbeelding toegevoegd (${file.name})` });
     return { src: `/context/afbeelding/${id}` };
   } catch (err) {

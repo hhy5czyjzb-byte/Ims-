@@ -22,12 +22,31 @@ export const azureConfigured = !!(env.azure.tenantId && env.azure.clientId && en
 /**
  * Inlogmodus:
  * - "local": geen inlogscherm; je werkt als de lokale gebruiker (fase 1, alleen via localhost).
+ * - "password": tijdelijke login met één beheerder (e-mail + wachtwoord uit de instellingen), voor online
+ *   zolang Microsoft 365 nog niet is gekoppeld. Rol QHSE.
  * - "entra": inloggen met Microsoft 365 (Entra ID); rechten uit Entra ID-groepen.
  * Zonder AUTH_MODE: "entra" als Microsoft 365 is ingesteld, anders "local".
  */
-export const authMode: "local" | "entra" =
-  process.env.AUTH_MODE === "entra" ? "entra" : process.env.AUTH_MODE === "local" ? "local" : azureConfigured ? "entra" : "local";
+export const authMode: "local" | "entra" | "password" =
+  process.env.AUTH_MODE === "entra"
+    ? "entra"
+    : process.env.AUTH_MODE === "password"
+      ? "password"
+      : process.env.AUTH_MODE === "local"
+        ? "local"
+        : azureConfigured
+          ? "entra"
+          : "local";
 export const localMode = authMode === "local";
+
+/** Beheerder voor de wachtwoordmodus. Het wachtwoord staat alleen in de instellingen (Vercel / .env), nooit in de code. */
+export const adminLogin = {
+  email: (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase(),
+  password: process.env.ADMIN_PASSWORD ?? "",
+  name: process.env.ADMIN_NAME || "Eelco",
+};
+export const MIN_PASSWORD_LENGTH = 12;
+export const passwordConfigured = adminLogin.email.includes("@") && adminLogin.password.length >= MIN_PASSWORD_LENGTH;
 
 /** De gebruiker als wie je in de lokale modus werkt (rol QHSE). */
 export const LOCAL_USER = { email: "lokaal@ims.local", name: process.env.LOCAL_USER_NAME || "Eelco" };

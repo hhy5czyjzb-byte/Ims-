@@ -8,7 +8,8 @@ import { Badge, EmptyState, Field, PageHeader } from "@/components/ui";
 import { Form } from "@/components/form";
 import { SubmitButton } from "@/components/submit-button";
 import { ContextNav } from "@/components/context-nav";
-import { deleteContextAnalysis, updateAnalysisMeta, uploadContextAnalysis } from "../actions";
+import { addUploadImage, beginContextUpload, deleteContextAnalysis, finishContextUpload, updateAnalysisMeta } from "../actions";
+import { ContextUploadForm } from "@/components/context-upload-form";
 
 export const metadata = { title: "Versies context- en stakeholderanalyse" };
 
@@ -41,26 +42,9 @@ export default async function ContextVersionsPage() {
           <h2 className="mb-1">Nieuwe versie inlezen</h2>
           <p className="mb-3 text-sm text-neutral-600">
             Gebruik in Word de kopstijlen (Kop 1 voor de samenvatting, Kop 2 voor paragrafen zoals &ldquo;3.1 …&rdquo;) en de vaste tabellen voor
-            contextfactoren, stakeholders, verplichtingen en documentgegevens. Maximaal 25 MB.
+            contextfactoren, stakeholders, verplichtingen en documentgegevens. Het document wordt in je browser omgezet; afbeeldingen tot 4 MB per stuk.
           </p>
-          <Form action={uploadContextAnalysis} className="grid gap-3 md:grid-cols-[1fr_12rem_1fr_auto] md:items-end">
-            <Field label="Word-bestand (.docx)">
-              <input
-                name="file"
-                type="file"
-                required
-                accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                className="block text-sm"
-              />
-            </Field>
-            <Field label="Al vastgesteld op" hint="Leeg = concept">
-              <input name="approvedAt" type="date" max={toDateInput(new Date())} className="input" />
-            </Field>
-            <Field label="Link naar SharePoint (optioneel)">
-              <input name="sharepointUrl" type="url" pattern="https://.*" maxLength={2000} className="input" placeholder="https://…sharepoint.com/…" />
-            </Field>
-            <SubmitButton>Inlezen</SubmitButton>
-          </Form>
+          <ContextUploadForm begin={beginContextUpload} addImage={addUploadImage} finish={finishContextUpload} maxDate={toDateInput(new Date())} />
         </section>
       )}
 
@@ -105,7 +89,9 @@ export default async function ContextVersionsPage() {
                         {v.uploadedBy && ` · ${v.uploadedBy.name}`}
                       </div>
                     </td>
-                    <td className="text-right tabular-nums">{v._count.sections}</td>
+                    <td className="text-right tabular-nums">
+                      {v._count.sections === 0 ? <span className="text-xs text-amber-700">onvolledig</span> : v._count.sections}
+                    </td>
                     <td className="text-right tabular-nums">{v._count.images}</td>
                     <td className="text-xs whitespace-nowrap">
                       {canEdit && (
