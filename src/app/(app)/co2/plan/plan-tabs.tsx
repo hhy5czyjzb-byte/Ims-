@@ -19,7 +19,7 @@ export function PlanTabs() {
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-md px-3 py-1.5 text-sm no-underline hover:no-underline ${active ? "bg-neutral-800 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"}`}
+            className={`rounded-md px-3 py-1.5 text-sm no-underline hover:no-underline ${active ? "bg-brand-red text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"}`}
           >
             {t.label}
           </Link>

@@ -187,13 +187,13 @@ export default async function Co2Page({ searchParams }: { searchParams: Promise<
           </div>
           <Link
             href={`/co2/rapportage?jaar=${year}`}
-            className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-neutral-900 px-5 py-4 text-white no-underline hover:no-underline print:hidden"
+            className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-neutral-200 border-l-4 border-l-brand-red bg-white px-5 py-4 text-neutral-900 no-underline shadow-sm transition hover:bg-brand-red/5 hover:no-underline print:hidden"
           >
             <span>
-              <span className="block text-xs font-semibold tracking-widest text-white/70 uppercase">Rapportage</span>
+              <span className="block text-xs font-semibold tracking-widest text-brand-red-dark uppercase">Rapportage</span>
               <span className="text-lg font-semibold">CO2-jaarverslag {year} bekijken, afdrukken of als Word downloaden</span>
             </span>
-            <span className="rounded-full bg-brand-red px-4 py-2 text-sm font-semibold">Openen →</span>
+            <span className="shrink-0 rounded-full bg-brand-red px-4 py-2 text-sm font-semibold text-white">Openen →</span>
           </Link>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">

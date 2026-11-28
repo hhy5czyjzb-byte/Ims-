@@ -189,23 +189,26 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
       </form>
 
       {/* Voorblad */}
-      <section className="relative mb-6 overflow-hidden rounded-2xl bg-neutral-900 px-8 py-12 text-white">
-        <div className="absolute -top-10 -right-10 size-56 rounded-full bg-brand-red opacity-90" aria-hidden />
-        <div className="absolute right-24 -bottom-16 size-40 rounded-full bg-brand-red-dark opacity-70" aria-hidden />
+      <section className="relative mb-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white px-8 py-10">
+        <div className="absolute -top-16 -right-16 size-64 rounded-full bg-brand-red/10" aria-hidden />
+        <div className="absolute right-28 -bottom-20 size-44 rounded-full bg-brand-grey-light/50" aria-hidden />
+        <div className="absolute top-0 left-0 h-full w-1.5 bg-brand-red" aria-hidden />
         <div className="relative">
-          <div className="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold tracking-widest uppercase">CO2-prestatieladder</div>
-          <h2 className="mt-4 text-4xl font-bold text-white">CO2-jaarverslag {year}</h2>
-          <p className="mt-1 text-xl text-white/90">Rouwmaat Groep</p>
-          <div className="mt-8 grid max-w-2xl grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="inline-block rounded-full bg-brand-red px-3 py-1 text-xs font-semibold tracking-widest text-white uppercase">
+            CO2-prestatieladder · trede 1
+          </div>
+          <h2 className="mt-4 text-4xl font-bold text-neutral-900">CO2-jaarverslag {year}</h2>
+          <p className="mt-1 text-xl text-brand-red-dark">Rouwmaat Groep</p>
+          <div className="mt-8 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               [t1(inv.totalKg), "t CO2 totaal"],
               [t1(inv.byScope[1]), "t CO2 scope 1"],
               [t1(inv.byScope[2]), "t CO2 scope 2"],
               [perFte === null ? "—" : perFte.toLocaleString("nl-NL", { maximumFractionDigits: 2 }), "t CO2 per FTE"],
-            ].map(([v, l]) => (
-              <div key={l}>
-                <div className="text-2xl font-bold tabular-nums">{v}</div>
-                <div className="text-xs text-white/70">{l}</div>
+            ].map(([v, l], i) => (
+              <div key={l} className={`rounded-lg border-l-4 bg-neutral-50 px-3 py-2 ${i === 0 ? "border-brand-red" : "border-brand-grey-dark"}`}>
+                <div className={`text-2xl font-bold tabular-nums ${i === 0 ? "text-brand-red-dark" : "text-neutral-900"}`}>{v}</div>
+                <div className="text-xs text-neutral-500">{l}</div>
               </div>
             ))}
           </div>
