@@ -137,8 +137,8 @@ main .grid > * {
   min-width: 0;
 }
 
-/* Telefoon (smaller dan 768 px) */
-@media (max-width: 767px) {
+/* Telefoon (smaller dan 768 px), alleen op het scherm: een A4 bij afdrukken is net zo smal, maar moet niet scrollen. */
+@media screen and (max-width: 767px) {
   .doc table {
     display: block;
     overflow-x: auto;
@@ -185,6 +185,43 @@ main .grid > * {
 }
 
 @media print {
+  /* Pagina's met brede tabellen (8 kolommen of meer) liggend afdrukken. */
+  @page breed {
+    size: A4 landscape;
+  }
+  main:has(table thead tr > :nth-child(8)) {
+    page: breed;
+  }
+  /* Tabellen altijd binnen de paginabreedte: kleiner lettertype, tekst mag afbreken, geen scrollvakken. */
+  main table {
+    display: table !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: auto;
+    font-size: 8pt;
+  }
+  main table th,
+  main table td {
+    min-width: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: break-word;
+    word-break: normal;
+    padding: 1mm 1.2mm !important;
+  }
+  /* Codes (W-014, AU-001/2, kentekens) niet afbreken. */
+  main table .font-mono,
+  main table .whitespace-nowrap {
+    white-space: nowrap !important;
+  }
+  main .overflow-x-auto,
+  main .overflow-auto {
+    overflow: visible !important;
+  }
+  main .grid > *,
+  main section,
+  main .card {
+    max-width: 100%;
+  }
   @page {
     size: A4;
     margin: 22mm 14mm 16mm;
