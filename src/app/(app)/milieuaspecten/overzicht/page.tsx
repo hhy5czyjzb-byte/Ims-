@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { BREAKDOWN_LABEL, breakdown, countAspects, type BreakdownKey } from "@/lib/aspect-stats";
 import { PageHeader } from "@/components/ui";
 import { AspectNav } from "@/components/aspect-nav";
+import { getSignificanceRule } from "@/lib/aspect-settings";
+import { describeSignificanceRule } from "@/lib/aspects";
 
 export const metadata = { title: "Overzicht milieuaspecten" };
 
@@ -11,6 +13,7 @@ const PARAM: Record<BreakdownKey, string> = { bu: "bu", locatie: "locatie", cont
 
 export default async function AspectOverviewPage() {
   await requireUser();
+  const rule = await getSignificanceRule();
   const all = await prisma.environmentalAspect.findMany({
     where: { active: true },
     select: {
@@ -21,6 +24,7 @@ export default async function AspectOverviewPage() {
       siteType: true,
       inOperation: true,
       priority: true,
+      significant: true,
       opportunity: true,
       origin: true,
       lifecycleSource: true,
@@ -36,7 +40,7 @@ export default async function AspectOverviewPage() {
     <>
       <PageHeader
         title="Milieuaspecten"
-        description="Overzicht zoals op het overzichtsblad van het MAR: alleen aspecten op locaties die in werking zijn. Prio H of M = significant; het risico is effect × voorkomen × waarschijnlijkheid."
+        description="Overzicht zoals op het overzichtsblad van het MAR: alleen aspecten op locaties die in werking zijn. Het risico is effect × voorkomen × waarschijnlijkheid."
       />
       <AspectNav />
 
@@ -56,8 +60,8 @@ export default async function AspectOverviewPage() {
             </p>
             <p className="mt-1">
               Controle: {total.high} + {total.medium} + {total.low} + {total.noPrio} = {total.high + total.medium + total.low + total.noPrio}{" "}
-              {total.high + total.medium + total.low + total.noPrio === total.total ? "✓" : "✗"} · Significant: <strong>{total.significant}</strong>, waarvan{" "}
-              {total.significantOpportunities} kansen.
+              {total.high + total.medium + total.low + total.noPrio === total.total ? "✓" : "✗"} · Significant ({describeSignificanceRule(rule)}):{" "}
+              <strong>{total.significant}</strong>, waarvan {total.significantOpportunities} kansen.
             </p>
           </div>
           <div>

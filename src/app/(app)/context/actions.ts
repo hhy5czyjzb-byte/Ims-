@@ -358,6 +358,7 @@ export async function updateStakeholder(id: string, formData: FormData): Promise
     await prisma.stakeholder.update({ where: { id }, data: { ...data, active: active === "on" } });
     await logAudit({ user, action: "UPDATE", entityType: "Stakeholder", entityId: id, summary: `Stakeholder "${data.name}" gewijzigd` });
     revalidateContext();
+    redirect("/context/stakeholders");
   });
 }
 
@@ -367,6 +368,7 @@ export async function deleteStakeholder(id: string): Promise<ActionResult> {
     const s = await prisma.stakeholder.delete({ where: { id } });
     await logAudit({ user, action: "DELETE", entityType: "Stakeholder", entityId: id, summary: `Stakeholder "${s.name}" verwijderd` });
     revalidateContext();
+    redirect("/context/stakeholders");
   });
 }
 
@@ -420,6 +422,7 @@ export async function updateObligation(id: string, formData: FormData): Promise<
     });
     revalidateContext();
     revalidatePath("/wetgeving", "layout");
+    redirect("/context/stakeholders#verplichtingen");
   });
 }
 
@@ -429,6 +432,7 @@ export async function deleteObligation(id: string): Promise<ActionResult> {
     await prisma.stakeholderObligation.delete({ where: { id } });
     await logAudit({ user, action: "DELETE", entityType: "StakeholderObligation", entityId: id, summary: "Verplichting verwijderd" });
     revalidateContext();
+    redirect("/context/stakeholders#verplichtingen");
   });
 }
 

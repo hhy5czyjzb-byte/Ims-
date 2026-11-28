@@ -192,7 +192,7 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
         </div>
         {canApprove && analysis.status !== "APPROVED" && (
           <div className="mt-3 border-t border-neutral-100 pt-3 print:hidden">
-            <Disclosure summary="Deze versie vaststellen">
+            <Disclosure compact summary="Deze versie vaststellen">
               <Form action={approveContextAnalysis.bind(null, analysis.id)} className="flex flex-wrap items-end gap-3">
                 <Field label="Vastgesteld op">
                   <input name="approvedAt" type="date" required defaultValue={toDateInput(new Date())} max={toDateInput(new Date())} className="input" />
@@ -265,8 +265,8 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
                   {/* Opgeschoond bij het inlezen én bij het tonen (veilig, ook als de database later zou zijn aangepast). */}
                   <div className="doc" dangerouslySetInnerHTML={{ __html: sanitizeContextHtml(s.html) }} />
                   {editable && (
-                    <div className="mt-4 grid gap-3 border-t border-neutral-100 pt-3 print:hidden">
-                      <Disclosure summary="Paragraaf bewerken">
+                    <div className="mt-3 flex flex-col gap-2 border-t border-neutral-100 pt-2 print:hidden">
+                      <Disclosure compact summary="Paragraaf bewerken">
                         <Form
                           key={`${s.id}-${s.title}-${s.html.length}`}
                           action={updateSection.bind(null, s.id)}
@@ -291,7 +291,7 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
                           </SubmitButton>
                         </Form>
                       </Disclosure>
-                      <Disclosure summary="Paragraaf hierna toevoegen">
+                      <Disclosure compact summary="Paragraaf hierna toevoegen">
                         <Form action={addSectionAfter.bind(null, s.id)} resetOnSuccess className="grid gap-3 md:grid-cols-[8rem_1fr]">
                           <Field label="Nummer">
                             <input name="number" maxLength={20} className="input" />

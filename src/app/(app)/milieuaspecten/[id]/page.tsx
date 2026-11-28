@@ -18,7 +18,10 @@ import {
   LIFECYCLE_SCORE_LABEL,
   PRIORITY_SIGNAL_LABEL,
   prioritySignal,
+  describeSignificanceRule,
+  determineAspectSignificance,
 } from "@/lib/aspects";
+import { getSignificanceRule } from "@/lib/aspect-settings";
 import { riskDisplayCode } from "@/lib/risk";
 import {
   ACTION_PRIORITY_LABEL,
@@ -69,6 +72,8 @@ export default async function AspectDetailPage({ params }: { params: Promise<{ i
   const risk = aspectRisk(e, b, w);
   const level = aspectRiskLevel(risk);
   const signal = prioritySignal({ priority: a.priority, risk, opportunity: a.opportunity });
+  const rule = await getSignificanceRule();
+  const sig = determineAspectSignificance(a, rule);
   const openActions = a.actions.filter((x) => x.status === "OPEN" || x.status === "IN_PROGRESS").length;
   const code = aspectDisplayCode(a);
   const [lookups, linkOptions, suggestions] = await Promise.all([
@@ -186,7 +191,7 @@ export default async function AspectDetailPage({ params }: { params: Promise<{ i
           )}
           <p className="mt-2">
             <strong>Prio:</strong> {a.priority ? ASPECT_PRIORITY_LABEL[a.priority] : "nog niet bepaald"}
-            {a.significant && " — significant"}
+            {sig.significant && ` — significant (${sig.reasons.join(", ").toLowerCase()})`}
           </p>
           {signal && (
             <p className="mt-2 rounded-md bg-amber-50 p-2 text-amber-800">
@@ -196,7 +201,7 @@ export default async function AspectDetailPage({ params }: { params: Promise<{ i
           )}
           {!signal && a.priorityRationale && <p className="mt-2 text-neutral-600">Onderbouwing prio: {a.priorityRationale}</p>}
           <p className="mt-3 text-xs text-neutral-500">
-            Risico = E × B × W. Niveaus: ≤ 20 laag, 21–70 middel, 71–200 hoog, &gt; 200 zeer hoog. Prio H of M = significant.
+            Risico = E × B × W. Niveaus: ≤ 20 laag, 21–70 middel, 71–200 hoog, &gt; 200 zeer hoog. Significant bij {describeSignificanceRule(rule)}.
           </p>
 
           <h3 className="mt-4 mb-1 font-semibold">Levenscyclusperspectief</h3>
@@ -320,6 +325,7 @@ export default async function AspectDetailPage({ params }: { params: Promise<{ i
               lookups={lookups}
               linkOptions={linkOptions}
               suggestions={suggestions!}
+              rule={rule}
               submitLabel="Opslaan"
             />
             <Form action={deleteAspect.bind(null, id)} className="mt-4 border-t border-neutral-200 pt-3">

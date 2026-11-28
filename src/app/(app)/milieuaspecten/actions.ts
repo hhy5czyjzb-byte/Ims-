@@ -8,7 +8,17 @@ import { safeAction, UserError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { aspectDisplayCode, aspectTypeFromTheme, defaultCo2Relevant, isSignificant, situationFromTheme } from "@/lib/aspects";
+import {
+  aspectDisplayCode,
+  aspectTypeFromTheme,
+  defaultCo2Relevant,
+  describeSignificanceRule,
+  determineAspectSignificance,
+  SIGNIFICANCE_RULE_KEY,
+  situationFromTheme,
+  type SignificanceRule,
+} from "@/lib/aspects";
+import { getSignificanceRule } from "@/lib/aspect-settings";
 import { optionalDate, optionalId, optionalText, parseForm, requiredText } from "@/lib/forms";
 import { parseInOperation, parseLifecycle, parseOpportunity, parsePriority, parseSiteType, parseSituation, splitRefs } from "@/lib/aspect-import";
 import { parseYesNo, type ImportResult, type ImportRow } from "@/lib/spreadsheet-import";
@@ -88,12 +98,12 @@ const aspectSchema = z.object({
 });
 const MULTI = ["processIds", "riskIds", "legalIds", "requirementIds"];
 
-/** Velden uit het formulier; type volgt uit het thema, significant = prio hoog of middel. */
-function toData(input: z.infer<typeof aspectSchema>) {
+/** Velden uit het formulier; type volgt uit het thema, significant volgens de ingestelde regel. */
+function toData(input: z.infer<typeof aspectSchema>, rule: SignificanceRule) {
   const { processIds, riskIds, legalIds, requirementIds, ...rest } = input;
   return {
     links: { processIds, riskIds, legalIds, requirementIds },
-    data: { ...rest, aspectType: aspectTypeFromTheme(rest.theme, rest.aspect, rest.impact), significant: isSignificant(rest.priority) },
+    data: { ...rest, aspectType: aspectTypeFromTheme(rest.theme, rest.aspect, rest.impact), significant: determineAspectSignificance(rest, rule).significant },
   };
 }
 
@@ -114,7 +124,7 @@ function revalidateAspects(id?: string) {
 export async function createAspect(formData: FormData): Promise<ActionResult> {
   return safeAction(async () => {
     const user = await requirePermission("aspects.edit");
-    const { data, links } = toData(parseForm(aspectSchema, formData, MULTI));
+    const { data, links } = toData(parseForm(aspectSchema, formData, MULTI), await getSignificanceRule());
     const aspect = await prisma.environmentalAspect.create({ data: { ...data, createdById: user.id, ...linkData(links, "connect") } });
     await logAudit({
       user,
@@ -133,7 +143,7 @@ export async function updateAspect(id: string, formData: FormData): Promise<Acti
     const user = await requirePermission("aspects.edit");
     const existing = await prisma.environmentalAspect.findUnique({ where: { id } });
     if (!existing) throw new UserError("Milieuaspect niet gevonden.");
-    const { data, links } = toData(parseForm(aspectSchema, formData, MULTI));
+    const { data, links } = toData(parseForm(aspectSchema, formData, MULTI), await getSignificanceRule());
     const active = formData.get("active") === "on";
     await prisma.environmentalAspect.update({ where: { id }, data: { ...data, active, ...linkData(links, "set") } });
     const change = existing.significant !== data.significant ? (data.significant ? " (nu significant)" : " (niet meer significant)") : "";
@@ -156,6 +166,60 @@ export async function deleteAspect(id: string): Promise<ActionResult> {
     await logAudit({ user, action: "DELETE", entityType: "EnvironmentalAspect", entityId: id, summary: `${aspectDisplayCode(a)} "${a.aspect}" verwijderd` });
     revalidateAspects();
     redirect("/milieuaspecten");
+  });
+}
+
+// ── Regel voor significantie ──────────────────────────────────
+
+const ruleSchema = z.object({
+  prioHigh: z.literal("on").optional(),
+  prioMedium: z.literal("on").optional(),
+  prioLow: z.literal("on").optional(),
+  minRiskLevel: z.enum(["", "medium", "high", "veryHigh"]).default(""),
+  legal: z.literal("on").optional(),
+  complaints: z.literal("on").optional(),
+});
+
+/** Regel wijzigen en de significantie van alle aspecten opnieuw bepalen. */
+export async function setSignificanceRule(formData: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    const user = await requirePermission("aspects.edit");
+    const f = parseForm(ruleSchema, formData);
+    const rule: SignificanceRule = {
+      priorities: [...(f.prioHigh ? (["HIGH"] as const) : []), ...(f.prioMedium ? (["MEDIUM"] as const) : []), ...(f.prioLow ? (["LOW"] as const) : [])],
+      minRiskLevel: f.minRiskLevel || null,
+      legal: !!f.legal,
+      complaints: !!f.complaints,
+    };
+    if (!rule.priorities.length && !rule.minRiskLevel && !rule.legal && !rule.complaints) throw new UserError("Kies minstens één criterium.");
+    const old = await getSignificanceRule();
+    await prisma.appSetting.upsert({
+      where: { key: SIGNIFICANCE_RULE_KEY },
+      update: { value: JSON.stringify(rule), updatedById: user.id },
+      create: { key: SIGNIFICANCE_RULE_KEY, value: JSON.stringify(rule), updatedById: user.id },
+    });
+    const aspects = await prisma.environmentalAspect.findMany({
+      select: { id: true, priority: true, effectScore: true, exposure: true, probability: true, legalApplies: true, complaints: true, significant: true },
+    });
+    const toTrue: string[] = [];
+    const toFalse: string[] = [];
+    for (const a of aspects) {
+      const sig = determineAspectSignificance(a, rule).significant;
+      if (sig !== a.significant) (sig ? toTrue : toFalse).push(a.id);
+    }
+    await prisma.$transaction([
+      prisma.environmentalAspect.updateMany({ where: { id: { in: toTrue } }, data: { significant: true } }),
+      prisma.environmentalAspect.updateMany({ where: { id: { in: toFalse } }, data: { significant: false } }),
+    ]);
+    await logAudit({
+      user,
+      action: "UPDATE",
+      entityType: "AppSetting",
+      entityId: SIGNIFICANCE_RULE_KEY,
+      summary: `Regel significantie milieuaspecten: "${describeSignificanceRule(old)}" → "${describeSignificanceRule(rule)}" (${toTrue.length} nu significant, ${toFalse.length} niet meer)`,
+    });
+    revalidateAspects();
+    revalidatePath("/context", "layout");
   });
 }
 
@@ -256,6 +320,7 @@ export async function importAspects(rowsInput: ImportRow[], options: { updateExi
   try {
     const user = await requirePermission("aspects.edit");
     if (!Array.isArray(rowsInput) || rowsInput.length === 0) return { error: "Geen regels om te importeren." };
+    const rule = await getSignificanceRule();
     if (rowsInput.length > 5000) return { error: "Maximaal 5000 regels per import." };
 
     const [disciplines, locations, users, legal, risks] = await Promise.all([
@@ -404,9 +469,17 @@ export async function importAspects(rowsInput: ImportRow[], options: { updateExi
 
       const theme = r.theme ?? existing?.theme ?? null;
       const finalPriority = priority !== undefined ? priority : (existing?.priority ?? null);
+      const merged = {
+        priority: finalPriority,
+        effectScore: values.effectScore ?? existing?.effectScore ?? null,
+        exposure: values.exposure ?? existing?.exposure ?? null,
+        probability: values.probability ?? existing?.probability ?? null,
+        legalApplies: values.legalApplies ?? existing?.legalApplies ?? false,
+        complaints: values.complaints ?? existing?.complaints ?? false,
+      };
       Object.assign(data, {
         aspectType: aspectTypeFromTheme(theme, r.aspect, r.impact ?? existing?.impact),
-        significant: isSignificant(finalPriority),
+        significant: determineAspectSignificance(merged, rule).significant,
       });
 
       try {

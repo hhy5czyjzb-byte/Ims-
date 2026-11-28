@@ -9,10 +9,12 @@ import {
   aspectRiskLevel,
   EFFECT_SCALE,
   EXPOSURE_SCALE,
-  isSignificant,
+  determineAspectSignificance,
+  describeSignificanceRule,
   PRIORITY_SIGNAL_LABEL,
   PROBABILITY_SCALE,
   prioritySignal,
+  type SignificanceRule,
 } from "@/lib/aspects";
 
 type Prio = "HIGH" | "MEDIUM" | "LOW" | "";
@@ -58,7 +60,17 @@ function ScaleSelect({
 }
 
 /** Beoordeling volgens het MAR: E × B × W (Fine & Kinney) met live risiconiveau, prio en signaal. */
-export function AspectAssessmentFields({ defaults }: { defaults?: AssessmentDefaults }) {
+export function AspectAssessmentFields({
+  defaults,
+  rule,
+  legalApplies,
+  complaints,
+}: {
+  defaults?: AssessmentDefaults;
+  rule: SignificanceRule;
+  legalApplies: boolean;
+  complaints: boolean;
+}) {
   const [e, setE] = useState<number | null>(defaults?.effectScore ?? null);
   const [b, setB] = useState<number | null>(defaults?.exposure ?? null);
   const [w, setW] = useState<number | null>(defaults?.probability ?? null);
@@ -67,6 +79,7 @@ export function AspectAssessmentFields({ defaults }: { defaults?: AssessmentDefa
   const risk = aspectRisk(e, b, w);
   const level = aspectRiskLevel(risk);
   const signal = prioritySignal({ priority: priority || null, risk, opportunity });
+  const sig = determineAspectSignificance({ priority: priority || null, effectScore: e, exposure: b, probability: w, legalApplies, complaints }, rule);
 
   return (
     <div className="rounded-md border border-neutral-200 p-3 md:col-span-4" role="group" aria-label="Beoordeling">
@@ -75,8 +88,11 @@ export function AspectAssessmentFields({ defaults }: { defaults?: AssessmentDefa
         <span className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-neutral-500">Risico {risk === null ? "—" : fmt(risk)}</span>
           {level && <span className={`badge font-semibold ${ASPECT_RISK_LEVEL_CLASS[level]}`}>{ASPECT_RISK_LEVEL_LABEL[level]}</span>}
-          <span className={`badge font-semibold ${isSignificant(priority || null) ? "bg-brand-red text-white" : "bg-neutral-100 text-neutral-700"}`}>
-            {isSignificant(priority || null) ? "Significant" : priority ? "Niet significant" : "Nog geen prio"}
+          <span
+            title={sig.reasons.join(" · ")}
+            className={`badge font-semibold ${sig.significant ? "bg-brand-red text-white" : "bg-neutral-100 text-neutral-700"}`}
+          >
+            {sig.significant ? "Significant" : priority ? "Niet significant" : "Nog geen prio"}
           </span>
         </span>
       </div>
@@ -102,8 +118,8 @@ export function AspectAssessmentFields({ defaults }: { defaults?: AssessmentDefa
           <span className="mb-1 block text-xs text-neutral-600">Prio (eigen weging)</span>
           <select name="priority" value={priority} onChange={(ev) => setPriority(ev.target.value as Prio)} className="input">
             <option value="">— Nog geen prio —</option>
-            <option value="HIGH">H · hoog (significant)</option>
-            <option value="MEDIUM">M · middel (significant)</option>
+            <option value="HIGH">H · hoog</option>
+            <option value="MEDIUM">M · middel</option>
             <option value="LOW">L · laag</option>
           </select>
         </label>
@@ -122,7 +138,7 @@ export function AspectAssessmentFields({ defaults }: { defaults?: AssessmentDefa
       </div>
       <p className="mt-2 text-xs text-neutral-500">
         {level ? `${ASPECT_RISK_LEVEL_LABEL[level]}: ${ASPECT_RISK_LEVEL_APPROACH[level]} ` : ""}Niveaus: ≤ 20 laag, 21–70 middel, 71–200 hoog, &gt; 200 zeer
-        hoog. De prio weegt ook levenscyclus, wetgeving en stakeholders mee; prio H of M = significant.
+        hoog. De prio weegt ook levenscyclus, wetgeving en stakeholders mee. Significant bij {describeSignificanceRule(rule)}.
         {opportunity && " Bij kansen wordt de prio niet met het risiconiveau vergeleken."}
       </p>
     </div>

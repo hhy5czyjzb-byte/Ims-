@@ -19,7 +19,11 @@ import { ASPECT_PRIORITY_CLASS, ASPECT_PRIORITY_LABEL, ASPECT_PRIORITY_SHORT, AS
 import { Badge, Disclosure, EmptyState, Field, PageHeader, Select } from "@/components/ui";
 import { AspectForm } from "@/components/aspect-form";
 import { AspectNav } from "@/components/aspect-nav";
-import { createAspect } from "./actions";
+import { createAspect, setSignificanceRule } from "./actions";
+import { getSignificanceRule } from "@/lib/aspect-settings";
+import { describeSignificanceRule } from "@/lib/aspects";
+import { Form } from "@/components/form";
+import { SubmitButton } from "@/components/submit-button";
 
 export const metadata = { title: "Milieuaspecten" };
 
@@ -30,6 +34,7 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
   const user = await requireUser();
   const sp = await searchParams;
   const canEdit = can(user.role, "aspects.edit");
+  const rule = await getSignificanceRule();
 
   const [rows, allActive, lookups, processes, linkOptions, suggestions] = await Promise.all([
     prisma.environmentalAspect.findMany({
@@ -51,6 +56,7 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
         siteType: true,
         inOperation: true,
         priority: true,
+        significant: true,
         opportunity: true,
         origin: true,
         lifecycleSource: true,
@@ -81,7 +87,7 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
     <>
       <PageHeader
         title="Milieuaspecten"
-        description="Milieuaspectenregister (MAR) per bedrijfsonderdeel, locatie en activiteit (ISO 14001 6.1.2). Risico = effect × voorkomen × waarschijnlijkheid; de prio (H/M/L) is de eigen weging — prio H of M is significant."
+        description="Milieuaspectenregister (MAR) per bedrijfsonderdeel, locatie en activiteit (ISO 14001 6.1.2). Risico = effect × voorkomen × waarschijnlijkheid; de prio (H/M/L) is de eigen weging."
         actions={
           <>
             {canEdit && (
@@ -99,7 +105,9 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
 
       <section className="card mb-6">
         <h2 className="mb-1">Welke aspecten zijn belangrijk?</h2>
-        <p className="mb-3 text-xs text-neutral-500">Aspecten op locaties die in werking zijn ({c.total}).</p>
+        <p className="mb-3 text-xs text-neutral-500">
+          Aspecten op locaties die in werking zijn ({c.total}). Significant bij {describeSignificanceRule(rule)}.
+        </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
           <Tile
             href="/milieuaspecten?significant=ja&werking=ja"
@@ -129,9 +137,47 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
       </section>
 
       {canEdit && linkOptions && (
-        <div className="mb-6">
+        <div className="mb-6 space-y-3">
           <Disclosure summary="Milieuaspect toevoegen">
-            <AspectForm formAction={createAspect} lookups={lookups} linkOptions={linkOptions} suggestions={suggestions} submitLabel="Opslaan" />
+            <AspectForm formAction={createAspect} lookups={lookups} linkOptions={linkOptions} suggestions={suggestions} rule={rule} submitLabel="Opslaan" />
+          </Disclosure>
+          <Disclosure compact summary={`Wanneer is een aspect significant? (nu: ${describeSignificanceRule(rule)})`}>
+            <Form key={JSON.stringify(rule)} action={setSignificanceRule} className="space-y-3 text-sm">
+              <p className="text-xs text-neutral-600">
+                Een aspect is significant als het aan minstens één aangevinkt criterium voldoet. Standaard volgens het MAR: prio H of M. Bij opslaan wordt de
+                significantie van alle aspecten opnieuw bepaald.
+              </p>
+              <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <legend className="mb-1 text-xs font-medium text-neutral-700">Prio (eigen weging)</legend>
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" name="prioHigh" defaultChecked={rule.priorities.includes("HIGH")} /> H · hoog
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" name="prioMedium" defaultChecked={rule.priorities.includes("MEDIUM")} /> M · middel
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" name="prioLow" defaultChecked={rule.priorities.includes("LOW")} /> L · laag
+                </label>
+              </fieldset>
+              <label className="block max-w-xs">
+                <span className="mb-1 block text-xs font-medium text-neutral-700">Óók significant bij risiconiveau (E × B × W)</span>
+                <select name="minRiskLevel" defaultValue={rule.minRiskLevel ?? ""} className="input">
+                  <option value="">— niet (alleen de prio telt) —</option>
+                  <option value="medium">Middel of hoger (&gt; 20)</option>
+                  <option value="high">Hoog of hoger (&gt; 70)</option>
+                  <option value="veryHigh">Zeer hoog (&gt; 200)</option>
+                </select>
+              </label>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" name="legal" defaultChecked={rule.legal} /> Óók bij een wettelijke eis (kolom &ldquo;Wettelijke eis&rdquo; = ja)
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" name="complaints" defaultChecked={rule.complaints} /> Óók bij klachten
+                </label>
+              </div>
+              <SubmitButton variant="secondary">Opslaan en opnieuw bepalen</SubmitButton>
+            </Form>
           </Disclosure>
         </div>
       )}

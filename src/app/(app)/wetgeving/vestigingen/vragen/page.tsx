@@ -89,7 +89,7 @@ export default async function QuestionsPage() {
                       {q.evidenceHint && <div className="text-xs text-neutral-500">Bewijs: {q.evidenceHint}</div>}
                       {canEdit && (
                         <div className="mt-2">
-                          <Disclosure summary="Wijzigen">
+                          <Disclosure compact summary="Wijzigen">
                             <QuestionFields
                               key={q.updatedAt.toISOString()}
                               formAction={updateQuestion.bind(null, q.id)}

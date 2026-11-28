@@ -65,3 +65,22 @@ test("type, situatie en CO2 uit het thema", () => {
   assert.equal(defaultCo2Relevant("Geluid", "Energie, CO₂ en elektrificatie"), true);
   assert.equal(defaultCo2Relevant("Geluid", "Wet- en regelgeving"), false);
 });
+
+test("instelbare significantie", async () => {
+  const { DEFAULT_SIGNIFICANCE_RULE, determineAspectSignificance, describeSignificanceRule, parseSignificanceRule } = await import("./aspects");
+  const base = { priority: "LOW" as const, effectScore: 15, exposure: 6, probability: 1, legalApplies: true, complaints: false }; // risico 90 = hoog
+  assert.equal(determineAspectSignificance(base, DEFAULT_SIGNIFICANCE_RULE).significant, false);
+  assert.deepEqual(determineAspectSignificance({ ...base, priority: "MEDIUM" }, DEFAULT_SIGNIFICANCE_RULE).reasons, ["Prio M"]);
+  const rule = { priorities: ["HIGH" as const], minRiskLevel: "high" as const, legal: true, complaints: true };
+  assert.deepEqual(determineAspectSignificance(base, rule).reasons, ["Risico hoog", "Wettelijke eis"]);
+  assert.equal(determineAspectSignificance({ ...base, effectScore: 3, legalApplies: false }, rule).significant, false);
+  assert.equal(describeSignificanceRule(DEFAULT_SIGNIFICANCE_RULE), "prio H of M");
+  assert.equal(describeSignificanceRule(rule), "prio H, of risico hoog of hoger, of een wettelijke eis, of klachten");
+  assert.deepEqual(parseSignificanceRule("kapot"), DEFAULT_SIGNIFICANCE_RULE);
+  assert.deepEqual(parseSignificanceRule(JSON.stringify({ priorities: ["HIGH", "X"], minRiskLevel: "medium", legal: true })), {
+    priorities: ["HIGH"],
+    minRiskLevel: "medium",
+    legal: true,
+    complaints: false,
+  });
+});

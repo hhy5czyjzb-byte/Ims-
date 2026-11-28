@@ -128,7 +128,19 @@ export function ProgressBar({ value }: { value: number }) {
 }
 
 /** Uitklapbaar formulier zonder JavaScript (details/summary). */
-export function Disclosure({ summary, children, open }: { summary: ReactNode; children: ReactNode; open?: boolean }) {
+export function Disclosure({ summary, children, open, compact }: { summary: ReactNode; children: ReactNode; open?: boolean; compact?: boolean }) {
+  if (compact) {
+    // Klein tekstlinkje (bijv. "Wijzigen" in een tabelregel); het formulier klapt eronder uit.
+    return (
+      <details className="group" open={open}>
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-neutral-500 select-none hover:text-brand-red-dark">
+          <span className="inline-block transition group-open:rotate-90">▸</span>
+          {summary}
+        </summary>
+        <div className="mt-2 rounded-md border border-neutral-200 bg-neutral-50 p-3">{children}</div>
+      </details>
+    );
+  }
   return (
     <details className="group card" open={open}>
       <summary className="cursor-pointer list-none font-medium text-brand-red-dark select-none">

@@ -10,6 +10,7 @@ const base: StatAspect = {
   siteType: "SITE",
   inOperation: true,
   priority: "LOW",
+  significant: false,
   opportunity: false,
   origin: "MAR 2025",
   lifecycleSource: "MAR 2025",
@@ -21,8 +22,8 @@ const base: StatAspect = {
 test("tellingen alleen voor locaties in werking", () => {
   const c = countAspects([
     base, // 9 laag
-    { ...base, priority: "MEDIUM", effectScore: 3, exposure: 7, probability: 3 }, // 63 middel, sig
-    { ...base, priority: "HIGH", opportunity: true, effectScore: 15, exposure: 6, probability: 1 }, // 90 hoog, kans
+    { ...base, priority: "MEDIUM", significant: true, effectScore: 3, exposure: 7, probability: 3 }, // 63 middel, sig
+    { ...base, priority: "HIGH", significant: true, opportunity: true, effectScore: 15, exposure: 6, probability: 1 }, // 90 hoog, kans
     { ...base, priority: "LOW", effectScore: 3, exposure: 7, probability: 3, origin: "Aanvulling 2026", lifecycleSource: "Concept 2026" }, // signaal lager
     { ...base, priority: null, probability: null, siteType: "PROJECT" },
     { ...base, inOperation: false, priority: "HIGH" },

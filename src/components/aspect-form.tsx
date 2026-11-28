@@ -5,7 +5,7 @@ import { Form } from "@/components/form";
 import { CheckboxPicker } from "@/components/checkbox-picker";
 import { SubmitButton } from "@/components/submit-button";
 import { AspectAssessmentFields } from "@/components/aspect-assessment-fields";
-import { LIFECYCLE_PHASES, LIFECYCLE_SCORE_LABEL } from "@/lib/aspects";
+import { LIFECYCLE_PHASES, LIFECYCLE_SCORE_LABEL, type SignificanceRule } from "@/lib/aspects";
 import { ASPECT_SITE_TYPE_LABEL, SITUATION_LABEL, options } from "@/lib/labels";
 import { toDateInput } from "@/lib/format";
 
@@ -39,6 +39,7 @@ export function AspectForm({
   lookups,
   linkOptions,
   suggestions,
+  rule,
   submitLabel,
 }: {
   aspect?: EnvironmentalAspect & { processes: { id: string }[]; risks: { id: string }[]; legalRequirements: { id: string }[]; requirements: { id: string }[] };
@@ -46,6 +47,7 @@ export function AspectForm({
   lookups: { users: Opt[]; disciplines: Opt[]; locations: Opt[] };
   linkOptions: AspectLinkOptions;
   suggestions: AspectSuggestions;
+  rule: SignificanceRule;
   submitLabel: string;
 }) {
   const p = aspect?.id ?? "nieuw";
@@ -129,6 +131,9 @@ export function AspectForm({
       </Field>
 
       <AspectAssessmentFields
+        rule={rule}
+        legalApplies={aspect?.legalApplies ?? false}
+        complaints={aspect?.complaints ?? false}
         defaults={
           aspect && {
             effectScore: n(aspect.effectScore),

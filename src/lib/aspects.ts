@@ -5,7 +5,8 @@ import { normText } from "@/lib/spreadsheet-import";
  * Milieuaspecten (ISO 14001 6.1.2) volgens het milieuaspectenregister (MAR) van Rouwmaat.
  * - Risico = effect (E) × voorkomen (B) × waarschijnlijkheid (W) — Fine & Kinney.
  *   Niveau: ≤ 20 laag, 21–70 middel, 71–200 hoog, > 200 zeer hoog.
- * - Prio (H/M/L) is de eigen weging (risico, levenscyclus, wetgeving, stakeholders). Prio H of M = significant.
+ * - Prio (H/M/L) is de eigen weging (risico, levenscyclus, wetgeving, stakeholders). Standaard: prio H of M = significant
+ *   (instelbaar, zie SignificanceRule).
  * - Signaal: prio wijkt af van het risiconiveau (kansen tellen niet mee).
  */
 
@@ -86,6 +87,66 @@ export const PROBABILITY_SCALE: [number, string][] = [
 
 export function isSignificant(priority: AspectPriority | null | undefined): boolean {
   return priority === "HIGH" || priority === "MEDIUM";
+}
+
+/**
+ * Wanneer is een aspect significant? Instelbaar door QHSE (AppSetting `aspects.significanceRule`).
+ * Standaard volgens het MAR: prio hoog of middel. Optioneel ook bij een minimaal risiconiveau, een wettelijke eis of klachten.
+ */
+export type SignificanceRule = {
+  priorities: AspectPriority[];
+  minRiskLevel: AspectRiskLevel | null;
+  legal: boolean;
+  complaints: boolean;
+};
+export const SIGNIFICANCE_RULE_KEY = "aspects.significanceRule";
+export const DEFAULT_SIGNIFICANCE_RULE: SignificanceRule = { priorities: ["HIGH", "MEDIUM"], minRiskLevel: null, legal: false, complaints: false };
+
+const PRIOS: AspectPriority[] = ["HIGH", "MEDIUM", "LOW"];
+const LEVELS: AspectRiskLevel[] = ["low", "medium", "high", "veryHigh"];
+
+/** Opgeslagen regel inlezen; onbekend of beschadigd → standaardregel. */
+export function parseSignificanceRule(value: string | null | undefined): SignificanceRule {
+  if (!value) return DEFAULT_SIGNIFICANCE_RULE;
+  try {
+    const v = JSON.parse(value) as Partial<SignificanceRule>;
+    return {
+      priorities: Array.isArray(v.priorities) ? PRIOS.filter((p) => v.priorities!.includes(p)) : DEFAULT_SIGNIFICANCE_RULE.priorities,
+      minRiskLevel: v.minRiskLevel && LEVELS.includes(v.minRiskLevel) ? v.minRiskLevel : null,
+      legal: v.legal === true,
+      complaints: v.complaints === true,
+    };
+  } catch {
+    return DEFAULT_SIGNIFICANCE_RULE;
+  }
+}
+
+const PRIO_NAME: Record<AspectPriority, string> = { HIGH: "H", MEDIUM: "M", LOW: "L" };
+
+export function determineAspectSignificance(
+  a: { priority: AspectPriority | null; effectScore: Num; exposure: Num; probability: Num; legalApplies: boolean; complaints: boolean },
+  rule: SignificanceRule,
+): { significant: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  if (a.priority && rule.priorities.includes(a.priority)) reasons.push(`Prio ${PRIO_NAME[a.priority]}`);
+  if (rule.minRiskLevel) {
+    const level = aspectRiskLevel(aspectRisk(a.effectScore, a.exposure, a.probability));
+    if (level && LEVELS.indexOf(level) >= LEVELS.indexOf(rule.minRiskLevel)) reasons.push(`Risico ${ASPECT_RISK_LEVEL_LABEL[level].toLowerCase()}`);
+  }
+  if (rule.legal && a.legalApplies) reasons.push("Wettelijke eis");
+  if (rule.complaints && a.complaints) reasons.push("Klachten");
+  return { significant: reasons.length > 0, reasons };
+}
+
+/** Leesbare omschrijving, bijv. "prio H of M, of risico hoog of hoger". */
+export function describeSignificanceRule(rule: SignificanceRule): string {
+  const parts: string[] = [];
+  if (rule.priorities.length) parts.push(`prio ${rule.priorities.map((p) => PRIO_NAME[p]).join(" of ")}`);
+  if (rule.minRiskLevel)
+    parts.push(rule.minRiskLevel === "veryHigh" ? "risico zeer hoog" : `risico ${ASPECT_RISK_LEVEL_LABEL[rule.minRiskLevel].toLowerCase()} of hoger`);
+  if (rule.legal) parts.push("een wettelijke eis");
+  if (rule.complaints) parts.push("klachten");
+  return parts.length ? parts.join(", of ") : "geen criterium (niets is significant)";
 }
 
 const PRIO_RANK: Record<AspectPriority, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 };

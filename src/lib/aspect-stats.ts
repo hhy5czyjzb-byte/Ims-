@@ -9,6 +9,7 @@ export type StatAspect = {
   siteType: AspectSiteType;
   inOperation: boolean;
   priority: AspectPriority | null;
+  significant: boolean;
   opportunity: boolean;
   origin: string | null;
   lifecycleSource: string | null;
@@ -65,9 +66,9 @@ export function countAspects(list: StatAspect[]): AspectCounts {
     else if (a.priority === "MEDIUM") c.medium++;
     else if (a.priority === "LOW") c.low++;
     else c.noPrio++;
-    const sig = a.priority === "HIGH" || a.priority === "MEDIUM";
-    if (sig) c.significant++;
-    if (sig && a.opportunity) c.significantOpportunities++;
+    // significant volgens de ingestelde regel (bij opslaan bepaald)
+    if (a.significant) c.significant++;
+    if (a.significant && a.opportunity) c.significantOpportunities++;
     const risk = aspectRisk(a.effectScore as never, a.exposure as never, a.probability as never);
     const level = aspectRiskLevel(risk);
     if (level === "high" || level === "veryHigh") c.riskHigh++;
