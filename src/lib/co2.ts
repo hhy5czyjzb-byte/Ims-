@@ -261,3 +261,88 @@ export function unitMatches(given: string, carrierUnit: string): boolean {
   const canon = (s: string) => Object.entries(UNIT_SYNONYMS).find(([, list]) => list.includes(n(s)))?.[0] ?? n(s);
   return canon(given) === canon(carrierUnit);
 }
+
+// ── Handboek 4.0: type uitstoot, groepen en energie ───────────
+
+/** Type uitstoot: well-to-wheel (standaard in het handboek), tank-to-wheel of well-to-tank. */
+export type EmissionType = "WTW" | "TTW" | "WTT";
+export const EMISSION_TYPE_LABEL: Record<EmissionType, string> = {
+  WTW: "Well-to-wheel (WTW)",
+  TTW: "Tank-to-wheel (TTW)",
+  WTT: "Well-to-tank (WTT)",
+};
+
+/** Factor voor een type uitstoot uit de opgeslagen WTW/TTW/WTT; WTW valt terug op TTW + WTT. */
+export function factorForType(f: { factor: number; ttw: number | null; wtt: number | null }, type: EmissionType): number | null {
+  if (type === "WTW") return f.factor;
+  if (type === "TTW") return f.ttw ?? (f.wtt !== null ? f.factor - f.wtt : f.factor);
+  return f.wtt ?? (f.ttw !== null ? f.factor - f.ttw : null);
+}
+
+/** Scope-label zoals in de CO2-prestatieladder (scope 3 = zakelijk reizen/business travel in de footprint). */
+export const SCOPE_NAME: Record<1 | 2 | 3, string> = { 1: "Scope 1", 2: "Scope 2", 3: "Zakelijk reizen (scope 3)" };
+
+/**
+ * Groep in het overzicht (zoals tabel M1A van het CO2-dashboard): eigen instelling, anders afgeleid uit de naam.
+ * Alle brandstoffen in scope 1 behalve aardgas en bedrijfsmiddelen tellen als wagenpark.
+ */
+export function carrierGroup(c: { name: string; reportGroup?: string | null; defaultScope: number }): string {
+  if (c.reportGroup?.trim()) return c.reportGroup.trim();
+  const n = c.name.toLowerCase();
+  if (/aardgas|groengas/.test(n)) return "Aardgasverbruik";
+  if (/warmte/.test(n)) return "Warmtelevering";
+  if (/vlieg/.test(n)) return "Vliegreizen";
+  if (/zakelijk|declara|openbaar vervoer|trein/.test(n)) return "Zakelijk vervoer";
+  if (/elektri/.test(n)) return /wagen|laad|auto/.test(n) ? "Elektriciteitsverbruik wagenpark" : "Elektriciteitsverbruik vastgoed";
+  if (/bedrijfsmiddel|materieel|machine/.test(n)) return "Brandstofverbruik bedrijfsmiddelen";
+  if (c.defaultScope === 1) return "Brandstofverbruik wagenpark";
+  return c.defaultScope === 2 ? "Overig scope 2" : "Overig";
+}
+
+/** Emissiestroom voor het plan van aanpak (zoals de blokken in het PVA-tabblad). */
+export const STREAM_GROUPS = [
+  "Scope 1 - Aardgasverbruik",
+  "Scope 1 - Brandstofverbruik",
+  "Scope 2 - Elektriciteitsverbruik",
+  "Scope 2 - Warmteverbruik",
+  "Zakelijk reizen",
+  "Scope 3",
+] as const;
+export type StreamGroup = (typeof STREAM_GROUPS)[number];
+
+export function streamGroupOf(c: { name: string; reportGroup?: string | null; defaultScope: number }): StreamGroup {
+  const g = carrierGroup(c);
+  if (g === "Aardgasverbruik") return "Scope 1 - Aardgasverbruik";
+  if (g === "Warmtelevering") return "Scope 2 - Warmteverbruik";
+  if (g.startsWith("Elektriciteit")) return "Scope 2 - Elektriciteitsverbruik";
+  if (g === "Zakelijk vervoer" || g === "Vliegreizen") return "Zakelijk reizen";
+  if (c.defaultScope === 1) return "Scope 1 - Brandstofverbruik";
+  if (c.defaultScope === 2) return "Scope 2 - Elektriciteitsverbruik";
+  return "Scope 3";
+}
+
+/** Emissiestroom van een tekst uit het plan van aanpak ("Scope 1 - Brandstofverbruik", "Maatregelen aardgasverbruik"). */
+export function parseStreamGroup(text: string | null | undefined): StreamGroup | null {
+  const t = (text ?? "").toLowerCase();
+  if (!t) return null;
+  if (/aardgas|gas/.test(t)) return "Scope 1 - Aardgasverbruik";
+  if (/brandstof|diesel|wagenpark|benzine/.test(t)) return "Scope 1 - Brandstofverbruik";
+  if (/warmte/.test(t)) return "Scope 2 - Warmteverbruik";
+  if (/elektri|stroom/.test(t)) return "Scope 2 - Elektriciteitsverbruik";
+  if (/zakelijk|reis|vervoer/.test(t)) return "Zakelijk reizen";
+  if (/scope 3/.test(t)) return "Scope 3";
+  return null;
+}
+
+/** Verwachte reductie van een maatregel: % op de emissiestroom in het basisjaar. */
+export function measureReduction(input: { reductionPct: number | null; streamKg: number; totalKg: number }) {
+  if (input.reductionPct === null || !Number.isFinite(input.reductionPct)) return null;
+  const kg = (input.reductionPct / 100) * input.streamKg;
+  return { kg, pctOfTotal: input.totalKg > 0 ? (kg / input.totalKg) * 100 : 0 };
+}
+
+/** kg → MWh/GJ-notatie voor de energiebalans. */
+const nfGJ = new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 0 });
+export function formatGJ(gj: number, unit: "GJ" | "kWh" = "GJ"): string {
+  return unit === "GJ" ? `${nfGJ.format(gj)} GJ` : `${nfGJ.format(gj * 277.7777778)} kWh`;
+}

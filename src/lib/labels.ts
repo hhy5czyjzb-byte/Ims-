@@ -360,7 +360,7 @@ export const ENERGY_CATEGORY_LABEL: Record<EnergyCategory, string> = {
 export const SCOPE_LABEL: Record<1 | 2 | 3, string> = {
   1: "Scope 1 — directe emissies (eigen brandstof, gas)",
   2: "Scope 2 — ingekochte elektriciteit en warmte",
-  3: "Scope 3 — overige indirecte emissies",
+  3: "Scope 3 — zakelijk reizen (business travel) en overige indirecte emissies",
 };
 
 export const TREATMENT_STATUS_LABEL: Record<TreatmentStatus, string> = {

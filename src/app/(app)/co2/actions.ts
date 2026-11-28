@@ -69,6 +69,10 @@ const carrierSchema = z.object({
   category: z.enum(EnergyCategory),
   defaultScope: scopeField,
   sortOrder: z.coerce.number().int().default(0),
+  energyPerUnit: decimal("GJ per eenheid", { min: 0 })
+    .optional()
+    .transform((v) => v ?? null),
+  reportGroup: optionalText,
 });
 
 export async function createCarrier(formData: FormData): Promise<ActionResult> {
@@ -105,28 +109,65 @@ export async function updateCarrier(id: string, formData: FormData): Promise<Act
   });
 }
 
+/** Factoren in gram CO2 per eenheid (zoals op CO2emissiefactoren.nl); opgeslagen in kg. WTW = WTT + TTW als WTW leeg is. */
+const gram = (label: string) =>
+  decimal(label, { min: 0 })
+    .optional()
+    .transform((v) => (v === null || v === undefined ? null : v / 1000));
 const factorSchema = z.object({
-  factor: decimal("Emissiefactor", { min: 0, required: true }),
+  wtwG: gram("WTW"),
+  wttG: gram("WTT"),
+  ttwG: gram("TTW"),
+  biogenicG: gram("Biogeen"),
   validFrom: isoDate("Geldig vanaf"),
   source: requiredText(300),
   notes: optionalText,
 });
+
+function factorValues(d: z.infer<typeof factorSchema>) {
+  const wtw = d.wtwG ?? (d.wttG !== null && d.ttwG !== null ? d.wttG + d.ttwG : null);
+  if (wtw === null) throw new UserError("Vul de WTW-factor in (of WTT én TTW).");
+  return { factor: wtw, wtt: d.wttG, ttw: d.ttwG, biogenic: d.biogenicG, validFrom: d.validFrom, source: d.source, notes: d.notes };
+}
 
 export async function addFactor(carrierId: string, formData: FormData): Promise<ActionResult> {
   return safeAction(async () => {
     const user = await requirePermission("co2.manage");
     const carrier = await prisma.energyCarrier.findUnique({ where: { id: carrierId } });
     if (!carrier) throw new UserError("Energiedrager niet gevonden.");
-    const data = parseForm(factorSchema, formData);
+    const data = factorValues(parseForm(factorSchema, formData));
     const exists = await prisma.emissionFactor.findUnique({ where: { carrierId_validFrom: { carrierId, validFrom: data.validFrom } } });
-    if (exists) throw new UserError("Er is al een factor met deze ingangsdatum. Verwijder die eerst of kies een andere datum.");
-    const f = await prisma.emissionFactor.create({ data: { ...data, factor: data.factor!, carrierId } });
+    if (exists) throw new UserError("Er is al een factor met deze ingangsdatum. Wijzig die factor of kies een andere datum.");
+    const f = await prisma.emissionFactor.create({ data: { ...data, carrierId } });
     await logAudit({
       user,
       action: "CREATE",
       entityType: "EmissionFactor",
       entityId: f.id,
-      summary: `Emissiefactor ${carrier.name}: ${data.factor} kg CO2e/${carrier.unit} vanaf ${data.validFrom.toISOString().slice(0, 10)} (${data.source})`,
+      summary: `Emissiefactor ${carrier.name}: ${Math.round(data.factor * 1000)} g CO2e/${carrier.unit} (WTW) vanaf ${data.validFrom.toISOString().slice(0, 10)} (${data.source})`,
+    });
+    revalidateCo2();
+  });
+}
+
+/** Factor aanpassen; de footprint rekent direct opnieuw (niets wordt opgeslagen). */
+export async function updateFactor(factorId: string, formData: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    const user = await requirePermission("co2.manage");
+    const old = await prisma.emissionFactor.findUnique({ where: { id: factorId }, include: { carrier: true } });
+    if (!old) throw new UserError("Factor niet gevonden.");
+    const data = factorValues(parseForm(factorSchema, formData));
+    if (data.validFrom.getTime() !== old.validFrom.getTime()) {
+      const clash = await prisma.emissionFactor.findUnique({ where: { carrierId_validFrom: { carrierId: old.carrierId, validFrom: data.validFrom } } });
+      if (clash) throw new UserError("Er is al een factor met deze ingangsdatum.");
+    }
+    await prisma.emissionFactor.update({ where: { id: factorId }, data });
+    await logAudit({
+      user,
+      action: "UPDATE",
+      entityType: "EmissionFactor",
+      entityId: factorId,
+      summary: `Emissiefactor ${old.carrier.name} vanaf ${data.validFrom.toISOString().slice(0, 10)}: ${Math.round(Number(old.factor) * 1000)} → ${Math.round(data.factor * 1000)} g CO2e/${old.carrier.unit} (WTW)`,
     });
     revalidateCo2();
   });

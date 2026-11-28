@@ -546,6 +546,7 @@ model Action {
   reductionTargetId     String?
   reductionTarget       ReductionTarget?     @relation(fields: [reductionTargetId], references: [id], onDelete: SetNull)
   expectedReductionKg   Decimal?             @db.Decimal(14, 2) // verwachte CO2-reductie per jaar (kg), bij CO2-maatregelen
+  co2Measure            ActionCo2?
   locationAuditAnswerId String?
   locationAuditAnswer   LocationAuditAnswer? @relation(fields: [locationAuditAnswerId], references: [id], onDelete: SetNull)
   kind                  ActionKind           @default(TASK) // taak, directe correctie, corrigerende maatregel, verbetering
@@ -999,21 +1000,108 @@ enum EnergyCategory {
 }
 
 /// Energiedrager / emissiebron, bijv. "Diesel (B7)", "Elektriciteit grijs", "Aardgas".
+/// Organisatie binnen de CO2-footprint (bijv. Rouwmaat, Mombarg) met het aandeel binnen de organisatiegrens.
+model Co2Organisation {
+  id           String              @id @default(cuid())
+  name         String              @unique
+  boundaryPct  Decimal             @default(100) @db.Decimal(6, 2)
+  active       Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  consumptions EnergyConsumption[]
+  kpis         Co2Kpi[]
+}
+
+/// Kengetal per jaar voor de intensiteit (bijv. aantal FTE, omzet).
+model Co2Kpi {
+  id             String           @id @default(cuid())
+  year           Int
+  kind           String // FTE | REVENUE | KM | OTHER
+  label          String?
+  value          Decimal          @db.Decimal(18, 4)
+  organisationId String?
+  organisation   Co2Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  source         String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([year, kind, organisationId])
+}
+
+/// Datakwaliteitsmanagementplan (DKMP): per emissiestroom waar de data vandaan komt, wie, wanneer, onzekerheden en verbeterplan.
+model DataQualityItem {
+  id             String         @id @default(cuid())
+  section        String // groep, bijv. "Aardgasverbruik", "Brandstof wagenpark"
+  stream         String // emissiestroom of aansluiting, bijv. "Den Sliem 74"
+  carrierId      String?
+  carrier        EnergyCarrier? @relation(fields: [carrierId], references: [id], onDelete: SetNull)
+  unit           String?
+  source         String? // bron (systeem, leverancier)
+  dataOwner      String? // brondata van
+  executor       String? // uitvoerder
+  requestPeriod  String? // datum/periode uitvraag
+  analysisPeriod String? // datum/periode analyse
+  deviation      String? // afwijking + oplossing
+  uncertainty    String? // onzekerheden en impact
+  improvement    String? // verbeterplan datakwaliteit
+  qualityScore   Int? // 1–5
+  lastCheckedAt  DateTime?
+  sortOrder      Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([section, stream])
+}
+
+/// CO2-gegevens bij een maatregel (actie) uit het plan van aanpak.
+model ActionCo2 {
+  id                  String         @id @default(cuid())
+  actionId            String         @unique
+  action              Action         @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  streamGroup         String? // bijv. "Scope 1 - Brandstofverbruik"
+  carrierId           String? // emissiestroom waarop de reductie wordt berekend
+  carrier             EnergyCarrier? @relation(fields: [carrierId], references: [id], onDelete: SetNull)
+  reductionPct        Decimal?       @db.Decimal(8, 4) // reductie op de emissiestroom (%)
+  energyReductionPct  Decimal?       @db.Decimal(8, 4) // reductie op energie (%) van die stroom
+  measureType         String? // type maatregel
+  skao                String? // SKAO of eigen maatregel
+  skaoCategory        String? // A / B / C
+  term                String? // korte / middellange / lange termijn
+  planning            String?
+  knowledgeNeed       String?
+  progressNote        String? // voortgang (status update) per jaar
+  trl                 String?
+  flexibilityImpact   String?
+  investment          String?
+  legislation         String?
+  resources           String? // benodigde middelen / voorbereidende acties
+  valueChain          String? // toepassing op waardeketen
+  currentYearActions  String? // actiepunten huidig jaar
+  tenderAdvantage     String? // van toepassing op project met gunningvoordeel
+  notApplicableReason String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+}
+
 model EnergyCarrier {
-  id           String         @id @default(cuid())
-  name         String         @unique
-  aliases      String? // alternatieve namen (komma-gescheiden), voor herkenning bij import
-  unit         String // liter, kWh, m3, km, kg, GJ
-  category     EnergyCategory @default(OTHER)
-  defaultScope Int            @default(1) // 1, 2 of 3
-  active       Boolean        @default(true)
-  sortOrder    Int            @default(0)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id            String         @id @default(cuid())
+  name          String         @unique
+  aliases       String? // alternatieve namen (komma-gescheiden), voor herkenning bij import
+  unit          String // liter, kWh, m3, km, kg, GJ
+  category      EnergyCategory @default(OTHER)
+  defaultScope  Int            @default(1) // 1, 2 of 3
+  energyPerUnit Decimal?       @db.Decimal(14, 8) // GJ per eenheid (energiebalans); aanpasbaar
+  reportGroup   String? // groep in het overzicht, bijv. "Brandstofverbruik wagenpark" (leeg = afgeleid uit de naam)
+  active        Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   factors      EmissionFactor[]
   consumptions EnergyConsumption[]
   equipment    Equipment[]
+  dataQuality  DataQualityItem[]
+  co2Measures  ActionCo2[]
 }
 
 /// Emissiefactor (kg CO2-equivalent per eenheid), geldig vanaf een datum. De berekening gebruikt de factor die gold bij het verbruik.
@@ -1021,7 +1109,10 @@ model EmissionFactor {
   id        String        @id @default(cuid())
   carrierId String
   carrier   EnergyCarrier @relation(fields: [carrierId], references: [id], onDelete: Cascade)
-  factor    Decimal       @db.Decimal(12, 6) // kg CO2e per eenheid
+  factor    Decimal       @db.Decimal(14, 6) // kg CO2e per eenheid — well-to-wheel (WTW)
+  wtt       Decimal?      @db.Decimal(14, 6) // well-to-tank (kg per eenheid); informatief, scope 3 cat. 3
+  ttw       Decimal?      @db.Decimal(14, 6) // tank-to-wheel (kg per eenheid)
+  biogenic  Decimal?      @db.Decimal(14, 6) // biogene emissies (kg per eenheid), apart gerapporteerd
   validFrom DateTime
   source    String? // bijv. "CO2emissiefactoren.nl, lijst januari 2026"
   notes     String?
@@ -1051,25 +1142,29 @@ model Equipment {
 
 /// Verbruik van een energiedrager over een periode (begin t/m eind, inclusief).
 model EnergyConsumption {
-  id           String        @id @default(cuid())
-  externalRef  String?       @unique // kenmerk uit het bronbestand; gebruikt bij herimport
-  carrierId    String
-  carrier      EnergyCarrier @relation(fields: [carrierId], references: [id], onDelete: Restrict)
-  quantity     Decimal       @db.Decimal(18, 4) // in de eenheid van de energiedrager
-  periodStart  DateTime
-  periodEnd    DateTime
-  scope        Int? // afwijkende scope (anders die van de energiedrager)
-  description  String? // bijv. factuurnummer, leverancier
-  disciplineId String?
-  discipline   Discipline?   @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
-  locationId   String?
-  location     Location?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  equipmentId  String?
-  equipment    Equipment?    @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
-  createdById  String?
-  createdBy    User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id             String           @id @default(cuid())
+  externalRef    String?          @unique // kenmerk uit het bronbestand; gebruikt bij herimport
+  carrierId      String
+  carrier        EnergyCarrier    @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  quantity       Decimal          @db.Decimal(18, 4) // in de eenheid van de energiedrager
+  periodStart    DateTime
+  periodEnd      DateTime
+  scope          Int? // afwijkende scope (anders die van de energiedrager)
+  description    String? // bijv. factuurnummer, leverancier
+  disciplineId   String?
+  discipline     Discipline?      @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  locationId     String?
+  location       Location?        @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  equipmentId    String?
+  equipment      Equipment?       @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  organisationId String?
+  organisation   Co2Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  sourceRef      String? // brongegevens (bestandsnaam, factuur)
+  locationText   String? // vestiging als tekst (als die niet aan een vestiging te koppelen is)
+  createdById    String?
+  createdBy      User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@index([periodStart])
   @@index([carrierId])

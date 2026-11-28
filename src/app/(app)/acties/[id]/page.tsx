@@ -75,6 +75,11 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
             <span>Prioriteit {ACTION_PRIORITY_LABEL[action.priority].toLowerCase()}</span>
             <span>· {ACTION_KIND_LABEL[action.kind]}</span>
             <span>· Bron: {ACTION_SOURCE_LABEL[action.source]}</span>
+            {action.source === "CO2_REDUCTION" && (
+              <Link href={`/co2/plan/${action.id}`} className="text-sm">
+                · Plan van aanpak (CO2-gegevens)
+              </Link>
+            )}
           </span>
         }
         actions={
