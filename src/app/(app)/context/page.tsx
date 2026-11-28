@@ -77,7 +77,7 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
     if (f) {
       const l = links.get(f.name) ?? { risks: 0, opportunities: 0, strategic: 0, aspects: 0, significantAspects: 0 };
       return (
-        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-neutral-50 px-3 py-2 text-xs text-neutral-600 print:hidden">
           <span>
             Contextfactor{" "}
             <Link href={`/context/factoren/${f.id}`} className="font-medium">
@@ -107,7 +107,7 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
     ) : s.title === "Overzicht contextfactoren" ? (
       <Link href="/context/factoren">Contextfactoren met koppelingen →</Link>
     ) : null;
-    return h ? <div className="mb-3 rounded-md bg-neutral-50 px-3 py-2 text-xs">{h}</div> : null;
+    return h ? <div className="mb-3 rounded-md bg-neutral-50 px-3 py-2 text-xs print:hidden">{h}</div> : null;
   };
 
   return (

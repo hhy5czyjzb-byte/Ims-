@@ -122,3 +122,53 @@
     @apply text-neutral-600;
   }
 }
+
+/* Afdrukken / PDF: rustige opmaak zonder kaders, kopjes niet los onderaan een pagina, afbeeldingen en tabellen niet splitsen. */
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .card {
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin-bottom: 6mm !important;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  .doc img,
+  .doc table,
+  .doc li,
+  .doc blockquote {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .doc img {
+    max-height: 230mm;
+    object-fit: contain;
+  }
+  .doc p {
+    orphans: 3;
+    widows: 3;
+  }
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+  details:not([open]) {
+    display: none !important;
+  }
+}
