@@ -15,6 +15,7 @@ import {
   FINDING_STATUS_LABEL,
   REPORT_TYPE_LABEL,
   TREATMENT_STATUS_LABEL,
+  OBJECTIVE_STATUS_LABEL,
 } from "@/lib/labels";
 
 /**
@@ -34,6 +35,9 @@ export const SOURCE_LABEL: Record<string, string> = {
   "kpi-compliance": "Compliancegraad",
   "kpi-reports": "Ongevallen en incidenten in het jaar",
   "kpi-absence": "Ongevallen met verzuim",
+  "objectives-status": "Doelstellingen met status",
+  "objectives-smart": "Doelstellingen (SMART)",
+  "kpi-objectives": "Doelstellingen op koers of behaald",
   "kpi-co2": "CO2 t.o.v. vorig jaar",
 };
 
@@ -96,6 +100,30 @@ async function tableRows(source: string, ctx: Ctx, max: number): Promise<Cell[][
       { text: `${findingCode(f.audit.number, f.number)} ${f.description}`.slice(0, 160) },
       { text: FINDING_CLASS_SHORT[f.classification], bold: f.classification === "MAJOR", color: f.classification === "MAJOR" ? T.redDark : undefined },
       f.status === "CLOSED" ? status(FINDING_STATUS_LABEL[f.status], T.green) : status(FINDING_STATUS_LABEL[f.status], T.amber),
+    ]);
+  }
+  if (source === "objectives-status" || source === "objectives-smart") {
+    const list = await prisma.objective.findMany({
+      where: { active: true, status: { not: "CANCELLED" } },
+      orderBy: [{ category: "asc" }, { number: "asc" }],
+      take: max,
+      include: { owner: { select: { name: true } }, reviews: { orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 1 } },
+    });
+    const color = (s: string) =>
+      ["ACHIEVED", "ON_TRACK"].includes(s)
+        ? T.green
+        : ["PARTIAL", "AT_RISK"].includes(s)
+          ? T.amber
+          : ["OFF_TRACK", "NOT_ACHIEVED"].includes(s)
+            ? T.redDark
+            : T.faint;
+    if (source === "objectives-status")
+      return list.map((o) => [{ text: o.title }, status(OBJECTIVE_STATUS_LABEL[o.status], color(o.status)), { text: o.reviews[0]?.explanation ?? "" }]);
+    return list.map((o) => [
+      { text: o.title },
+      { text: [o.indicator, [o.baselineText, o.targetText].filter(Boolean).join(" → ")].filter(Boolean).join(": ") },
+      { text: o.owner?.name ?? o.ownerText ?? "" },
+      { text: o.deadline ? formatDate(o.deadline) : (o.termText ?? "") },
     ]);
   }
   if (source === "legal-open") {
@@ -161,6 +189,17 @@ export async function refreshElement(e: SlideElement, ctx: Ctx): Promise<SlideEl
       ]);
       const change = prev ? ((n - prev) / prev) * 100 : null;
       return { ...e, value: nl(n), label: `ongevallen en incidenten ${y}${change !== null ? ` (${pct(change)} t.o.v. ${y - 1})` : ""}`, color: T.ink };
+    }
+    if (source === "kpi-objectives") {
+      const list = await prisma.objective.findMany({ where: { active: true, status: { notIn: ["CANCELLED", "NOT_ASSESSED"] } }, select: { status: true } });
+      const good = list.filter((o) => o.status === "ON_TRACK" || o.status === "ACHIEVED").length;
+      const p = list.length ? Math.round((good / list.length) * 100) : 0;
+      return {
+        ...e,
+        value: list.length ? `${p}%` : "—",
+        label: `doelstellingen op koers of behaald (${good} van ${list.length})`,
+        color: p >= 80 ? T.green : p >= 60 ? T.amber : T.redDark,
+      };
     }
     if (source === "kpi-absence") {
       const rows = await prisma.report.groupBy({ by: ["absence"], where: { occurredAt: yearRange(y), absence: { not: null } }, _count: true });

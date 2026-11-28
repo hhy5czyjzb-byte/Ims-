@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 
 /**
  * Dekking per norm: een eis telt als 'afgedekt' wanneer er minstens één
- * bewijsstuk aan gekoppeld is (document, proces, processtap, risico, wettelijke eis of milieuaspect).
+ * bewijsstuk aan gekoppeld is (document, proces, processtap, risico, wettelijke eis, milieuaspect of doelstelling).
  * Basis voor de latere normmatrix en 'audit-ready'-score.
  */
 export function isCovered(c: {
@@ -12,8 +12,9 @@ export function isCovered(c: {
   risks: number;
   legalRequirements?: number;
   environmentalAspects?: number;
+  objectives?: number;
 }) {
-  return c.documents + c.processes + c.processSteps + c.risks + (c.legalRequirements ?? 0) + (c.environmentalAspects ?? 0) > 0;
+  return c.documents + c.processes + c.processSteps + c.risks + (c.legalRequirements ?? 0) + (c.environmentalAspects ?? 0) + (c.objectives ?? 0) > 0;
 }
 
 export async function getNormCoverage() {
@@ -24,7 +25,16 @@ export async function getNormCoverage() {
         select: {
           id: true,
           _count: {
-            select: { documents: true, processes: true, processSteps: true, risks: true, legalRequirements: true, environmentalAspects: true, children: true },
+            select: {
+              documents: true,
+              processes: true,
+              processSteps: true,
+              risks: true,
+              legalRequirements: true,
+              environmentalAspects: true,
+              objectives: true,
+              children: true,
+            },
           },
         },
       },

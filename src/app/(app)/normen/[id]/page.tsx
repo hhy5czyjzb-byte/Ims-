@@ -28,6 +28,7 @@ export default async function NormDetailPage({ params }: { params: Promise<{ id:
               risks: true,
               legalRequirements: true,
               environmentalAspects: true,
+              objectives: true,
               actions: true,
               children: true,
             },

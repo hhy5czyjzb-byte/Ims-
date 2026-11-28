@@ -22,6 +22,7 @@ export const PERMISSIONS = {
   "reports.create": ["QHSE", "MIDDENKADER", "DIRECTIE"],
   "reports.manage": ["QHSE"],
   "context.approve": ["QHSE", "DIRECTIE"],
+  "objectives.edit": ["QHSE"],
   "review.edit": ["QHSE"],
   "review.approve": ["QHSE", "DIRECTIE"],
   "backup.manage": ["QHSE"],
@@ -52,6 +53,12 @@ export function canEditRisk(user: { id: string; role: Role }, risk: { ownerId: s
 export function canAssessLegal(user: { id: string; role: Role }, req: { ownerId: string | null }): boolean {
   if (can(user.role, "legal.edit")) return true;
   return user.role === "MIDDENKADER" && req.ownerId === user.id;
+}
+
+/** Mag deze gebruiker de voortgang van een doelstelling beoordelen? QHSE altijd; anderen als eigenaar. */
+export function canReviewObjective(user: { id: string; role: Role }, o: { ownerId: string | null }): boolean {
+  if (can(user.role, "objectives.edit")) return true;
+  return o.ownerId === user.id;
 }
 
 /** Mag deze gebruiker een melding wijzigen? QHSE altijd; anderen alleen als melder of behandelaar, zolang die niet is afgesloten. */

@@ -187,12 +187,32 @@ export const SLIDE_PRESETS: SlidePreset[] = [
   },
   {
     key: "ims-kpis",
-    label: "Uit IMS: kengetallen (acties, compliance, meldingen, CO2)",
+    label: "Uit IMS: kengetallen (doelstellingen, acties, compliance, CO2)",
     layout: "CONTENT",
     title: "Kengetallen",
     ims: "kpis",
     data: () => ({
-      elements: kpiRow(4).map((e, i) => ({ ...e, source: ["kpi-actions-overdue", "kpi-compliance", "kpi-reports", "kpi-co2"][i] })),
+      elements: kpiRow(4).map((e, i) => ({ ...e, source: ["kpi-objectives", "kpi-actions-overdue", "kpi-compliance", "kpi-co2"][i] })),
+    }),
+  },
+  {
+    key: "ims-objectives",
+    label: "Uit IMS: doelstellingen met status",
+    layout: "CONTENT",
+    title: "Doelstellingen",
+    ims: "objectives-status",
+    data: () => ({
+      elements: [{ ...table(["DOELSTELLING", "STATUS", "OORZAAK EN VERVOLG"], 7), colW: [3.6, 1.55, 4.35], rowH: 0.66, source: "objectives-status" }],
+    }),
+  },
+  {
+    key: "ims-objectives-smart",
+    label: "Uit IMS: doelstellingen (SMART)",
+    layout: "CONTENT",
+    title: "Doelstellingen (SMART)",
+    ims: "objectives-smart",
+    data: () => ({
+      elements: [{ ...table(["DOELSTELLING", "INDICATOR EN STREEFWAARDE", "EIGENAAR", "TERMIJN"], 8), colW: [2.6, 3.9, 1.6, 1.4], source: "objectives-smart" }],
     }),
   },
   {
@@ -225,7 +245,7 @@ export function defaultReviewSlides(year: number): { layout: SlideLayout; kicker
     },
     content("INLEIDING", "Directiesamenvatting", "ims-kpis"),
     chapter("01", "Resultaten voorgaande doelstellingen", ["Doelstellingen", "Context en belanghebbenden", "Risico's en kansen"]),
-    content("01  ·  RESULTATEN VOORGAANDE DOELSTELLINGEN", "Doelstellingen", "table"),
+    content("01  ·  RESULTATEN VOORGAANDE DOELSTELLINGEN", "Doelstellingen", "ims-objectives"),
     content("01  ·  RESULTATEN VOORGAANDE DOELSTELLINGEN", "Context en belanghebbenden", "cards4"),
     content("01  ·  RESULTATEN VOORGAANDE DOELSTELLINGEN", "Risico's en kansen", "ims-risks"),
     chapter("02", "Audits en compliance", ["Auditresultaten", "Naleving wet- en regelgeving"]),

@@ -49,6 +49,8 @@ model User {
   settingsChanged          AppSetting[]
   createdConsumptions      EnergyConsumption[]
   createdRisks             Risk[]                 @relation("RiskCreatedBy")
+  ownedObjectives          Objective[]            @relation("ObjectiveOwner")
+  objectiveReviews         ObjectiveReview[]
   approvedReviews          ManagementReview[]     @relation("ReviewApprovedBy")
   createdReviews           ManagementReview[]     @relation("ReviewCreatedBy")
   ownedStakeholders        Stakeholder[]          @relation("StakeholderOwner")
@@ -115,6 +117,7 @@ model Discipline {
   audits               Audit[]
   suppliers            Supplier[]
   reports              Report[]
+  objectives           Objective[]
 }
 
 /// Functie (bijv. Uitvoerder, QHSE-coördinator) — gebruikt in RACI.
@@ -157,6 +160,7 @@ model Norm {
   requirements      NormRequirement[]
   audits            Audit[]            @relation("AuditNorms")
   legalRequirements LegalRequirement[] @relation("LegalNorms")
+  objectives        Objective[]        @relation("ObjectiveNorms")
 }
 
 /// Eis of hoofdstuk van een norm. Hiërarchisch via parentId.
@@ -184,6 +188,7 @@ model NormRequirement {
   findings             AuditFinding[]
   checklistItems       AuditChecklistItem[]
   reports              Report[]              @relation("ReportRequirements")
+  objectives           Objective[]           @relation("ObjectiveRequirements")
 
   @@unique([normId, clause])
   @@index([normId, sortOrder])
@@ -506,6 +511,7 @@ enum ActionSource {
   INCIDENT
   NONCONFORMITY
   MANAGEMENT_REVIEW
+  OBJECTIVE
   COMPLAINT
   OTHER
 }
@@ -549,6 +555,8 @@ model Action {
   report                Report?              @relation(fields: [reportId], references: [id], onDelete: SetNull)
   managementReviewId    String?
   managementReview      ManagementReview?    @relation(fields: [managementReviewId], references: [id], onDelete: SetNull)
+  objectiveId           String?
+  objective             Objective?           @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
   verifiedAt            DateTime? // effectiviteit gecontroleerd op
   verificationNote      String? // uitkomst controle effectiviteit
   createdAt             DateTime             @default(now())
@@ -1082,7 +1090,8 @@ model ReductionTarget {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  measures Action[]
+  measures   Action[]
+  objectives Objective[]
 }
 
 // ── Compliance-audit per vestiging ─────────────────────────────
@@ -1316,4 +1325,92 @@ model ReviewImage {
   height    Int?
   data      Bytes
   createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// Doelstellingen (ISO 9001 §6.2, ISO 14001 §6.2, VCA, CO2-prestatieladder)
+// ─────────────────────────────────────────────────────────────
+
+enum ObjectiveCategory {
+  STRATEGIC
+  QUALITY
+  CUSTOMER
+  ENVIRONMENT
+  CO2
+  SAFETY
+  HEALTH
+  PEOPLE
+  COMPLIANCE
+  OTHER
+}
+
+/// Status van een doelstelling; verandert alleen via een beoordeling (ObjectiveReview).
+enum ObjectiveStatus {
+  NOT_ASSESSED
+  ON_TRACK
+  AT_RISK
+  OFF_TRACK
+  ACHIEVED
+  PARTIAL
+  NOT_ACHIEVED
+  CANCELLED
+}
+
+/// Doelstelling (code D-001), SMART: indicator, nulmeting, streefwaarde, eigenaar en termijn.
+model Objective {
+  id                   String            @id @default(cuid())
+  number               Int               @unique @default(autoincrement())
+  externalRef          String?           @unique
+  title                String
+  description          String?
+  category             ObjectiveCategory
+  indicator            String? // KPI / meetmethode
+  baselineText         String? // nulmeting als tekst, bijv. "IF 4,5 (2024)"
+  targetText           String? // streefwaarde als tekst, bijv. "IF ≤ 3,8"
+  unit                 String? // eenheid bij de getallen, bijv. "%", "t CO2", "IF"
+  baselineValue        Decimal?          @db.Decimal(16, 4)
+  targetValue          Decimal?          @db.Decimal(16, 4)
+  currentValue         Decimal?          @db.Decimal(16, 4) // laatste gemeten waarde (uit de beoordeling)
+  startDate            DateTime?
+  deadline             DateTime?
+  termText             String? // termijn als tekst, bijv. "Per kwartaal"
+  ownerId              String?
+  owner                User?             @relation("ObjectiveOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerText            String?
+  disciplineId         String?
+  discipline           Discipline?       @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  reductionTargetId    String?
+  reductionTarget      ReductionTarget?  @relation(fields: [reductionTargetId], references: [id], onDelete: SetNull)
+  status               ObjectiveStatus   @default(NOT_ASSESSED)
+  lastReviewDate       DateTime?
+  nextReviewDate       DateTime?
+  reviewIntervalMonths Int               @default(3)
+  active               Boolean           @default(true)
+  createdById          String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  norms        Norm[]            @relation("ObjectiveNorms")
+  requirements NormRequirement[] @relation("ObjectiveRequirements")
+  reviews      ObjectiveReview[]
+  actions      Action[]
+
+  @@index([category, status])
+}
+
+/// Beoordeling van de voortgang (historie = bewijs); de meest recente bepaalt de status.
+model ObjectiveReview {
+  id           String          @id @default(cuid())
+  objectiveId  String
+  objective    Objective       @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  date         DateTime
+  status       ObjectiveStatus
+  currentValue Decimal?        @db.Decimal(16, 4)
+  progressPct  Int? // handmatige voortgang 0–100 als er geen getallen zijn
+  explanation  String? // oorzaak en vervolg
+  userId       String?
+  user         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+
+  @@index([objectiveId, date])
 }

@@ -47,6 +47,9 @@ const SOURCE_NAMES: Record<string, string> = {
   "kpi-compliance": "compliancegraad",
   "kpi-reports": "ongevallen en incidenten in het jaar",
   "kpi-absence": "ongevallen met verzuim",
+  "objectives-status": "doelstellingen met status",
+  "objectives-smart": "doelstellingen (SMART)",
+  "kpi-objectives": "doelstellingen op koers of behaald",
   "kpi-co2": "CO2 t.o.v. vorig jaar",
 };
 

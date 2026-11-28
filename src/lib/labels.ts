@@ -1,5 +1,7 @@
 import type {
   AbsenceClass,
+  ObjectiveCategory,
+  ObjectiveStatus,
   ActionKind,
   ActionPriority,
   ActionSource,
@@ -84,6 +86,7 @@ export const ACTION_SOURCE_LABEL: Record<ActionSource, string> = {
   INCIDENT: "Ongeval / incident",
   NONCONFORMITY: "Afwijking / NC",
   MANAGEMENT_REVIEW: "Directiebeoordeling",
+  OBJECTIVE: "Doelstelling",
   COMPLAINT: "Klacht",
   OTHER: "Overig",
 };
@@ -402,3 +405,48 @@ export const IMPACT_LEVEL_LABEL: Record<ImpactLevel, string> = { HIGH: "Hoog", M
 export function options<T extends string>(labels: Record<T, string>) {
   return (Object.keys(labels) as T[]).map((value) => ({ value, label: labels[value] }));
 }
+
+export const OBJECTIVE_CATEGORY_LABEL: Record<ObjectiveCategory, string> = {
+  STRATEGIC: "Strategisch",
+  QUALITY: "Kwaliteit en processen",
+  CUSTOMER: "Klant en markt",
+  ENVIRONMENT: "Milieu",
+  CO2: "Energie en CO2",
+  SAFETY: "Veiligheid",
+  HEALTH: "Gezondheid en verzuim",
+  PEOPLE: "Mensen en organisatie",
+  COMPLIANCE: "Wet- en regelgeving en certificatie",
+  OTHER: "Overig",
+};
+export const OBJECTIVE_CATEGORY_CLASS: Record<ObjectiveCategory, string> = {
+  STRATEGIC: "bg-neutral-800 text-white",
+  QUALITY: "bg-sky-100 text-sky-800",
+  CUSTOMER: "bg-indigo-100 text-indigo-800",
+  ENVIRONMENT: "bg-green-100 text-green-800",
+  CO2: "bg-emerald-100 text-emerald-800",
+  SAFETY: "bg-red-100 text-brand-red-dark",
+  HEALTH: "bg-orange-100 text-orange-800",
+  PEOPLE: "bg-violet-100 text-violet-800",
+  COMPLIANCE: "bg-amber-100 text-amber-900",
+  OTHER: "bg-neutral-100 text-neutral-700",
+};
+export const OBJECTIVE_STATUS_LABEL: Record<ObjectiveStatus, string> = {
+  NOT_ASSESSED: "Nog niet beoordeeld",
+  ON_TRACK: "Op koers",
+  AT_RISK: "Aandacht nodig",
+  OFF_TRACK: "Achter op schema",
+  ACHIEVED: "Behaald",
+  PARTIAL: "Deels behaald",
+  NOT_ACHIEVED: "Niet behaald",
+  CANCELLED: "Vervallen",
+};
+export const OBJECTIVE_STATUS_CLASS: Record<ObjectiveStatus, string> = {
+  NOT_ASSESSED: "bg-neutral-100 text-neutral-600",
+  ON_TRACK: "bg-green-100 text-green-800",
+  AT_RISK: "bg-amber-100 text-amber-900",
+  OFF_TRACK: "bg-red-100 text-brand-red-dark",
+  ACHIEVED: "bg-green-600 text-white",
+  PARTIAL: "bg-amber-400 text-neutral-900",
+  NOT_ACHIEVED: "bg-brand-red text-white",
+  CANCELLED: "bg-neutral-200 text-neutral-500 line-through",
+};

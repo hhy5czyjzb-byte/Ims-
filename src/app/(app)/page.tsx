@@ -26,6 +26,8 @@ import { aspectDisplayCode } from "@/lib/aspects";
 import { listBackups } from "@/lib/backup";
 import { localMode } from "@/lib/env";
 import { can } from "@/lib/rbac";
+import { FINAL_STATUSES, STATUS_COLOR, STATUS_ORDER } from "@/lib/objectives";
+import { OBJECTIVE_STATUS_LABEL } from "@/lib/labels";
 import { formatTonnes, formatPct } from "@/lib/co2";
 import { loadFactors, loadFootprint, targetStatus } from "@/lib/co2-data";
 
@@ -151,6 +153,8 @@ export default async function DashboardPage() {
   ];
   const complaintSeries = [{ name: "Klachten", values: perMonth(["COMPLAINT"]) }];
   const ncSeries = [{ name: "Afwijkingen", values: perMonth(["NONCONFORMITY"]) }];
+  const objectives = await prisma.objective.findMany({ where: { active: true, status: { not: "CANCELLED" } }, select: { status: true, nextReviewDate: true } });
+  const objectivesLate = objectives.filter((o) => o.nextReviewDate && o.nextReviewDate < new Date() && !FINAL_STATUSES.includes(o.status)).length;
   const absenceShort12 = recentReports.filter((r) => r.absence === "SHORT").length;
   const absenceLong12 = recentReports.filter((r) => r.absence === "LONG").length;
   const openReports = await prisma.report.count({ where: { status: { in: ["NEW", "IN_PROGRESS"] } } });
@@ -256,7 +260,20 @@ export default async function DashboardPage() {
           </p>
         </ChartCard>
       </div>
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <ChartCard title="Doelstellingen" subtitle={`${objectives.length} actief${objectivesLate ? ` · ${objectivesLate} beoordeling(en) verlopen` : ""}`}>
+          <SegmentBar
+            parts={STATUS_ORDER.filter((st) => st !== "CANCELLED").map((st) => ({
+              label: OBJECTIVE_STATUS_LABEL[st],
+              value: objectives.filter((o) => o.status === st).length,
+              color: STATUS_COLOR[st],
+              href: `/doelstellingen?status=${st}`,
+            }))}
+          />
+          <p className="mt-3 text-xs">
+            <Link href="/doelstellingen">Naar de doelstellingen →</Link>
+          </p>
+        </ChartCard>
         <ChartCard title="Klachten per maand" subtitle="Laatste 12 maanden">
           <Columns periods={months.map((m) => ({ label: m.label, title: m.title }))} series={complaintSeries} height={90} />
           <p className="mt-2 text-xs">
