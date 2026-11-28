@@ -14,11 +14,18 @@ fout() {
 
 [ -n "${DATABASE_URL:-}" ] || fout "Er is nog geen database gekoppeld. Ga naar Storage > Create Database > Neon (regio Frankfurt) > Connect, en klik daarna op Redeploy."
 [ -n "${NEXTAUTH_SECRET:-}" ] || fout "NEXTAUTH_SECRET ontbreekt (Settings > Environment Variables): vul minimaal 32 willekeurige tekens in."
-if [ "${AUTH_MODE:-}" = "password" ]; then
+# AUTH_MODE zonder spaties, aanhalingstekens of hoofdletters (zelfde regel als src/lib/env.ts).
+MODE="$(printf '%s' "${AUTH_MODE:-}" | tr -d '"'"'"' \t\r\n' | tr '[:upper:]' '[:lower:]')"
+if [ -z "${AUTH_MODE+x}" ]; then
+  echo "IMS: AUTH_MODE is NIET ingesteld voor deze omgeving (${VERCEL_ENV:-onbekend})."
+else
+  echo "IMS: AUTH_MODE gezien als '${MODE}' (omgeving: ${VERCEL_ENV:-onbekend}, ${#AUTH_MODE} tekens)."
+fi
+if [ "$MODE" = "password" ]; then
   [ -n "${ADMIN_EMAIL:-}" ] || fout "ADMIN_EMAIL ontbreekt (Settings > Environment Variables)."
   [ "${#ADMIN_PASSWORD}" -ge 12 ] || fout "ADMIN_PASSWORD ontbreekt of is korter dan 12 tekens (Settings > Environment Variables)."
-elif [ "${AUTH_MODE:-}" != "entra" ]; then
-  fout "AUTH_MODE moet 'password' (tijdelijke login) of 'entra' (Microsoft 365) zijn (Settings > Environment Variables)."
+elif [ "$MODE" != "entra" ]; then
+  fout "AUTH_MODE moet 'password' (tijdelijke login) of 'entra' (Microsoft 365) zijn, aangevinkt voor Production (Settings > Environment Variables). Zie de regel 'AUTH_MODE gezien als' hierboven."
 fi
 
 DIRECT_URL="${DATABASE_URL_UNPOOLED:-${POSTGRES_URL_NON_POOLING:-$DATABASE_URL}}"
