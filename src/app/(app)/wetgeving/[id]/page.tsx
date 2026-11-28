@@ -48,6 +48,7 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
       requirements: { include: { norm: true } },
       actions: { orderBy: { number: "desc" }, include: { owner: { select: { name: true } } } },
       environmentalAspects: { select: aspectLinkSelect, orderBy: { number: "asc" } },
+      stakeholderObligations: { select: { id: true, stakeholderText: true, obligation: true } },
       assessments: { orderBy: [{ date: "desc" }, { createdAt: "desc" }], include: { assessedBy: { select: { name: true } } } },
     },
   });
@@ -336,6 +337,16 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
               </li>
             ))}
           </LinkList>
+          {req.stakeholderObligations.length > 0 && (
+            <LinkList title="Verplichting van belanghebbenden">
+              {req.stakeholderObligations.map((o) => (
+                <li key={o.id}>
+                  <Link href="/context/stakeholders#verplichtingen">{o.stakeholderText}</Link>
+                  <div className="text-xs text-neutral-500">{o.obligation}</div>
+                </li>
+              ))}
+            </LinkList>
+          )}
           <LinkList title="Documenten">
             {req.documents.map((d) => (
               <li key={d.id}>

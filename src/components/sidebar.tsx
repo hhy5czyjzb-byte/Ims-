@@ -16,6 +16,7 @@ const NAV: { title?: string; items: NavItem[] }[] = [
     title: "Systeem",
     items: [
       { href: "/normen", label: "Normenbeheer" },
+      { href: "/context", label: "Context en stakeholders" },
       { href: "/processen", label: "Processen" },
       { href: "/documenten", label: "Documentbeheer" },
       { href: "/risicos", label: "Risico's en kansen" },

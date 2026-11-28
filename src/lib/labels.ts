@@ -2,14 +2,16 @@ import type {
   ActionPriority,
   ActionSource,
   ActionStatus,
-  AuditStatus,
   Applicability,
   AspectPriority,
   AspectSiteType,
   AspectType,
+  AuditStatus,
   AuditType,
   ChecklistResult,
   ComplianceStatus,
+  ContextAnalysisStatus,
+  ContextFactorKind,
   EnergyCategory,
   FindingClass,
   FindingStatus,
@@ -17,13 +19,15 @@ import type {
   ImplementationStatus,
   LegalCategory,
   NormCategory,
+  ObligationCharacter,
   OperatingSituation,
   RaciType,
   RiskCategory,
   RiskStatus,
   RiskType,
-  TreatmentStatus,
   Role,
+  StakeholderType,
+  TreatmentStatus,
 } from "@prisma/client";
 
 /** Nederlandse labels voor enums. */
@@ -233,6 +237,28 @@ export const ASPECT_SITE_TYPE_LABEL: Record<AspectSiteType, string> = {
   SITE: "Vestiging",
   PROJECT: "Project",
   GROUP: "Groep",
+};
+
+export const CONTEXT_FACTOR_KIND_LABEL: Record<ContextFactorKind, string> = { EXTERNAL: "Extern", INTERNAL: "Intern" };
+
+export const OBLIGATION_CHARACTER_LABEL: Record<ObligationCharacter, string> = {
+  LEGAL: "Wettelijk",
+  CONTRACTUAL: "Contractueel",
+  VOLUNTARY: "Vrijwillig",
+};
+export const OBLIGATION_CHARACTER_CLASS: Record<ObligationCharacter, string> = {
+  LEGAL: "bg-red-50 text-brand-red-dark ring-1 ring-brand-red/20",
+  CONTRACTUAL: "bg-sky-50 text-sky-800 ring-1 ring-sky-200",
+  VOLUNTARY: "bg-green-50 text-green-800 ring-1 ring-green-200",
+};
+
+export const STAKEHOLDER_TYPE_LABEL: Record<StakeholderType, string> = { INTERNAL: "Intern", EXTERNAL: "Extern" };
+
+export const CONTEXT_STATUS_LABEL: Record<ContextAnalysisStatus, string> = { CONCEPT: "Concept", APPROVED: "Vastgesteld", SUPERSEDED: "Vervangen" };
+export const CONTEXT_STATUS_CLASS: Record<ContextAnalysisStatus, string> = {
+  CONCEPT: "bg-amber-100 text-amber-800",
+  APPROVED: "bg-green-100 text-green-800",
+  SUPERSEDED: "bg-neutral-100 text-neutral-600",
 };
 
 export const SITUATION_LABEL: Record<OperatingSituation, string> = {

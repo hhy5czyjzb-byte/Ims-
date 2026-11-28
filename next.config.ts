@@ -13,7 +13,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: "standalone",
   // Import van registers (Excel → gekoppelde regels) kan groter zijn dan de standaard 1 MB.
-  experimental: { serverActions: { bodySizeLimit: "5mb" } },
+  // 25 MB: Word-documenten met afbeeldingen (context- en stakeholderanalyse); Excel-imports blijven ruim daaronder.
+  experimental: { serverActions: { bodySizeLimit: "25mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

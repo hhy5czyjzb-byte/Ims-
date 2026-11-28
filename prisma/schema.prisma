@@ -54,6 +54,8 @@ model User {
   supplierEvaluations      SupplierEvaluation[]
   auditLogs                AuditLog[]
   locationAuditsAsAuditor  LocationAudit[]        @relation("LocationAuditAuditor")
+  approvedContextAnalyses  ContextAnalysis[]      @relation("ContextApprovedBy")
+  uploadedContextAnalyses  ContextAnalysis[]      @relation("ContextUploadedBy")
   createdLocationAudits    LocationAudit[]        @relation("LocationAuditCreatedBy")
 }
 
@@ -581,19 +583,122 @@ enum StakeholderType {
 }
 
 model Stakeholder {
+  id             String                  @id @default(cuid())
+  name           String                  @unique
+  type           StakeholderType         @default(EXTERNAL)
+  needs          String? // eisen
+  expectations   String? // wat zij van ons verwachten
+  influenceLevel String? // invloed zoals in de analyse: Hoog, Midden/hoog, Midden, Toenemend
+  influence      Int? // 1–5 (optioneel, voor een invloed/belang-matrix)
+  interest       Int? // 1–5
+  howAddressed   String? // hoe we hierop inspelen
+  sortOrder      Int                     @default(0)
+  active         Boolean                 @default(true)
+  ownerId        String?
+  owner          User?                   @relation("StakeholderOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  reviewDate     DateTime?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  obligations    StakeholderObligation[] @relation("ObligationStakeholders")
+}
+
+/// Verwachting van belanghebbenden die we als verplichting overnemen (ISO 14001 4.2 c).
+model StakeholderObligation {
+  id                String              @id @default(cuid())
+  stakeholderText   String // belanghebbende(n) zoals in de analyse
+  obligation        String
+  character         ObligationCharacter @default(LEGAL)
+  sortOrder         Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  stakeholders      Stakeholder[]       @relation("ObligationStakeholders")
+  legalRequirements LegalRequirement[]  @relation("ObligationLegal")
+
+  @@unique([stakeholderText, obligation])
+}
+
+enum ObligationCharacter {
+  LEGAL
+  CONTRACTUAL
+  VOLUNTARY
+}
+
+/// Contextfactor (ISO 9001/14001 4.1). De naam is de sleutel waarmee risico's en milieuaspecten (veld contextFactor) worden gekoppeld.
+model ContextFactor {
+  id            String            @id @default(cuid())
+  name          String            @unique
+  kind          ContextFactorKind @default(EXTERNAL)
+  importance    String? // belang: Hoog, Toenemend, …
+  character     String? // karakter: Risico, Kans, Risico én kans, Ontwikkelpunt, …
+  ambition      String? // wat we ermee willen
+  sectionNumber String? // paragraaf in de analyse, bijv. "3.1"
+  sortOrder     Int               @default(0)
+  active        Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+enum ContextFactorKind {
+  EXTERNAL
+  INTERNAL
+}
+
+/// Eén versie van de context- en stakeholderanalyse, ingelezen uit Word (tekst met afbeeldingen).
+model ContextAnalysis {
+  id             String                @id @default(cuid())
+  title          String
+  versionLabel   String? // bijv. "2026.01" of "2026–2027"
+  fileName       String
+  sharepointUrl  String?
+  status         ContextAnalysisStatus @default(CONCEPT)
+  ownerText      String? // eigenaar volgens het document (QHSE)
+  reviewCycle    String? // herzieningscyclus volgens het document
+  approvedByText String? // vastgesteld door (bijv. "Directie (D. Rouwmaat)")
+  approvedAt     DateTime?
+  approvedById   String?
+  approvedBy     User?                 @relation("ContextApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  nextReviewDate DateTime?
+  uploadedById   String?
+  uploadedBy     User?                 @relation("ContextUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  sections       ContextSection[]
+  images         ContextImage[]
+}
+
+enum ContextAnalysisStatus {
+  CONCEPT
+  APPROVED
+  SUPERSEDED
+}
+
+model ContextSection {
   id           String          @id @default(cuid())
-  name         String
-  type         StakeholderType
-  needs        String? // eisen
-  expectations String? // verwachtingen
-  influence    Int? // 1–5
-  interest     Int? // 1–5
-  howAddressed String?
-  ownerId      String?
-  owner        User?           @relation("StakeholderOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  reviewDate   DateTime?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  analysisId   String
+  analysis     ContextAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  part         Int // deel (0 = voorblad en samenvatting)
+  partTitle    String?
+  partSubtitle String?
+  partKern     String?
+  number       String? // paragraafnummer, bijv. "3.1"
+  title        String
+  anchor       String
+  html         String // opgeschoonde HTML (alleen veilige elementen)
+  sortOrder    Int
+
+  @@index([analysisId, sortOrder])
+}
+
+model ContextImage {
+  id          String          @id // uuid, staat in de HTML van de secties
+  analysisId  String
+  analysis    ContextAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  contentType String
+  data        Bytes
+  size        Int
+  alt         String?
+
+  @@index([analysisId])
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -696,16 +801,17 @@ model LegalRequirement {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
-  processes            Process[]              @relation("LegalProcesses")
-  documents            Document[]             @relation("LegalDocuments")
-  risks                Risk[]                 @relation("LegalRisks")
-  requirements         NormRequirement[]      @relation("LegalNormRequirements")
-  norms                Norm[]                 @relation("LegalNorms") // geldt voor (ISO 14001, CO2-prestatieladder, VCA, ISO 9001, …)
-  actions              Action[]
-  assessments          ComplianceAssessment[]
-  environmentalAspects EnvironmentalAspect[]  @relation("AspectLegal")
-  complianceQuestions  ComplianceQuestion[]
-  locationAuditAnswers LocationAuditAnswer[]
+  processes              Process[]               @relation("LegalProcesses")
+  documents              Document[]              @relation("LegalDocuments")
+  risks                  Risk[]                  @relation("LegalRisks")
+  requirements           NormRequirement[]       @relation("LegalNormRequirements")
+  norms                  Norm[]                  @relation("LegalNorms") // geldt voor (ISO 14001, CO2-prestatieladder, VCA, ISO 9001, …)
+  actions                Action[]
+  assessments            ComplianceAssessment[]
+  environmentalAspects   EnvironmentalAspect[]   @relation("AspectLegal")
+  complianceQuestions    ComplianceQuestion[]
+  locationAuditAnswers   LocationAuditAnswer[]
+  stakeholderObligations StakeholderObligation[] @relation("ObligationLegal")
 
   @@index([status])
   @@index([nextReviewDate])

@@ -18,6 +18,8 @@ export const PERMISSIONS = {
   "aspects.edit": ["QHSE"],
   "co2.manage": ["QHSE"],
   "co2.enter": ["QHSE", "MIDDENKADER"],
+  "context.edit": ["QHSE"],
+  "context.approve": ["QHSE", "DIRECTIE"],
   "backup.manage": ["QHSE"],
   "auditlog.view": ["QHSE"],
 } as const satisfies Record<string, readonly Role[]>;

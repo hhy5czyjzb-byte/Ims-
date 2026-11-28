@@ -151,6 +151,16 @@ export default async function DashboardPage() {
       backupWarning = `De laatste geteste back-up is van ${formatDate(lastOk.createdAt)}.`;
   }
 
+  // Context- en stakeholderanalyse: herbeoordeling verlopen of nog niet vastgesteld (QHSE en directie).
+  let contextWarning: string | null = null;
+  if (can(user.role, "context.approve")) {
+    const ctx = await prisma.contextAnalysis.findFirst({ where: { status: "APPROVED" }, orderBy: { approvedAt: "desc" }, select: { nextReviewDate: true } });
+    const anyCtx = ctx ?? (await prisma.contextAnalysis.findFirst({ select: { id: true } }));
+    if (anyCtx && !ctx) contextWarning = "De context- en stakeholderanalyse is nog niet vastgesteld.";
+    else if (ctx?.nextReviewDate && ctx.nextReviewDate.getTime() < Date.now())
+      contextWarning = `De herbeoordeling van de context- en stakeholderanalyse is verlopen (${formatDate(ctx.nextReviewDate)}).`;
+  }
+
   const legalSummary = complianceSummary(legalStatuses.map((l) => l.status));
 
   const activeNorms = coverage.filter((n) => n.active);
@@ -167,6 +177,14 @@ export default async function DashboardPage() {
           {backupWarning}{" "}
           <Link href="/beheer" className="font-medium">
             Naar back-ups →
+          </Link>
+        </div>
+      )}
+      {contextWarning && (
+        <div role="alert" className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {contextWarning}{" "}
+          <Link href="/context" className="font-medium">
+            Naar de analyse →
           </Link>
         </div>
       )}

@@ -62,4 +62,63 @@
   .badge {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap;
   }
+  /* Tekst uit Word (context- en stakeholderanalyse) */
+  .doc {
+    @apply text-sm leading-relaxed text-neutral-800;
+  }
+  .doc p {
+    @apply my-2;
+  }
+  .doc h3 {
+    @apply mt-4 mb-1 text-base font-semibold text-neutral-900;
+  }
+  .doc h4,
+  .doc h5 {
+    @apply mt-3 mb-1 font-semibold;
+  }
+  .doc ul {
+    @apply my-2 list-disc pl-6;
+  }
+  .doc ol {
+    @apply my-2 list-decimal pl-6;
+  }
+  .doc li {
+    @apply my-0.5;
+  }
+  .doc a {
+    @apply text-brand-red-dark underline;
+  }
+  .doc img {
+    @apply mx-auto my-3 h-auto max-w-full rounded-md;
+  }
+  .doc table {
+    @apply my-3 w-full border-collapse text-sm;
+  }
+  .doc td,
+  .doc th {
+    @apply border border-neutral-200 px-2.5 py-1.5 text-left align-top;
+  }
+  .doc th {
+    @apply bg-neutral-50 font-semibold;
+  }
+  .doc td > p:first-child,
+  .doc th > p:first-child {
+    @apply mt-0;
+  }
+  .doc td > p:last-child,
+  .doc th > p:last-child {
+    @apply mb-0;
+  }
+  /* Kaders in Word (tabel met één cel) als accentblok */
+  .doc table:has(> tbody > tr:only-child > td:only-child),
+  .doc table:has(> tr:only-child > td:only-child) {
+    @apply border-l-4 border-brand-red bg-brand-grey-light/40;
+  }
+  .doc table:has(> tbody > tr:only-child > td:only-child) td,
+  .doc table:has(> tr:only-child > td:only-child) td {
+    @apply border-0 px-4 py-2;
+  }
+  .doc em {
+    @apply text-neutral-600;
+  }
 }

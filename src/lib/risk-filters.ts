@@ -15,6 +15,7 @@ export type RiskSearch = {
   prioriteit?: string;
   aanpak?: string;
   herkomst?: string;
+  context?: string; // contextfactor (naam)
   cel?: string;
   basis?: string;
 };
@@ -39,6 +40,7 @@ export function riskWhere(sp: RiskSearch): Prisma.RiskWhereInput {
     ...(sp.discipline ? { disciplines: { some: { id: sp.discipline } } } : {}),
     ...(sp.aanpak && sp.aanpak in TREATMENT_STATUS_LABEL ? { treatmentStatus: sp.aanpak as TreatmentStatus } : {}),
     ...(sp.herkomst ? { origin: sp.herkomst } : {}),
+    ...(sp.context ? { contextFactor: sp.context } : {}),
     ...(sp.prioriteit === "1" ? { strategic: true } : sp.prioriteit === "2" || sp.prioriteit === "3" ? { strategic: false } : {}),
     ...(sp.locatie ? { locationId: sp.locatie } : {}),
     ...(sp.proces ? { processes: { some: { id: sp.proces } } } : {}),
