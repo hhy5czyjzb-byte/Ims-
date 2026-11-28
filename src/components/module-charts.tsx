@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { brand } from "@/theme/brand";
-import { BarList, ChartCard, Columns, SegmentBar } from "@/components/charts";
+import { BarList, ChartCard, Columns, SERIES, SegmentBar } from "@/components/charts";
 import { progressColor } from "@/components/ui";
 import { residual, riskLevel, riskScore } from "@/lib/risk";
 import { aspectRisk, aspectRiskLevel } from "@/lib/aspects";
@@ -114,7 +115,20 @@ export async function LegalCharts() {
         subtitle={overdue ? `${overdue} toetsing(en) te laat` : "Geen toetsingen te laat"}
         className="md:col-span-2"
       >
-        <Columns periods={months.map((m) => ({ label: m.label, title: m.title }))} series={[{ name: "Toetsingen", values: due }]} height={110} />
+        <Columns
+          periods={[{ label: "te laat", title: "Toetsing verlopen (datum voorbij)" }, ...months.map((m) => ({ label: m.label, title: m.title }))]}
+          series={[
+            { name: "Te laat", values: [overdue, ...due.map(() => 0)] },
+            { name: "Gepland", values: [0, ...due] },
+          ]}
+          colors={[STATUS.bad, SERIES[0]]}
+          height={110}
+        />
+        {overdue > 0 && (
+          <Link href="/wetgeving?toetsing=verlopen" className="mt-2 inline-block text-xs print:hidden">
+            Bekijk de {overdue} te late toetsing(en) →
+          </Link>
+        )}
       </ChartCard>
       <ChartCard title="Per thema">
         <BarList items={countBy(reqs, (r) => r.theme)} />

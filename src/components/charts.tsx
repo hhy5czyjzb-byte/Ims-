@@ -87,10 +87,13 @@ export function Columns({
   periods,
   series,
   height = 140,
+  colors = SERIES,
 }: {
   periods: { label: string; title?: string }[];
   series: { name: string; values: number[] }[];
   height?: number;
+  /** Kleur per reeks (standaard het palet SERIES; een statuskleur zoals rood voor 'te laat' mag). */
+  colors?: readonly string[];
 }) {
   const totals = periods.map((_, i) => series.reduce((n, s) => n + (s.values[i] ?? 0), 0));
   const max = Math.max(1, ...totals);
@@ -107,7 +110,7 @@ export function Columns({
         <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
           {series.map((s, i) => (
             <span key={s.name} className="inline-flex items-center gap-1.5">
-              <span className="inline-block size-2.5 rounded-sm" style={{ background: SERIES[i] }} />
+              <span className="inline-block size-2.5 rounded-sm" style={{ background: colors[i] }} />
               {s.name}
             </span>
           ))}
@@ -149,7 +152,7 @@ export function Columns({
                       <span
                         key={s.name}
                         className={isTop ? "rounded-t-[4px]" : ""}
-                        style={{ height: Math.max((v / top) * plot - 2, 2), background: SERIES[si] }}
+                        style={{ height: Math.max((v / top) * plot - 2, 2), background: colors[si] }}
                       />
                     );
                   })}
