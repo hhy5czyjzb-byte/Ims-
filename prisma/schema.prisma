@@ -1133,6 +1133,15 @@ model Equipment {
   discipline       Discipline?    @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
   locationId       String?
   location         Location?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  vehicleType      String? // TRUCK | VAN | CAR | MACHINE | OTHER (wagenpark)
+  fuelType         String? // ELECTRIC | HYBRID | DIESEL | HVO | PETROL | GAS | HYDROGEN | OTHER
+  euroClass        String? // ELECTRIC | EURO6 … EURO0 (milieuclassificatie)
+  brand            String?
+  model            String?
+  buildYear        Int?
+  inServiceFrom    DateTime?
+  inServiceUntil   DateTime?
+  notes            String?
   active           Boolean        @default(true)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -1518,11 +1527,12 @@ model FleetCount {
   id          String   @id @default(cuid())
   year        Int
   vehicleType String // TRUCK | VAN | CAR | MACHINE | OTHER
-  fuelType    String // ELECTRIC | HYBRID | DIESEL | HVO | PETROL | GAS | HYDROGEN | OTHER
+  kind        String   @default("FUEL") // FUEL = brandstoftype, EURO = milieuclassificatie
+  value       String // FUEL: ELECTRIC | HYBRID | DIESEL | … ; EURO: ELECTRIC | EURO6 … EURO0
   count       Int
   note        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([year, vehicleType, fuelType])
+  @@unique([year, vehicleType, kind, value])
 }

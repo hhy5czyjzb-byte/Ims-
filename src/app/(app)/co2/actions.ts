@@ -211,44 +211,6 @@ export async function deleteFactor(factorId: string): Promise<ActionResult> {
   });
 }
 
-// ── Materieel (QHSE) ──────────────────────────────────────────
-
-const equipmentSchema = z.object({
-  name: requiredText(200),
-  code: optionalText,
-  type: optionalText,
-  defaultCarrierId: optionalId,
-  disciplineId: optionalId,
-  locationId: optionalId,
-});
-
-export async function createEquipment(formData: FormData): Promise<ActionResult> {
-  return safeAction(async () => {
-    const user = await requirePermission("co2.manage");
-    const data = parseForm(equipmentSchema, formData);
-    const e = await prisma.equipment.create({ data });
-    await logAudit({ user, action: "CREATE", entityType: "Equipment", entityId: e.id, summary: `Materieel "${e.name}" toegevoegd` });
-    revalidateCo2();
-  });
-}
-
-export async function toggleEquipment(id: string): Promise<ActionResult> {
-  return safeAction(async () => {
-    const user = await requirePermission("co2.manage");
-    const e = await prisma.equipment.findUnique({ where: { id } });
-    if (!e) throw new UserError("Materieel niet gevonden.");
-    await prisma.equipment.update({ where: { id }, data: { active: !e.active } });
-    await logAudit({
-      user,
-      action: "UPDATE",
-      entityType: "Equipment",
-      entityId: id,
-      summary: `Materieel "${e.name}" ${e.active ? "buiten gebruik" : "weer in gebruik"}`,
-    });
-    revalidateCo2();
-  });
-}
-
 // ── Verbruik (QHSE en middenkader) ────────────────────────────
 
 const consumptionSchema = z
