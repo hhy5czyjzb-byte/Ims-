@@ -40,7 +40,7 @@ export function BarList({
   empty = "Geen gegevens.",
   max: fixedMax,
 }: {
-  items: { label: string; value: number; href?: string }[];
+  items: { label: string; value: number; href?: string; color?: string }[];
   unit?: string;
   empty?: string;
   /** Vaste schaal (bijv. 100 bij percentages), anders de grootste waarde. */
@@ -64,8 +64,8 @@ export function BarList({
             <span className="truncate text-neutral-700" title={i.label}>
               {label}
             </span>
-            <span className="group relative block h-3">
-              <span className="block h-3 rounded-r-[4px]" style={{ width: `${Math.max(pct, 1.5)}%`, background: SERIES[0] }} />
+            <span className="group relative block h-3 rounded-r-[4px] bg-neutral-100">
+              <span className="block h-3 rounded-r-[4px]" style={{ width: `${Math.max(pct, 1.5)}%`, background: i.color ?? SERIES[0] }} />
               <Tip>
                 {i.label}: {i.value.toLocaleString("nl-NL")}
                 {unit}
@@ -94,14 +94,17 @@ export function Columns({
 }) {
   const totals = periods.map((_, i) => series.reduce((n, s) => n + (s.values[i] ?? 0), 0));
   const max = Math.max(1, ...totals);
-  const step = max <= 5 ? 1 : max <= 10 ? 2 : max <= 25 ? 5 : max <= 50 ? 10 : Math.ceil(max / 5 / 10) * 10;
+  const integers = series.every((s) => s.values.every((v) => Number.isInteger(v)));
+  let step = max <= 5 ? 1 : niceStep(max / 5);
+  if (integers && !Number.isInteger(step)) step = Math.ceil(step);
   const top = Math.ceil(max / step) * step;
-  const ticks = Array.from({ length: top / step + 1 }, (_, i) => i * step);
-  const plot = height - 14; // ruimte boven de hoogste kolom voor het totaal
+  const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
+  const plot = height - 16; // ruimte boven de hoogste kolom voor het totaal
+  const num = (v: number) => v.toLocaleString("nl-NL", { maximumFractionDigits: integers ? 0 : 1 });
   return (
     <div>
       {series.length > 1 && (
-        <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
+        <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
           {series.map((s, i) => (
             <span key={s.name} className="inline-flex items-center gap-1.5">
               <span className="inline-block size-2.5 rounded-sm" style={{ background: SERIES[i] }} />
@@ -110,15 +113,20 @@ export function Columns({
           ))}
         </div>
       )}
-      <div className="grid grid-cols-[3rem_1fr] gap-1">
-        <div className="relative text-right text-[10px] text-neutral-400" style={{ height }}>
+      <div className="grid grid-cols-[auto_1fr] gap-2">
+        <div className="relative min-w-6 text-right text-[11px] text-neutral-500" style={{ height }}>
           {ticks.map((t) => (
-            <span key={t} className="absolute right-0 -translate-y-1/2 tabular-nums" style={{ top: height - (t / top) * plot }}>
-              {t}
+            <span key={t} className="block h-0 overflow-hidden whitespace-nowrap tabular-nums opacity-0" aria-hidden>
+              {compact(t, true)}
+            </span>
+          ))}
+          {ticks.map((t) => (
+            <span key={`v${t}`} className="absolute right-0 -translate-y-1/2 whitespace-nowrap tabular-nums" style={{ top: height - (t / top) * plot }}>
+              {compact(t, true)}
             </span>
           ))}
         </div>
-        <div>
+        <div className="min-w-0">
           <div className="relative flex items-end gap-1 border-b border-neutral-300" style={{ height }}>
             {ticks.slice(1).map((t) => (
               <span
@@ -128,8 +136,10 @@ export function Columns({
               />
             ))}
             {periods.map((p, i) => (
-              <div key={p.label} className="group relative flex h-full flex-1 flex-col items-center justify-end">
-                {totals[i] > 0 && <span className="mb-0.5 text-[10px] text-neutral-600 tabular-nums">{totals[i]}</span>}
+              <div key={p.label} className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end">
+                {totals[i] > 0 && (
+                  <span className="mb-0.5 text-[11px] leading-tight font-medium whitespace-nowrap text-neutral-700 tabular-nums">{compact(totals[i])}</span>
+                )}
                 <div className="flex w-full max-w-6 flex-col-reverse gap-[2px]">
                   {series.map((s, si) => {
                     const v = s.values[i] ?? 0;
@@ -145,14 +155,14 @@ export function Columns({
                   })}
                 </div>
                 <Tip>
-                  {p.title ?? p.label}: {series.map((s) => (series.length > 1 ? `${s.name} ${s.values[i] ?? 0}` : `${s.values[i] ?? 0}`)).join(" · ")}
+                  {p.title ?? p.label}: {series.map((s) => (series.length > 1 ? `${s.name} ${num(s.values[i] ?? 0)}` : num(s.values[i] ?? 0))).join(" · ")}
                 </Tip>
               </div>
             ))}
           </div>
-          <div className="mt-1 flex gap-1 text-center text-[10px] text-neutral-500">
+          <div className="mt-1.5 flex gap-1 text-center text-[11px] text-neutral-600">
             {periods.map((p) => (
-              <span key={p.label} className="flex-1 truncate">
+              <span key={p.label} className="min-w-0 flex-1 truncate">
                 {p.label}
               </span>
             ))}
@@ -175,7 +185,7 @@ export function SegmentBar({ parts }: { parts: { label: string; value: number; c
           .map((p) => (
             <span key={p.label} className="group relative block h-full" style={{ width: `${(p.value / total) * 100}%`, background: p.color }}>
               <Tip>
-                {p.label}: {p.value} ({Math.round((p.value / total) * 100)}%)
+                {p.label}: {p.value.toLocaleString("nl-NL")} ({Math.round((p.value / total) * 100)}%)
               </Tip>
             </span>
           ))}
@@ -184,7 +194,14 @@ export function SegmentBar({ parts }: { parts: { label: string; value: number; c
         {parts.map((p) => (
           <li key={p.label} className="inline-flex items-center gap-1.5">
             <span className="inline-block size-2.5 rounded-sm" style={{ background: p.color }} />
-            {p.href ? <Link href={p.href}>{p.label}</Link> : p.label} <span className="tabular-nums">{p.value}</span>
+            {p.href ? (
+              <Link href={p.href} className="text-neutral-700 no-underline hover:text-neutral-900 hover:underline">
+                {p.label}
+              </Link>
+            ) : (
+              p.label
+            )}{" "}
+            <span className="font-medium text-neutral-900 tabular-nums">{p.value.toLocaleString("nl-NL")}</span>
           </li>
         ))}
       </ul>

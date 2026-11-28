@@ -124,6 +124,11 @@ export function StatCard({
 }
 
 /** Voortgangsbalk; kleur naar percentage, of expliciet met `tone` (bijv. op koers = good, ook als het doel nog ver weg is). */
+/** Kleur van een voortgangs-/dekkingsbalk: groen ≥ 80%, oranje ≥ 50%, anders rood (zelfde grenzen als ProgressBar). */
+export function progressColor(value: number): string {
+  return value >= 80 ? "#16a34a" : value >= 50 ? "#f59e0b" : "#e30613";
+}
+
 export function ProgressBar({ value, tone }: { value: number; tone?: "good" | "warn" | "bad" }) {
   const pct = Math.max(0, Math.min(100, Math.round(value)));
   const t = tone ?? (pct >= 80 ? "good" : pct >= 50 ? "warn" : "bad");

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { brand } from "@/theme/brand";
 import { BarList, ChartCard, Columns, SegmentBar } from "@/components/charts";
+import { progressColor } from "@/components/ui";
 import { residual, riskLevel, riskScore } from "@/lib/risk";
 import { aspectRisk, aspectRiskLevel } from "@/lib/aspects";
 import { getNormCoverage } from "@/lib/coverage";
@@ -227,9 +228,11 @@ export async function NormCoverageChart() {
   const cov = await getNormCoverage();
   return (
     <div className="mb-6 grid gap-4 md:grid-cols-2">
-      <ChartCard title="Dekking per norm" subtitle="% eisen met minimaal één gekoppeld bewijsstuk">
+      <ChartCard title="Dekking per norm" subtitle="% eisen met minimaal één gekoppeld bewijsstuk · groen ≥ 80%, oranje ≥ 50%">
         <BarList
-          items={cov.filter((n) => n.active && n.leafCount > 0).map((n) => ({ label: n.code, value: Math.round(n.coveragePct), href: `/normen/${n.id}` }))}
+          items={cov
+            .filter((n) => n.active && n.leafCount > 0)
+            .map((n) => ({ label: n.code, value: Math.round(n.coveragePct), href: `/normen/${n.id}`, color: progressColor(n.coveragePct) }))}
           unit="%"
           max={100}
           empty="Nog geen eisen."
