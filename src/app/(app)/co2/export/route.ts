@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { PERIOD_PARTS, type PeriodPart } from "@/lib/co2";
-import { loadFootprint } from "@/lib/co2-data";
+import { latestDataYear, loadFootprint } from "@/lib/co2-data";
 import { csvResponse, toCsv } from "@/lib/csv";
 import { formatDate } from "@/lib/format";
 
@@ -9,7 +9,7 @@ import { formatDate } from "@/lib/format";
 export async function GET(request: Request) {
   const user = await requireUser();
   const sp = new URL(request.url).searchParams;
-  const year = Number(sp.get("jaar")) || new Date().getUTCFullYear();
+  const year = Number(sp.get("jaar")) || (await latestDataYear());
   const part = (PERIOD_PARTS.some((p) => p.value === sp.get("deel")) ? sp.get("deel") : "jaar") as PeriodPart;
   const fp = await loadFootprint(year, part, { disciplineId: sp.get("discipline") || undefined, locationId: sp.get("locatie") || undefined });
   const header = [

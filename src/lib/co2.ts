@@ -2,7 +2,8 @@
  * CO2-prestatieladder: berekening van de footprint (pure functies, getest).
  *
  * - Emissie = verbruik × emissiefactor (kg CO2e per eenheid). Gebruikt wordt de factor die gold
- *   op de begindatum van het verbruik (meest recente `validFrom` ≤ begindatum).
+ *   op de begindatum van het verbruik binnen de rapportageperiode (meest recente `validFrom` ≤ die datum);
+ *   een verbruik dat over de jaargrens loopt krijgt zo voor het deel in het nieuwe jaar de factor van dat jaar.
  * - Een verbruik dat over meerdere rapportageperiodes loopt, wordt naar rato van het aantal dagen toegerekend.
  * - Periodes zijn inclusief: begin t/m eind (datums in UTC, 00:00).
  */
@@ -58,6 +59,23 @@ export function overlapFraction(cStart: Date, cEnd: Date, start: Date, end: Date
   return Math.max(0, Math.min(1, overlap / total));
 }
 
+/** Maanden (0–11, of jjjj*12+m bij meerdere jaren) van een verbruiksperiode (inclusief eind) die binnen [start, end) vallen. */
+export function monthsCovered(cStart: Date, cEnd: Date, start: Date, end: Date): number[] {
+  const from = Math.max(cStart.getTime(), start.getTime());
+  const to = Math.min(cEnd.getTime(), end.getTime() - DAY);
+  if (to < from) return [];
+  const out: number[] = [];
+  const a = new Date(from);
+  const b = new Date(to);
+  for (
+    let y = a.getUTCFullYear(), m = a.getUTCMonth();
+    y < b.getUTCFullYear() || (y === b.getUTCFullYear() && m <= b.getUTCMonth());
+    m === 11 ? ((m = 0), y++) : m++
+  )
+    out.push(y * 12 + m);
+  return out;
+}
+
 /** Geldende factor voor een energiedrager op een datum; `null` als er (nog) geen factor is. */
 export function factorAt(factors: FactorRow[], carrierId: string, date: Date): FactorRow | null {
   let best: FactorRow | null = null;
@@ -80,13 +98,18 @@ export function computeFootprint(consumptions: ConsumptionInput[], factors: Fact
     if (frac <= 0) continue;
     const scope = clampScope(c.scope ?? c.carrierScope);
     const quantity = c.quantity * frac;
-    const f = factorAt(factors, c.carrierId, c.periodStart);
+    const f = factorAt(factors, c.carrierId, factorDate(c.periodStart, range.start));
     const kg = f ? quantity * f.factor : null;
     if (kg === null) missingFactor++;
     else byScope[scope] += kg;
     rows.push({ id: c.id, carrierId: c.carrierId, scope, quantity, kg, factor: f?.factor ?? null });
   }
   return { rows, byScope, totalKg: byScope[1] + byScope[2] + byScope[3], missingFactor };
+}
+
+/** Datum waarop de factor wordt bepaald: begin van het verbruik, of het begin van de rapportageperiode als dat later is. */
+export function factorDate(consumptionStart: Date, rangeStart: Date): Date {
+  return consumptionStart.getTime() > rangeStart.getTime() ? consumptionStart : rangeStart;
 }
 
 function clampScope(n: number): 1 | 2 | 3 {

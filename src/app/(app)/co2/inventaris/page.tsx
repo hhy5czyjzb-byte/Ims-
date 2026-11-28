@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { EMISSION_TYPE_LABEL, PERIOD_PARTS, formatQuantity, formatTonnes, type EmissionType, type PeriodPart } from "@/lib/co2";
 import { loadInventory, type InventoryLine } from "@/lib/co2-data";
+import { inventoryChecks } from "@/lib/co2-checks";
 import { PageHeader } from "@/components/ui";
 import { BarList, ChartCard, SegmentBar } from "@/components/charts";
 import { Co2Nav } from "@/components/co2-nav";
@@ -11,7 +12,7 @@ export const metadata = { title: "CO2-emissie-inventaris" };
 
 type Search = { jaar?: string; deel?: string; type?: string };
 const t1 = (kg: number) => (kg / 1000).toLocaleString("nl-NL", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const g = (kgPerUnit: number | null) => (kgPerUnit === null ? "—" : Math.round(kgPerUnit * 1000).toLocaleString("nl-NL"));
+const g = (kgPerUnit: number | null) => (kgPerUnit === null ? "—" : (Math.round(kgPerUnit * 1000) || 0).toLocaleString("nl-NL"));
 const pct = (part: number, total: number) =>
   total > 0 ? `${((part / total) * 100).toLocaleString("nl-NL", { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%` : "—";
 
@@ -79,7 +80,16 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   });
   const year = Number(sp.jaar) >= 2000 && Number(sp.jaar) <= 2100 ? Number(sp.jaar) : (last?.periodStart.getUTCFullYear() ?? new Date().getUTCFullYear() - 1);
   const part = (PERIOD_PARTS.some((p) => p.value === sp.deel) ? sp.deel : "jaar") as PeriodPart;
-  const inv = await loadInventory(year, part, sp.type === "TTW" || sp.type === "WTW" ? (sp.type as EmissionType) : undefined);
+  const type = sp.type === "TTW" || sp.type === "WTW" ? (sp.type as EmissionType) : undefined;
+  const [inv, prevInv] = await Promise.all([loadInventory(year, part, type), loadInventory(year - 1, part, type)]);
+  const checks = inventoryChecks({
+    year,
+    months: part === "jaar" ? 12 : part.startsWith("H") ? 6 : 3,
+    lines: inv.lines,
+    previous: prevInv.lines.length ? prevInv.lines : null,
+    fte: inv.fte,
+    locationBasedConfigured: !!inv.locationBased,
+  });
   const by = (s: 1 | 2 | 3) => inv.lines.filter((l) => l.scope === s);
   const periodLabel = PERIOD_PARTS.find((p) => p.value === part)?.label ?? "Heel jaar";
   const perFte = inv.fte ? inv.totalKg / 1000 / inv.fte : null;
@@ -116,10 +126,55 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         ))}
       </section>
 
-      {inv.missingFactor > 0 && (
-        <p className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {inv.missingFactor} verbruiksregel(s) zonder emissiefactor voor {year}: die tellen niet mee. Voeg de factor toe bij Emissiefactoren.
-        </p>
+      {inv.lines.length > 0 && (
+        <details className="card mb-6" open={checks.some((c) => c.level !== "info")}>
+          <summary className="cursor-pointer font-semibold">
+            Controle datakwaliteit {year}:{" "}
+            {checks.length === 0 ? (
+              <span className="text-green-700">geen opmerkingen</span>
+            ) : (
+              <span className="font-normal text-neutral-700">
+                {[
+                  [checks.filter((c) => c.level === "error").length, "fout(en)", "text-brand-red"],
+                  [checks.filter((c) => c.level === "warning").length, "aandachtspunt(en)", "text-amber-700"],
+                  [checks.filter((c) => c.level === "info").length, "toelichting(en) gevraagd", "text-neutral-600"],
+                ]
+                  .filter(([n]) => n)
+                  .map(([n, l, cls]) => (
+                    <span key={String(l)} className={`mr-2 ${cls}`}>
+                      {n} {l}
+                    </span>
+                  ))}
+              </span>
+            )}
+          </summary>
+          <ul className="mt-3 space-y-1 text-sm">
+            {checks.map((c, i) => (
+              <li key={i} className="flex gap-2">
+                <span
+                  className={`mt-1.5 inline-block size-2 shrink-0 rounded-full ${c.level === "error" ? "bg-brand-red" : c.level === "warning" ? "bg-amber-500" : "bg-neutral-400"}`}
+                  aria-hidden
+                />
+                <span>
+                  <span className="sr-only">{c.level === "error" ? "Fout: " : c.level === "warning" ? "Aandachtspunt: " : "Toelichting: "}</span>
+                  {c.text}
+                  {c.carrierId && (
+                    <>
+                      {" "}
+                      <a href={`/co2/factoren/${c.carrierId}`} className="text-xs">
+                        energiedrager →
+                      </a>
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-neutral-500">
+            Controle op ontbrekende of verouderde emissiefactoren, ontbrekende maanden en stromen, en verschillen van meer dan 25 % met {year - 1} (stromen
+            vanaf 5 t CO2). Leg de toelichting vast in het DKMP of bij de verbruiksregel.
+          </p>
+        </details>
       )}
 
       <div className="mb-6 grid gap-4 lg:grid-cols-3">

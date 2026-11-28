@@ -123,9 +123,11 @@ export function StatCard({
   );
 }
 
-export function ProgressBar({ value }: { value: number }) {
+/** Voortgangsbalk; kleur naar percentage, of expliciet met `tone` (bijv. op koers = good, ook als het doel nog ver weg is). */
+export function ProgressBar({ value, tone }: { value: number; tone?: "good" | "warn" | "bad" }) {
   const pct = Math.max(0, Math.min(100, Math.round(value)));
-  const color = pct >= 80 ? "bg-green-600" : pct >= 50 ? "bg-amber-500" : "bg-brand-red";
+  const t = tone ?? (pct >= 80 ? "good" : pct >= 50 ? "warn" : "bad");
+  const color = t === "good" ? "bg-green-600" : t === "warn" ? "bg-amber-500" : "bg-brand-red";
   return (
     <div className="flex items-center gap-2" title={`${pct}%`}>
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-200">

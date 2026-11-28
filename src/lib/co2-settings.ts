@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import type { EmissionType } from "@/lib/co2";
@@ -21,9 +22,10 @@ export function parseCo2Settings(value: string | null | undefined): Co2Settings 
   }
 }
 
-export async function getCo2Settings(): Promise<Co2Settings> {
+/** Eén keer per verzoek gelezen (React cache). */
+export const getCo2Settings = cache(async (): Promise<Co2Settings> => {
   const row = await prisma.appSetting.findUnique({ where: { key: CO2_SETTINGS_KEY } });
   return parseCo2Settings(row?.value);
-}
+});
 
 export const asEmissionType = (s: Co2Settings): EmissionType => s.emissionType;

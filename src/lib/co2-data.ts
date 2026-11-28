@@ -1,6 +1,18 @@
+import { cache } from "react";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { carrierGroup, computeFootprint, factorForType, periodRange, type EmissionType, type FactorRow, type PeriodPart } from "@/lib/co2";
+import {
+  carrierGroup,
+  computeFootprint,
+  factorAt,
+  factorDate,
+  factorForType,
+  monthsCovered,
+  periodRange,
+  type EmissionType,
+  type FactorRow,
+  type PeriodPart,
+} from "@/lib/co2";
 import { getCo2Settings } from "@/lib/co2-settings";
 
 export type FootprintFilter = { disciplineId?: string; locationId?: string; scope?: 1 | 2 | 3 };
@@ -11,16 +23,24 @@ export type FootprintFilter = { disciplineId?: string; locationId?: string; scop
  */
 export async function loadFactors(type?: EmissionType): Promise<FactorRow[]> {
   const t = type ?? (await getCo2Settings()).emissionType;
-  const rows = await prisma.emissionFactor.findMany({ select: { carrierId: true, factor: true, ttw: true, wtt: true, biogenic: true, validFrom: true } });
+  return factorsFor(t);
+}
+
+/** Alle factoren één keer per verzoek uit de database (React cache), daarna per type omgerekend. */
+const allFactorRows = cache(() =>
+  prisma.emissionFactor.findMany({ select: { carrierId: true, factor: true, ttw: true, wtt: true, biogenic: true, validFrom: true } }),
+);
+const factorsFor = cache(async (t: EmissionType): Promise<FactorRow[]> => {
+  const rows = await allFactorRows();
   return rows.flatMap((f) => {
     const v = factorForType({ factor: Number(f.factor), ttw: f.ttw === null ? null : Number(f.ttw), wtt: f.wtt === null ? null : Number(f.wtt) }, t);
     return v === null ? [] : [{ carrierId: f.carrierId, factor: v, validFrom: f.validFrom }];
   });
-}
+});
 
 /** Biogene factoren (apart gerapporteerd). */
 async function loadBiogenicFactors(): Promise<FactorRow[]> {
-  const rows = await prisma.emissionFactor.findMany({ where: { biogenic: { not: null } }, select: { carrierId: true, biogenic: true, validFrom: true } });
+  const rows = (await allFactorRows()).filter((f) => f.biogenic !== null);
   return rows.map((f) => ({ carrierId: f.carrierId, factor: Number(f.biogenic), validFrom: f.validFrom }));
 }
 
@@ -120,9 +140,11 @@ export async function targetStatus(t: TargetLike, factors?: FactorRow[], now = n
   for (let y = t.baseYear; y <= lastYear; y++) {
     const fp = y === t.baseYear ? base : await loadFootprint(y, "jaar", filter, f);
     const p = targetProgress({ baseKg, currentKg: fp.totalKg, reductionPct: Number(t.reductionPct), baseYear: t.baseYear, targetYear: t.targetYear, year: y });
-    years.push({ year: y, kg: fp.totalKg, missingFactor: fp.missingFactor, complete: y < currentYear, ...p });
+    const hasData = fp.rows.length > 0;
+    years.push({ year: y, kg: fp.totalKg, missingFactor: fp.missingFactor, complete: y < currentYear, hasData, ...p, onTrack: hasData ? p.onTrack : null });
   }
-  const latestFull = [...years].reverse().find((y) => y.complete && y.year > t.baseYear) ?? null;
+  // Een jaar zonder verbruik is geen "100 % reductie" maar ontbrekende gegevens.
+  const latestFull = [...years].reverse().find((y) => y.complete && y.hasData && y.year > t.baseYear) ?? null;
   return { baseKg, baseFromData: t.baselineKg === null || t.baselineKg === undefined, years, latestFull };
 }
 
@@ -138,6 +160,10 @@ export type InventoryLine = {
   gj: number | null;
   wttKg: number;
   missing: number;
+  /** Jaar van de gebruikte emissiefactor (op het begin van de periode); null = geen factor. */
+  factorYear: number | null;
+  /** Maanden van de periode waarin verbruik is vastgelegd (voor de controle op volledigheid). */
+  coveredMonths: number;
 };
 
 /**
@@ -154,7 +180,7 @@ export async function loadInventory(year: number, part: PeriodPart = "jaar", typ
       id: r.id,
       carrierId: r.carrierId,
       quantity: r.quantity,
-      periodStart: r.c.periodStart,
+      periodStart: factorDate(r.c.periodStart, fp.range.start),
       periodEnd: r.c.periodEnd,
       scope: r.scope,
       carrierScope: r.scope,
@@ -167,7 +193,7 @@ export async function loadInventory(year: number, part: PeriodPart = "jaar", typ
       id: r.id,
       carrierId: r.carrierId,
       quantity: r.quantity,
-      periodStart: r.c.periodStart,
+      periodStart: factorDate(r.c.periodStart, fp.range.start),
       periodEnd: r.c.periodEnd,
       scope: r.scope,
       carrierScope: r.scope,
@@ -178,6 +204,7 @@ export async function loadInventory(year: number, part: PeriodPart = "jaar", typ
   const wttById = new Map(wtt.rows.map((r) => [r.id, r.kg ?? 0]));
 
   const lines = new Map<string, InventoryLine>();
+  const months = new Map<string, Set<number>>();
   for (const r of fp.rows) {
     const key = `${r.carrierId}|${r.scope}`;
     const cur =
@@ -194,6 +221,8 @@ export async function loadInventory(year: number, part: PeriodPart = "jaar", typ
         gj: r.c.carrier.energyPerUnit === null ? null : 0,
         wttKg: 0,
         missing: 0,
+        factorYear: factorAt(factors, r.carrierId, fp.range.start)?.validFrom.getUTCFullYear() ?? null,
+        coveredMonths: 0,
       } satisfies InventoryLine);
     cur.quantity += r.quantity;
     cur.kg += r.kg ?? 0;
@@ -201,7 +230,11 @@ export async function loadInventory(year: number, part: PeriodPart = "jaar", typ
     if (cur.gj !== null && r.c.carrier.energyPerUnit !== null) cur.gj += r.quantity * Number(r.c.carrier.energyPerUnit);
     cur.wttKg += wttById.get(r.id) ?? 0;
     lines.set(key, cur);
+    const set = months.get(key) ?? new Set<number>();
+    for (const m of monthsCovered(r.c.periodStart, r.c.periodEnd, fp.range.start, fp.range.end)) set.add(m);
+    months.set(key, set);
   }
+  for (const [k, set] of months) lines.get(k)!.coveredMonths = set.size;
   const list = [...lines.values()]
     .map((l) => ({ ...l, factorKg: l.quantity ? l.kg / l.quantity : null }))
     .sort((a, b) => a.scope - b.scope || a.name.localeCompare(b.name, "nl"));
@@ -283,3 +316,17 @@ export async function getMainTarget() {
   });
   return [...targets].sort((a, b) => b._count.measures - a._count.measures)[0] ?? null;
 }
+
+/**
+ * Standaardjaar voor overzichten: het laatste volledige kalenderjaar met verbruik
+ * (het lopende jaar is nog niet compleet en vaak nog leeg).
+ */
+export const latestDataYear = cache(async (now = new Date()): Promise<number> => {
+  const currentYear = now.getUTCFullYear();
+  const last = await prisma.energyConsumption.findFirst({
+    where: { periodStart: { lt: new Date(Date.UTC(currentYear, 0, 1)) } },
+    orderBy: { periodStart: "desc" },
+    select: { periodStart: true },
+  });
+  return last?.periodStart.getUTCFullYear() ?? currentYear - 1;
+});

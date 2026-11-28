@@ -18,7 +18,8 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   const now = new Date().getUTCFullYear();
   const firstYear = first?.periodStart.getUTCFullYear() ?? now;
   const from = Math.max(firstYear, Number(sp.van) || now - 6);
-  const data = await loadProgress(from, now);
+  // Het lopende jaar alleen tonen als er al verbruik is.
+  const data = (await loadProgress(from, now)).filter((d) => d.year < now || d.lines.length > 0);
   const target = await getMainTarget();
   const type = data[0]?.type ?? "WTW";
 
@@ -66,7 +67,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           {target && baseKg > 0 ? (
             <ul className="space-y-1 text-sm">
               {data
-                .filter((d) => d.year >= target.baseYear)
+                .filter((d) => d.year >= target.baseYear && d.lines.length > 0)
                 .map((d) => {
                   const p = targetProgress({
                     baseKg,

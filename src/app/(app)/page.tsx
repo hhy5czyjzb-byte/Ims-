@@ -633,7 +633,10 @@ export default async function DashboardPage() {
                   <Link href={`/co2/doelstellingen/${t.id}`}>{t.title}</Link>
                   {s.latestFull ? (
                     <>
-                      <ProgressBar value={Number(t.reductionPct) > 0 ? (Math.max(0, s.latestFull.actualPct) / Number(t.reductionPct)) * 100 : 0} />
+                      <ProgressBar
+                        value={Number(t.reductionPct) > 0 ? (Math.max(0, s.latestFull.actualPct) / Number(t.reductionPct)) * 100 : 0}
+                        tone={s.latestFull.onTrack ? "good" : "bad"}
+                      />
                       <div className={`text-xs ${s.latestFull.onTrack ? "text-green-700" : "text-brand-red"}`}>
                         {s.latestFull.year}: {formatPct(s.latestFull.actualPct)} van {Number(t.reductionPct)} % ·{" "}
                         {s.latestFull.onTrack ? "op koers" : "achter op schema"}

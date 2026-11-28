@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { getLookups } from "@/lib/lookups";
 import { formatQuantity, formatTonnes, groupKg, PERIOD_PARTS, type PeriodPart, formatPct } from "@/lib/co2";
-import { loadFactors, loadFootprint, targetStatus } from "@/lib/co2-data";
+import { latestDataYear, loadFactors, loadFootprint, targetStatus } from "@/lib/co2-data";
 import { SCOPE_LABEL } from "@/lib/labels";
 import { Badge, EmptyState, Field, PageHeader, ProgressBar, Select } from "@/components/ui";
 import { Co2Nav } from "@/components/co2-nav";
@@ -12,13 +12,14 @@ import { Co2Nav } from "@/components/co2-nav";
 export const metadata = { title: "CO2-footprint" };
 
 type Search = { jaar?: string; deel?: string; discipline?: string; locatie?: string };
-const SCOPE_COLOR: Record<1 | 2 | 3, string> = { 1: "bg-brand-red", 2: "bg-brand-red-dark", 3: "bg-brand-grey-dark" };
+// Zelfde kleuren als de grafieken elders (SERIES: blauw, oranje, aqua); rood blijft voor status.
+const SCOPE_COLOR: Record<1 | 2 | 3, string> = { 1: "bg-[#257de0]", 2: "bg-[#f47230]", 3: "bg-[#00b894]" };
 
 export default async function Co2Page({ searchParams }: { searchParams: Promise<Search> }) {
   const user = await requireUser();
   const sp = await searchParams;
   const currentYear = new Date().getUTCFullYear();
-  const year = Number(sp.jaar) >= 2000 && Number(sp.jaar) <= 2100 ? Number(sp.jaar) : currentYear;
+  const year = Number(sp.jaar) >= 2000 && Number(sp.jaar) <= 2100 ? Number(sp.jaar) : await latestDataYear();
   const part = (PERIOD_PARTS.some((p) => p.value === sp.deel) ? sp.deel : "jaar") as PeriodPart;
   const filter = { disciplineId: sp.discipline || undefined, locationId: sp.locatie || undefined };
 
@@ -27,7 +28,7 @@ export default async function Co2Page({ searchParams }: { searchParams: Promise<
     loadFootprint(year, part, filter, factors),
     loadFootprint(year - 1, part, filter, factors),
     getLookups(),
-    prisma.energyCarrier.findMany({ select: { id: true, name: true, unit: true, _count: { select: { factors: true } } } }),
+    prisma.energyCarrier.findMany({ select: { id: true, name: true, unit: true } }),
     prisma.reductionTarget.findMany({ where: { active: true }, orderBy: { targetYear: "asc" } }),
     prisma.environmentalAspect.count({ where: { active: true, co2Relevant: true } }),
     Promise.all(Array.from({ length: 5 }, (_, i) => currentYear - 4 + i).map(async (y) => ({ y, fp: await loadFootprint(y, "jaar", filter, factors) }))),
@@ -35,7 +36,8 @@ export default async function Co2Page({ searchParams }: { searchParams: Promise<
   const targetRows = await Promise.all(targets.map(async (t) => ({ t, s: await targetStatus(t, factors) })));
 
   const carrierById = new Map(carriers.map((c) => [c.id, c]));
-  const noFactor = carriers.filter((c) => c._count.factors === 0);
+  // Alleen energiedragers die in deze periode verbruik hebben zonder geldige factor.
+  const noFactor = [...new Set(fp.rows.filter((r) => r.kg === null).map((r) => r.carrierId))].map((id) => carrierById.get(id)!).filter(Boolean);
   const byCarrier = groupKg(fp.rows, (r) => r.carrierId);
   const byDiscipline = groupKg(fp.rows, (r) => r.c.discipline?.name ?? "Bedrijfsbreed");
   const byLocation = groupKg(fp.rows, (r) => r.c.location?.name ?? "Alle locaties / onbekend");
@@ -236,7 +238,10 @@ export default async function Co2Page({ searchParams }: { searchParams: Promise<
                   <td className="w-64">
                     {s.latestFull ? (
                       <>
-                        <ProgressBar value={Number(t.reductionPct) > 0 ? (Math.max(0, s.latestFull.actualPct) / Number(t.reductionPct)) * 100 : 0} />
+                        <ProgressBar
+                          value={Number(t.reductionPct) > 0 ? (Math.max(0, s.latestFull.actualPct) / Number(t.reductionPct)) * 100 : 0}
+                          tone={s.latestFull.onTrack ? "good" : "bad"}
+                        />
                         <div className="text-xs text-neutral-500">
                           {s.latestFull.year}: {formatPct(s.latestFull.actualPct)} gereduceerd (pad: {formatPct(s.latestFull.plannedPct)})
                         </div>
@@ -276,7 +281,7 @@ function GroupTable({ title, rows, total }: { title: string; rows: { key: string
               {r.key}
             </span>
             <span className="h-2.5 flex-1 overflow-hidden rounded bg-neutral-100">
-              <span className="block h-full rounded bg-brand-red" style={{ width: `${total ? (r.kg / total) * 100 : 0}%` }} />
+              <span className="block h-full rounded bg-[#257de0]" style={{ width: `${total ? (r.kg / total) * 100 : 0}%` }} />
             </span>
             <span className="w-20 text-right tabular-nums">{formatTonnes(r.kg)}</span>
           </li>

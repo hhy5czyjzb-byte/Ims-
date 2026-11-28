@@ -103,10 +103,12 @@ export default async function TargetDetailPage({ params }: { params: Promise<{ i
                 </td>
                 <td className="text-right whitespace-nowrap tabular-nums">{formatTonnes(y.kg)}</td>
                 <td className="text-right whitespace-nowrap tabular-nums text-neutral-500">{formatTonnes(y.allowedKg)}</td>
-                <td className="text-right tabular-nums">{y.year === t.baseYear || !y.complete ? "—" : formatPct(y.actualPct)}</td>
+                <td className="text-right tabular-nums">{y.year === t.baseYear || !y.complete || !y.hasData ? "—" : formatPct(y.actualPct)}</td>
                 <td className="text-xs">
                   {y.year === t.baseYear ? (
                     "basisjaar"
+                  ) : !y.hasData ? (
+                    <span className="text-amber-700">geen verbruik vastgelegd</span>
                   ) : !y.complete ? (
                     "nog niet compleet"
                   ) : y.onTrack ? (

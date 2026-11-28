@@ -67,7 +67,10 @@ export default async function TargetsPage() {
                 </div>
                 <div className="mt-3 grid gap-3 text-sm md:grid-cols-[1fr_auto]">
                   <div>
-                    <ProgressBar value={pct > 0 && latest ? (Math.max(0, latest.actualPct) / pct) * 100 : 0} />
+                    <ProgressBar
+                      value={pct > 0 && latest ? (Math.max(0, latest.actualPct) / pct) * 100 : 0}
+                      tone={latest ? (latest.onTrack ? "good" : "bad") : undefined}
+                    />
                     <div className="mt-1 text-xs text-neutral-500">
                       {latest
                         ? `${latest.year}: ${formatPct(latest.actualPct)} gereduceerd van ${pct} % (verwacht op dit moment: ${formatPct(latest.plannedPct)})`

@@ -21,7 +21,10 @@ export default async function ConsumptionPage({ searchParams }: { searchParams: 
   const user = await requireUser();
   const sp = await searchParams;
   const currentYear = new Date().getUTCFullYear();
-  const year = Number(sp.jaar) >= 2000 && Number(sp.jaar) <= 2100 ? Number(sp.jaar) : currentYear;
+  // Standaard het jaar van het meest recente verbruik (het lopende jaar is vaak nog leeg).
+  const latest = await prisma.energyConsumption.findFirst({ orderBy: { periodStart: "desc" }, select: { periodStart: true } });
+  const year =
+    Number(sp.jaar) >= 2000 && Number(sp.jaar) <= 2100 ? Number(sp.jaar) : Math.min(currentYear, latest?.periodStart.getUTCFullYear() ?? currentYear);
   const where: Prisma.EnergyConsumptionWhereInput = {
     periodStart: { lt: new Date(Date.UTC(year + 1, 0, 1)) },
     periodEnd: { gte: new Date(Date.UTC(year, 0, 1)) },

@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { carrierGroup, formatQuantity, overlapFraction } from "@/lib/co2";
-import { loadInventory, loadProgress } from "@/lib/co2-data";
+import { latestDataYear, loadInventory, loadProgress } from "@/lib/co2-data";
 import { PageHeader } from "@/components/ui";
 import { BarList, ChartCard, Columns } from "@/components/charts";
 import { Co2Nav } from "@/components/co2-nav";
@@ -20,8 +20,9 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
   const first = await prisma.energyConsumption.findFirst({ orderBy: { periodStart: "asc" }, select: { periodStart: true } });
   const years = yearList(first?.periodStart.getUTCFullYear() ?? null);
   const now = new Date().getUTCFullYear();
-  const year = Number(sp.jaar) >= 2000 && Number(sp.jaar) <= 2100 ? Number(sp.jaar) : now - 1;
-  const [inv, progress] = await Promise.all([loadInventory(year), loadProgress(Math.max(years[years.length - 1] ?? now, now - 5), now)]);
+  const year = Number(sp.jaar) >= 2000 && Number(sp.jaar) <= 2100 ? Number(sp.jaar) : await latestDataYear();
+  const [inv, allProgress] = await Promise.all([loadInventory(year), loadProgress(Math.max(years[years.length - 1] ?? now, now - 5), now)]);
+  const progress = allProgress.filter((d) => d.year < now || d.lines.length > 0);
 
   // Energiebeoordeling per vestiging: elektriciteit (kWh) en aardgas (m3) per jaar.
   const bYears = [year - 3, year - 2, year - 1, year].filter((y) => y >= (years[years.length - 1] ?? y));
