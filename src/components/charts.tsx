@@ -230,10 +230,16 @@ function niceStep(raw: number): number {
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
 }
 
-const nfCompact = new Intl.NumberFormat("nl-NL", { notation: "compact", maximumFractionDigits: 1 });
-/** Kort getal voor assen en labels: 1.556.388 → "1,6 mln.", 56.474 → "56K"; kleine getallen volledig. */
-function compact(v: number): string {
-  return Math.abs(v) < 100000 ? v.toLocaleString("nl-NL", { maximumFractionDigits: 1 }) : nfCompact.format(v);
+/**
+ * Getal voor assen en labels in Nederlandse notatie: tot een miljoen volledig met punten (56.474),
+ * daarboven in miljoenen ("1,56 mln"). Geen Engelse afkortingen zoals K of M.
+ */
+export function compact(v: number, axis = false): string {
+  if (Math.abs(v) >= 1_000_000) {
+    const m = v / 1_000_000;
+    return `${m.toLocaleString("nl-NL", { maximumFractionDigits: axis ? 1 : 2 })} mln`;
+  }
+  return v.toLocaleString("nl-NL", { maximumFractionDigits: Math.abs(v) < 10 ? 1 : 0 });
 }
 
 export function GroupedColumns({
@@ -255,11 +261,13 @@ export function GroupedColumns({
   const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
   const plot = height - 16;
   const palette = colors ?? sequentialRamp(series.length);
-  // Bij veel kolommen alleen de laatste reeks (bijv. het laatste jaar) als tekst; de rest via de tooltip.
+  // Bij veel kolommen één waarde per groep (de laatste reeks, bijv. het laatste jaar) boven de groep; de rest via de tooltip.
   const crowded = groups.length * series.length > 24;
+  const last = series.length - 1;
+  const barH = (v: number) => (v > 0 ? Math.max((v / top) * plot - 2, 2) : 0);
   return (
     <div>
-      <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
+      <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
         {series.map((s, i) => (
           <span key={s.name} className="inline-flex items-center gap-1.5">
             <span className="inline-block size-2.5 rounded-sm" style={{ background: palette[i] }} />
@@ -267,15 +275,20 @@ export function GroupedColumns({
           </span>
         ))}
       </div>
-      <div className="grid grid-cols-[3rem_1fr] gap-1">
-        <div className="relative text-right text-[10px] text-neutral-400" style={{ height }}>
+      <div className="grid grid-cols-[auto_1fr] gap-2">
+        <div className="relative min-w-10 text-right text-[11px] text-neutral-500" style={{ height }}>
           {ticks.map((t) => (
-            <span key={t} className="absolute right-0 -translate-y-1/2 tabular-nums" style={{ top: height - (t / top) * plot }}>
-              {compact(t)}
+            <span key={t} className="block whitespace-nowrap tabular-nums opacity-0" aria-hidden>
+              {compact(t, true)}
+            </span>
+          ))}
+          {ticks.map((t) => (
+            <span key={`v${t}`} className="absolute right-0 -translate-y-1/2 whitespace-nowrap tabular-nums" style={{ top: height - (t / top) * plot }}>
+              {compact(t, true)}
             </span>
           ))}
         </div>
-        <div>
+        <div className="min-w-0">
           <div className="relative flex items-end gap-4 border-b border-neutral-300" style={{ height }}>
             {ticks.slice(1).map((t) => (
               <span
@@ -284,29 +297,42 @@ export function GroupedColumns({
                 style={{ top: height - (t / top) * plot }}
               />
             ))}
-            {groups.map((g, gi) => (
-              <div key={g} className="relative flex h-full flex-1 items-end justify-center gap-[2px]">
-                {series.map((s, si) => {
-                  const v = s.values[gi] ?? 0;
-                  return (
-                    <div key={s.name} className="group relative flex h-full max-w-6 flex-1 flex-col items-center justify-end">
-                      {v > 0 && (!crowded || si === series.length - 1) && (
-                        <span className="mb-0.5 text-[9px] leading-none whitespace-nowrap text-neutral-600 tabular-nums">{compact(v)}</span>
-                      )}
-                      <span className="w-full rounded-t-[4px]" style={{ height: v > 0 ? Math.max((v / top) * plot - 2, 2) : 0, background: palette[si] }} />
-                      <Tip>
-                        {g} · {s.name}: {v.toLocaleString("nl-NL")}
-                        {unit}
-                      </Tip>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+            {groups.map((g, gi) => {
+              const groupMax = Math.max(0, ...series.map((s) => s.values[gi] ?? 0));
+              const lastV = series[last]?.values[gi] ?? 0;
+              return (
+                <div key={g} className="relative flex h-full min-w-0 flex-1 items-end justify-center gap-[2px]">
+                  {crowded && lastV > 0 && (
+                    <span
+                      className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded bg-white/90 px-1 text-[11px] leading-tight font-medium whitespace-nowrap text-neutral-700 tabular-nums"
+                      style={{ bottom: barH(groupMax) + 4 }}
+                    >
+                      {series.length > 1 && <span className="font-normal text-neutral-500">{series[last].name}: </span>}
+                      {compact(lastV)}
+                    </span>
+                  )}
+                  {series.map((s, si) => {
+                    const v = s.values[gi] ?? 0;
+                    return (
+                      <div key={s.name} className="group relative flex h-full max-w-6 flex-1 flex-col items-center justify-end">
+                        {v > 0 && !crowded && (
+                          <span className="mb-0.5 text-[10px] leading-none whitespace-nowrap text-neutral-600 tabular-nums">{compact(v)}</span>
+                        )}
+                        <span className="w-full rounded-t-[4px]" style={{ height: barH(v), background: palette[si] }} />
+                        <Tip>
+                          {g} · {s.name}: {v.toLocaleString("nl-NL")}
+                          {unit}
+                        </Tip>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
-          <div className="mt-1 flex gap-4 text-center text-xs text-neutral-600">
+          <div className="mt-1.5 flex gap-4 text-center text-xs leading-tight text-neutral-700">
             {groups.map((g) => (
-              <span key={g} className="line-clamp-2 flex-1 leading-tight" title={g}>
+              <span key={g} className="line-clamp-2 min-w-0 flex-1 break-words" title={g}>
                 {g}
               </span>
             ))}
@@ -326,9 +352,9 @@ export function Donut({
   unit = "",
   centerLabel,
   decimals = 0,
-  size = 180,
+  size = 160,
 }: {
-  parts: { label: string; value: number; color: string }[];
+  parts: { label: string; value: number; color: string; title?: string }[];
   unit?: string;
   centerLabel?: string;
   decimals?: number;
@@ -343,82 +369,86 @@ export function Donut({
   const C = 2 * Math.PI * r;
   let offset = 0;
   return (
-    <div className="flex flex-wrap items-center gap-6">
-      <svg
-        viewBox="0 0 100 100"
-        width={size}
-        height={size}
-        role="img"
-        aria-label={`Verdeling: ${pos.map((p) => `${p.label} ${fmt(p.value)}${unit}`).join(", ")}`}
-        className="shrink-0"
-      >
-        <g transform="rotate(-90 50 50)">
-          {pos.map((p) => {
-            const len = (p.value / total) * C;
-            const seg = (
-              <circle
-                key={p.label}
-                cx="50"
-                cy="50"
-                r={r}
-                fill="none"
-                stroke={p.color}
-                strokeWidth={w}
-                strokeDasharray={`${len} ${C - len}`}
-                strokeDashoffset={-offset}
-              >
-                <title>{`${p.label}: ${fmt(p.value)} ${unit} (${((p.value / total) * 100).toLocaleString("nl-NL", { maximumFractionDigits: 1 })}%)`}</title>
-              </circle>
-            );
-            offset += len;
-            return seg;
-          })}
-          {/* Naden van 2px tussen de segmenten */}
-          {pos.length > 1 &&
-            pos.reduce<{ at: number; lines: ReactNode[] }>(
-              (acc, p, i) => {
-                const angle = (acc.at / total) * 2 * Math.PI;
-                acc.lines.push(
-                  <line
-                    key={i}
-                    x1={50 + (r - w / 2 - 1) * Math.cos(angle)}
-                    y1={50 + (r - w / 2 - 1) * Math.sin(angle)}
-                    x2={50 + (r + w / 2 + 1) * Math.cos(angle)}
-                    y2={50 + (r + w / 2 + 1) * Math.sin(angle)}
-                    stroke="#fff"
-                    strokeWidth="1.2"
-                  />,
-                );
-                acc.at += p.value;
-                return acc;
-              },
-              { at: 0, lines: [] },
-            ).lines}
-        </g>
-        <g>
-          <text x="50" y="48" textAnchor="middle" className="fill-neutral-900" style={{ fontSize: 11, fontWeight: 700 }}>
-            {fmt(total)}
-          </text>
-          <text x="50" y="60" textAnchor="middle" className="fill-neutral-500" style={{ fontSize: 6 }}>
-            {centerLabel ?? unit.trim()}
-          </text>
-        </g>
-      </svg>
-      <ul className="min-w-0 flex-1 space-y-1 text-sm">
-        {parts.map((p) => (
-          <li key={p.label} className="flex items-start gap-2 leading-snug">
-            <span className="mt-1 inline-block size-3 shrink-0 rounded-sm" style={{ background: p.color }} aria-hidden />
-            <span className="min-w-0 flex-1 text-neutral-700">{p.label}</span>
-            <span className="whitespace-nowrap text-neutral-900 tabular-nums">
-              {fmt(p.value)}
-              {unit}
-            </span>
-            <span className="w-12 text-right text-neutral-500 tabular-nums">
-              {total ? `${((Math.max(0, p.value) / total) * 100).toLocaleString("nl-NL", { maximumFractionDigits: p.value / total < 0.01 ? 1 : 0 })}%` : ""}
-            </span>
-          </li>
-        ))}
-      </ul>
+    <div className="@container">
+      <div className="flex flex-col items-center gap-5 @[28rem]:flex-row @[28rem]:items-center">
+        <svg
+          viewBox="0 0 100 100"
+          width={size}
+          height={size}
+          role="img"
+          aria-label={`Verdeling: ${pos.map((p) => `${p.label} ${fmt(p.value)}${unit}`).join(", ")}`}
+          className="shrink-0"
+        >
+          <g transform="rotate(-90 50 50)">
+            {pos.map((p) => {
+              const len = (p.value / total) * C;
+              const seg = (
+                <circle
+                  key={p.label}
+                  cx="50"
+                  cy="50"
+                  r={r}
+                  fill="none"
+                  stroke={p.color}
+                  strokeWidth={w}
+                  strokeDasharray={`${len} ${C - len}`}
+                  strokeDashoffset={-offset}
+                >
+                  <title>{`${p.label}: ${fmt(p.value)} ${unit} (${((p.value / total) * 100).toLocaleString("nl-NL", { maximumFractionDigits: 1 })}%)`}</title>
+                </circle>
+              );
+              offset += len;
+              return seg;
+            })}
+            {/* Naden van 2px tussen de segmenten */}
+            {pos.length > 1 &&
+              pos.reduce<{ at: number; lines: ReactNode[] }>(
+                (acc, p, i) => {
+                  const angle = (acc.at / total) * 2 * Math.PI;
+                  acc.lines.push(
+                    <line
+                      key={i}
+                      x1={50 + (r - w / 2 - 1) * Math.cos(angle)}
+                      y1={50 + (r - w / 2 - 1) * Math.sin(angle)}
+                      x2={50 + (r + w / 2 + 1) * Math.cos(angle)}
+                      y2={50 + (r + w / 2 + 1) * Math.sin(angle)}
+                      stroke="#fff"
+                      strokeWidth="1.2"
+                    />,
+                  );
+                  acc.at += p.value;
+                  return acc;
+                },
+                { at: 0, lines: [] },
+              ).lines}
+          </g>
+          <g>
+            <text x="50" y="48" textAnchor="middle" className="fill-neutral-900" style={{ fontSize: 11, fontWeight: 700 }}>
+              {fmt(total)}
+            </text>
+            <text x="50" y="60" textAnchor="middle" className="fill-neutral-500" style={{ fontSize: 6 }}>
+              {centerLabel ?? unit.trim()}
+            </text>
+          </g>
+        </svg>
+        <div className="grid w-full max-w-md min-w-0 flex-1 grid-cols-[0.75rem_minmax(0,1fr)_auto_2.75rem] items-baseline gap-x-2.5 gap-y-1.5 text-sm">
+          {parts.map((p) => (
+            <div key={p.label} className="contents">
+              <span className="inline-block size-3 translate-y-0.5 rounded-sm" style={{ background: p.color }} aria-hidden />
+              <span className="leading-snug text-neutral-700" title={p.title ?? p.label}>
+                {p.label}
+              </span>
+              <span className="text-right whitespace-nowrap text-neutral-900 tabular-nums">
+                {fmt(p.value)}
+                {unit}
+              </span>
+              <span className="text-right text-neutral-500 tabular-nums">
+                {total ? `${((Math.max(0, p.value) / total) * 100).toLocaleString("nl-NL", { maximumFractionDigits: p.value / total < 0.01 ? 1 : 0 })}%` : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

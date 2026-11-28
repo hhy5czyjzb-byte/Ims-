@@ -7,6 +7,12 @@ import { categoriesOf, fleetSeries, type ManualCount, type RegisterVehicle } fro
  * Groepen hebben een vaste kleur (GROUP_ORDER), zodat dezelfde groep overal dezelfde kleur heeft.
  */
 
+/** "Brandstofverbruik wagenpark" → "Brandstof wagenpark", "Aardgasverbruik" → "Aardgas" (korter in de legenda). */
+export function shortGroup(name: string): string {
+  const short = name.replace(/^(Aardgas|Brandstof|Elektriciteit)s?verbruik\b/i, "$1").trim();
+  return short || name;
+}
+
 /** Ringgrafiek per groep (bijv. CO2-footprint of energiebalans per groep zoals tabel M1A). */
 export function GroupDonut({
   items,
@@ -25,7 +31,7 @@ export function GroupDonut({
   const ordered = [...(GROUP_ORDER as readonly string[]).filter((g) => map.has(g)), ...extra];
   return (
     <Donut
-      parts={ordered.map((g) => ({ label: g, value: map.get(g) ?? 0, color: CATEGORICAL[groupSlot(g, extra)] }))}
+      parts={ordered.map((g) => ({ label: shortGroup(g), title: g, value: map.get(g) ?? 0, color: CATEGORICAL[groupSlot(g, extra)] }))}
       unit={unit}
       centerLabel={centerLabel}
       decimals={decimals}
