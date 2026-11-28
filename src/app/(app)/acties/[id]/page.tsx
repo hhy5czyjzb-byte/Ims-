@@ -91,6 +91,14 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
         <div className="card text-sm lg:col-span-2">
           <h2 className="mb-2">Omschrijving</h2>
           <p className="whitespace-pre-line">{action.description || <span className="text-neutral-500">Geen omschrijving.</span>}</p>
+          {(action.rootCause || action.kind === "CORRECTIVE") && (
+            <>
+              <h2 className="mt-5 mb-2">Oorzaak (root cause)</h2>
+              <p className="whitespace-pre-line">
+                {action.rootCause || <span className="font-medium text-brand-red">Nog niet vastgelegd — verplicht bij een corrigerende maatregel.</span>}
+              </p>
+            </>
+          )}
           {action.result && (
             <>
               <h2 className="mt-5 mb-2">Resultaat / evaluatie</h2>

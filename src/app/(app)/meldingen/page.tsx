@@ -7,13 +7,9 @@ import { getLookups } from "@/lib/lookups";
 import { formatDate } from "@/lib/format";
 import { ACCIDENT_CATEGORIES, REPORT_GROUPS, reportDisplayCode, reportGroup } from "@/lib/reports";
 import { reportWhere, type ReportSearch } from "@/lib/report-filters";
-import { findingCode } from "@/lib/audit-plan";
 import {
   ABSENCE_CLASS,
   ABSENCE_LABEL,
-  AUDIT_TYPE_SHORT,
-  FINDING_CLASS_CLASS,
-  FINDING_CLASS_LABEL,
   REPORT_ORIGIN_LABEL,
   REPORT_SEVERITY_CLASS,
   REPORT_SEVERITY_LABEL,
@@ -70,7 +66,6 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     prisma.report.groupBy({ by: ["type"], where: { status: { in: ["NEW", "IN_PROGRESS"] } }, _count: true }),
     getLookups(),
   ]);
-  const openFindings = await prisma.auditFinding.count({ where: { status: "OPEN" } });
   const openIn = (types: ReportType[]) => openPerType.filter((g) => types.includes(g.type)).reduce((n, g) => n + g._count, 0);
 
   const header = (
@@ -79,21 +74,19 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         title="Meldingen"
         description={group.description}
         actions={
-          group.key !== "audit" ? (
-            <>
-              {canManage && (
-                <Link href="/meldingen/import" className="btn-secondary">
-                  Importeren uit Excel
-                </Link>
-              )}
-              <a
-                href={`/meldingen/export?${new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]).toString()}`}
-                className="btn-secondary"
-              >
-                Exporteren (CSV)
-              </a>
-            </>
-          ) : undefined
+          <>
+            {canManage && (
+              <Link href="/meldingen/import" className="btn-secondary">
+                Importeren uit Excel
+              </Link>
+            )}
+            <a
+              href={`/meldingen/export?${new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]).toString()}`}
+              className="btn-secondary"
+            >
+              Exporteren (CSV)
+            </a>
+          </>
         }
       />
       {can(user.role, "reports.create") && (
@@ -105,7 +98,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       )}
       <nav className="mb-6 flex flex-wrap gap-1 border-b border-neutral-200 print:hidden" aria-label="Soort meldingen">
         {REPORT_GROUPS.map((g) => {
-          const n = g.key === "audit" ? openFindings : openIn(g.types);
+          const n = openIn(g.types);
           return (
             <Link
               key={g.key}
@@ -121,117 +114,6 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <h2 className="mb-3 hidden print:block">{group.label}</h2>
     </>
   );
-
-  // ── Auditbevindingen: apart overzicht, behandeling bij de audit ──
-  if (group.key === "audit") {
-    const status = raw.status ?? "lopend";
-    const [findings, recentFindings] = await Promise.all([
-      prisma.auditFinding.findMany({
-        where: status === "CLOSED" ? { status: "CLOSED" } : status === "alle" ? {} : { status: "OPEN" },
-        orderBy: { createdAt: "desc" },
-        include: { audit: { select: { id: true, number: true, title: true, plannedDate: true, type: true } }, _count: { select: { actions: true } } },
-        take: 1000,
-      }),
-      prisma.auditFinding.findMany({
-        where: { audit: { plannedDate: { gte: yearAgo } } },
-        select: { classification: true, status: true, audit: { select: { plannedDate: true, type: true } } },
-      }),
-    ]);
-    const open = recentFindings.filter((f) => f.status === "OPEN");
-    return (
-      <>
-        {header}
-        <section className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Tile href={base({})} n={openFindings} label="open bevindingen (alle)" />
-          <Tile href={base({})} n={open.filter((f) => f.classification === "MAJOR").length} label="major open (12 mnd)" tone="text-brand-red" />
-          <Tile href={base({})} n={open.filter((f) => f.classification === "MINOR").length} label="minor open (12 mnd)" />
-          <Tile href={base({ status: "CLOSED" })} n={recentFindings.filter((f) => f.status === "CLOSED").length} label="afgehandeld (12 mnd)" />
-        </section>
-        <div className="mb-6 grid gap-4 lg:grid-cols-3">
-          <ChartCard title="Bevindingen per maand" subtitle="Laatste 12 maanden, naar classificatie (datum audit)" className="lg:col-span-2">
-            <Columns
-              periods={periods}
-              series={(["MAJOR", "MINOR", "OBSERVATION"] as const).map((c) => ({
-                name: FINDING_CLASS_LABEL[c],
-                values: months.map((m) => recentFindings.filter((f) => f.classification === c && monthKey(f.audit.plannedDate) === m.key).length),
-              }))}
-            />
-          </ChartCard>
-          <ChartCard title="Status" subtitle="Laatste 12 maanden">
-            <SegmentBar
-              parts={[
-                { label: "Open", value: open.length, color: STATUS_COLORS.open },
-                { label: "Afgehandeld", value: recentFindings.length - open.length, color: STATUS_COLORS.done },
-              ]}
-            />
-            <div className="mt-4">
-              <BarList items={countBy(recentFindings, (f) => AUDIT_TYPE_SHORT[f.audit.type], "Onbekend")} />
-            </div>
-          </ChartCard>
-        </div>
-        <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
-          <input type="hidden" name="groep" value="audit" />
-          <Field label="Status">
-            <select name="status" defaultValue={status} className="input">
-              <option value="lopend">Open</option>
-              <option value="CLOSED">Afgehandeld</option>
-              <option value="alle">Alle</option>
-            </select>
-          </Field>
-          <button className="btn-secondary">Filteren</button>
-        </form>
-        {findings.length === 0 ? (
-          <EmptyState>Geen auditbevindingen met deze filters.</EmptyState>
-        ) : (
-          <div className="card overflow-x-auto p-0">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nr.</th>
-                  <th>Datum audit</th>
-                  <th>Classificatie</th>
-                  <th>Bevinding</th>
-                  <th className="text-center">Acties</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {findings.map((f) => (
-                  <tr key={f.id}>
-                    <td className="font-mono text-xs whitespace-nowrap">
-                      <Link href={`/audits/${f.auditId}/bevindingen/${f.id}`}>{findingCode(f.audit.number, f.number)}</Link>
-                    </td>
-                    <td className="whitespace-nowrap">{formatDate(f.audit.plannedDate)}</td>
-                    <td>
-                      <Badge className={FINDING_CLASS_CLASS[f.classification]}>{FINDING_CLASS_LABEL[f.classification]}</Badge>
-                    </td>
-                    <td>
-                      <Link href={`/audits/${f.auditId}/bevindingen/${f.id}`} className="font-medium">
-                        {f.description.length > 160 ? `${f.description.slice(0, 160)}…` : f.description}
-                      </Link>
-                      <div className="text-xs text-neutral-500">
-                        {AUDIT_TYPE_SHORT[f.audit.type]} · {f.audit.title}
-                      </div>
-                    </td>
-                    <td className="text-center tabular-nums">{f._count.actions}</td>
-                    <td>
-                      <Badge className={f.status === "OPEN" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"}>
-                        {f.status === "OPEN" ? "Open" : "Afgehandeld"}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <p className="mt-2 text-xs text-neutral-500">
-          {findings.length} bevinding{findings.length === 1 ? "" : "en"}. Bevindingen behandel je bij de audit (oorzaakanalyse en acties); ze tellen niet mee in
-          de meldingen.
-        </p>
-      </>
-    );
-  }
 
   // ── Meldingen van deze groep ──
   const types = group.types;

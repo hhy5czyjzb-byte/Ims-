@@ -1,6 +1,7 @@
 "use server";
 
 import { disciplineMap } from "@/lib/masterdata";
+import { rootCauseProblem } from "@/lib/corrective";
 import { safeAction, UserError, type ActionResult } from "@/lib/action-result";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -27,6 +28,7 @@ const actionSchema = z.object({
   deadline: optionalDate,
   disciplineId: optionalId,
   locationId: optionalId,
+  rootCause: optionalText,
   requirementIds: z.array(z.string().min(1)).max(500),
 });
 
@@ -34,6 +36,8 @@ export async function createAction(formData: FormData): Promise<ActionResult> {
   return safeAction(async () => {
     const user = await requirePermission("actions.create");
     const { requirementIds, ...data } = parseForm(actionSchema, formData, ["requirementIds"]);
+    const problem = rootCauseProblem(data.kind, data.rootCause);
+    if (problem) throw new UserError(problem);
     const action = await prisma.action.create({
       data: { ...data, createdById: user.id, requirements: { connect: requirementIds.map((id) => ({ id })) } },
     });
@@ -63,6 +67,8 @@ export async function updateAction(id: string, formData: FormData): Promise<Acti
   return safeAction(async () => {
     const { user, action } = await loadEditable(id);
     const { requirementIds, ...data } = parseForm(updateSchema, formData, ["requirementIds"]);
+    const problem = rootCauseProblem(data.kind, data.rootCause);
+    if (problem) throw new UserError(problem);
     const completedAt = data.status === "DONE" ? (action.completedAt ?? new Date()) : null;
     await prisma.action.update({
       where: { id },

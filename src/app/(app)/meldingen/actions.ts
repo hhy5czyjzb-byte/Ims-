@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 import { ActionKind, ActionPriority, InjuryLevel, Prisma, ReportOrigin, ReportSeverity, ReportType } from "@prisma/client";
+import { rootCauseProblem } from "@/lib/corrective";
 import { safeAction, UserError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { requirePermission, requireUser } from "@/lib/auth";
@@ -239,6 +240,7 @@ const actionSchema = z.object({
   title: requiredText(300),
   description: optionalText,
   kind: z.enum(ActionKind).default("CORRECTIVE"),
+  rootCause: optionalText,
   ownerId: optionalId,
   ownerText: optionalText,
   deadline: optionalDate,
@@ -249,7 +251,10 @@ export async function createReportAction(id: string, formData: FormData): Promis
   return safeAction(async () => {
     const user = await requirePermission("actions.create");
     const { report } = await loadEditable(id);
-    const data = parseForm(actionSchema, formData);
+    const parsed = parseForm(actionSchema, formData);
+    const data = { ...parsed, rootCause: parsed.rootCause ?? (parsed.kind === "CORRECTIVE" ? report.rootCause : null) };
+    const problem = rootCauseProblem(data.kind, data.rootCause);
+    if (problem) throw new UserError(`${problem} Vul de oorzaakanalyse bij de melding of bij deze actie in.`);
     const action = await prisma.action.create({
       data: {
         ...data,

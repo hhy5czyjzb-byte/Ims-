@@ -271,6 +271,13 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
                   defaultValue={r.severity === "HIGH" || r.severity === "SEVERE" ? "HIGH" : "MEDIUM"}
                 />
               </Field>
+              <Field
+                label="Oorzaak (root cause) — verplicht bij een corrigerende maatregel"
+                className="md:col-span-4"
+                hint={r.rootCause ? "Leeg laten = de oorzaakanalyse van de melding wordt overgenomen." : undefined}
+              >
+                <textarea name="rootCause" rows={2} className="input" placeholder={r.rootCause ?? "Welke oorzaak neemt deze maatregel weg?"} />
+              </Field>
               <Field label="Toelichting" className="md:col-span-3">
                 <input name="description" maxLength={5000} className="input" />
               </Field>

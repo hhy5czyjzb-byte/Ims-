@@ -7,7 +7,9 @@ import { can } from "@/lib/rbac";
 import { compareRequirementFlat, getLookups } from "@/lib/lookups";
 import { formatDate, formatDateTime, isOverdue, toDateInput } from "@/lib/format";
 import { auditCode, findingCode } from "@/lib/audit-plan";
+import { findingCloseProblems } from "@/lib/corrective";
 import {
+  ACTION_KIND_LABEL,
   ACTION_PRIORITY_LABEL,
   ACTION_STATUS_CLASS,
   ACTION_STATUS_LABEL,
@@ -37,8 +39,8 @@ export default async function FindingPage({ params }: { params: Promise<{ id: st
 
   const canEdit = can(user.role, "audits.edit");
   const code = findingCode(finding.audit.number, finding.number);
-  const openActions = finding.actions.filter((a) => a.status === "OPEN" || a.status === "IN_PROGRESS").length;
   const late = finding.status === "OPEN" && isOverdue(finding.dueDate);
+  const closeProblems = findingCloseProblems(finding);
 
   const lookups = await getLookups();
   const requirementOptions = canEdit
@@ -127,7 +129,11 @@ export default async function FindingPage({ params }: { params: Promise<{ id: st
       </div>
 
       <section className="card mt-4">
-        <h2 className="mb-3">Corrigerende maatregelen (acties)</h2>
+        <h2 className="mb-1">Correcties en corrigerende maatregelen</h2>
+        <p className="mb-3 text-sm text-neutral-600">
+          <b>Correctie</b>: het directe probleem oplossen. <b>Corrigerende maatregel</b>: de oorzaak wegnemen zodat het niet terugkomt (oorzaakanalyse
+          verplicht). Bij een major of minor is minstens één corrigerende maatregel nodig.
+        </p>
         {finding.actions.length === 0 ? (
           <p className="mb-3 text-sm text-neutral-500">Nog geen acties.</p>
         ) : (
@@ -139,6 +145,14 @@ export default async function FindingPage({ params }: { params: Promise<{ id: st
                     <Link href={`/acties/${a.id}`}>
                       #{a.number} {a.title}
                     </Link>
+                    {a.rootCause && <div className="text-xs text-neutral-500">Oorzaak: {a.rootCause}</div>}
+                  </td>
+                  <td>
+                    <Badge
+                      className={a.kind === "CORRECTIVE" ? "bg-brand-red text-white" : a.kind === "CORRECTION" ? "bg-amber-100 text-amber-900" : undefined}
+                    >
+                      {ACTION_KIND_LABEL[a.kind]}
+                    </Badge>
                   </td>
                   <td className="text-neutral-600">{a.owner?.name ?? "—"}</td>
                   <td
@@ -154,17 +168,32 @@ export default async function FindingPage({ params }: { params: Promise<{ id: st
             </tbody>
           </table>
         )}
-        {openActions > 0 && finding.status === "OPEN" && (
-          <p className="mb-3 text-xs text-neutral-500">Afhandelen kan zodra alle acties gereed of vervallen zijn.</p>
+        {finding.status === "OPEN" && closeProblems.length > 0 && (
+          <ul className="mb-3 list-disc space-y-0.5 pl-5 text-xs text-amber-800">
+            {closeProblems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
         )}
         {can(user.role, "actions.create") && finding.status === "OPEN" && (
           <Form
             resetOnSuccess
             action={createFindingAction.bind(null, id, findingId)}
-            className="grid gap-2 border-t border-neutral-100 pt-3 md:grid-cols-[1fr_12rem_10rem_8rem_auto] md:items-end"
+            className="grid gap-2 border-t border-neutral-100 pt-3 md:grid-cols-[12rem_1fr_12rem_10rem_8rem_auto] md:items-end"
           >
+            <Field label="Soort">
+              <select
+                name="kind"
+                className="input"
+                defaultValue={finding.actions.some((a) => a.kind === "CORRECTIVE") || finding.classification === "OBSERVATION" ? "CORRECTION" : "CORRECTIVE"}
+              >
+                <option value="CORRECTION">Correctie (direct oplossen)</option>
+                <option value="CORRECTIVE">Corrigerende maatregel (oorzaak wegnemen)</option>
+                <option value="IMPROVEMENT">Verbetering / preventief</option>
+              </select>
+            </Field>
             <Field label="Nieuwe actie">
-              <input name="title" required maxLength={300} className="input" placeholder="Corrigerende maatregel" />
+              <input name="title" required maxLength={300} className="input" placeholder="Wat wordt er gedaan?" />
             </Field>
             <Field label="Eigenaar">
               <Select name="ownerId" options={lookups.users} placeholder="— Kies —" />
@@ -176,6 +205,17 @@ export default async function FindingPage({ params }: { params: Promise<{ id: st
               <Select name="priority" options={options(ACTION_PRIORITY_LABEL)} defaultValue={finding.classification === "MAJOR" ? "HIGH" : "MEDIUM"} />
             </Field>
             <SubmitButton variant="secondary">Actie toevoegen</SubmitButton>
+            <Field
+              label="Oorzaak (root cause) — bij een corrigerende maatregel"
+              className="md:col-span-6"
+              hint={
+                finding.rootCause
+                  ? "Leeg laten = de oorzaakanalyse van de bevinding wordt overgenomen."
+                  : "Of vul eerst de oorzaakanalyse bij de bevinding in (hieronder)."
+              }
+            >
+              <textarea name="rootCause" rows={2} className="input" placeholder={finding.rootCause ?? "Welke oorzaak neemt deze maatregel weg?"} />
+            </Field>
           </Form>
         )}
       </section>

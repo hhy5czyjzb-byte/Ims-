@@ -13,7 +13,7 @@ import { optionalDate, optionalId, optionalText, parseForm, requiredText } from 
 import { addMonths } from "@/lib/compliance";
 import { disciplineMap } from "@/lib/masterdata";
 import { OBJECTIVE_STATUS_LABEL } from "@/lib/labels";
-import { objectiveDisplayCode, parseNumber, parseObjectiveCategory, parseObjectiveStatus } from "@/lib/objectives";
+import { objectiveDisplayCode, smartCheck, type SmartInput, parseNumber, parseObjectiveCategory, parseObjectiveStatus } from "@/lib/objectives";
 import type { ImportResult, ImportRow } from "@/lib/spreadsheet-import";
 
 function revalidate(id?: string) {
@@ -42,6 +42,8 @@ const objectiveSchema = z.object({
   description: optionalText,
   category: z.enum(ObjectiveCategory),
   indicator: optionalText,
+  acceptance: optionalText,
+  feasibility: optionalText,
   baselineText: optionalText,
   targetText: optionalText,
   unit: optionalText,
@@ -60,11 +62,18 @@ const objectiveSchema = z.object({
   requirementIds: z.array(z.string().min(1)).max(500),
 });
 
+/** Een doelstelling moet SMART zijn; anders een duidelijke melding met wat er ontbreekt. */
+function assertSmart(data: SmartInput) {
+  const check = smartCheck(data);
+  if (!check.ok) throw new UserError(`De doelstelling is nog niet SMART. Vul nog in: ${check.missing.join("; ")}.`);
+}
+
 export async function createObjective(formData: FormData): Promise<ActionResult> {
   let id = "";
   const r = await safeAction(async () => {
     const user = await requirePermission("objectives.edit");
     const { normIds, requirementIds, ...data } = parseForm(objectiveSchema, formData, ["normIds", "requirementIds"]);
+    assertSmart(data);
     const o = await prisma.objective.create({
       data: {
         ...data,
@@ -96,6 +105,7 @@ export async function updateObjective(id: string, formData: FormData): Promise<A
       "requirementIds",
     ]);
     const { active, ...rest } = data;
+    assertSmart(rest);
     const o = await prisma.objective.update({
       where: { id },
       data: {
@@ -257,6 +267,7 @@ export async function importObjectives(rowsInput: ImportRow[], options: { update
     let created = 0;
     let updated = 0;
     let skipped = 0;
+    let notSmart = 0;
     for (const input of rowsInput) {
       const p = importRowSchema.safeParse(input);
       if (!p.success) {
@@ -304,6 +315,7 @@ export async function importObjectives(rowsInput: ImportRow[], options: { update
             });
         if (existing) updated++;
         else created++;
+        if (!smartCheck(obj).ok) notSmart++;
         if (status && status !== obj.status) {
           const now = new Date();
           await prisma.objectiveReview.create({
@@ -320,6 +332,7 @@ export async function importObjectives(rowsInput: ImportRow[], options: { update
         warnings.push(`Rij ${r.rowNumber}: opslaan mislukt — overgeslagen`);
       }
     }
+    if (notSmart) warnings.unshift(`${notSmart} doelstelling(en) zijn nog niet SMART (zie het kenmerk in de lijst) — vul die aan op de detailpagina.`);
     await logAudit({
       user,
       action: "CREATE",

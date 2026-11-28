@@ -9,6 +9,7 @@ import { actionOrigin } from "@/lib/action-origin";
 import { actionOriginInclude, actionWhere, type ActionSearch } from "@/lib/action-filters";
 import { ACTION_KIND_LABEL, ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_CLASS, ACTION_STATUS_LABEL, options } from "@/lib/labels";
 import { Badge, Disclosure, EmptyState, Field, PageHeader, Select } from "@/components/ui";
+import { FindingOverview } from "@/components/finding-overview";
 import { BarList, ChartCard, Columns, lastMonths, monthKey, SegmentBar } from "@/components/charts";
 import { ActionForm } from "@/components/action-form";
 import { createAction } from "./actions";
@@ -18,6 +19,37 @@ export const metadata = { title: "Acties" };
 export default async function ActionsPage({ searchParams }: { searchParams: Promise<ActionSearch> }) {
   const user = await requireUser();
   const sp = await searchParams;
+  const tab = (sp as { tab?: string }).tab === "audit" ? "audit" : "acties";
+  const openFindings = await prisma.auditFinding.count({ where: { status: "OPEN" } });
+  const tabs = (
+    <nav className="mb-6 flex flex-wrap gap-1 border-b border-neutral-200 print:hidden" aria-label="Acties en maatregelen">
+      {[
+        { key: "acties", href: "/acties", label: "Acties en maatregelen" },
+        { key: "audit", href: "/acties?tab=audit", label: "Auditbevindingen", n: openFindings },
+      ].map((t) => (
+        <Link
+          key={t.key}
+          href={t.href}
+          className={`-mb-px border-b-2 px-3 py-2 text-sm no-underline ${t.key === tab ? "border-brand-red font-semibold text-brand-red-dark" : "border-transparent text-neutral-600 hover:text-neutral-900"}`}
+        >
+          {t.label}
+          {t.n ? <span className="ml-1.5 rounded-full bg-neutral-100 px-1.5 text-xs text-neutral-600 tabular-nums">{t.n}</span> : null}
+        </Link>
+      ))}
+    </nav>
+  );
+  if (tab === "audit") {
+    return (
+      <>
+        <PageHeader
+          title="Actielijst"
+          description="Auditbevindingen en hun opvolging: correcties (direct oplossen) en corrigerende maatregelen (oorzaak wegnemen, met oorzaakanalyse). De bevinding zelf handel je af bij de audit."
+        />
+        {tabs}
+        <FindingOverview status={sp.status} />
+      </>
+    );
+  }
   const status = sp.status ?? "lopend";
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -32,7 +64,7 @@ export default async function ActionsPage({ searchParams }: { searchParams: Prom
     }),
     prisma.action.findMany({
       where: { status: { in: ["OPEN", "IN_PROGRESS"] } },
-      select: { status: true, deadline: true, ownerId: true, ownerText: true, source: true },
+      select: { status: true, deadline: true, ownerId: true, ownerText: true, source: true, kind: true, rootCause: true },
     }),
     prisma.action.findMany({
       where: { OR: [{ completedAt: { gte: yearAgo } }, { createdAt: { gte: yearAgo } }] },
@@ -82,13 +114,20 @@ export default async function ActionsPage({ searchParams }: { searchParams: Prom
           </>
         }
       />
+      {tabs}
 
-      <section className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <section className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <Tile href="/acties" n={summary.length} label="lopend" />
         <Tile href="/acties?status=verlopen" n={overdue} label="deadline verstreken" tone={overdue ? "text-brand-red" : ""} />
         <Tile href="/acties?status=week" n={thisWeek} label="deadline binnen 7 dagen" tone={thisWeek ? "text-amber-700" : ""} />
         <Tile href="/acties?eigenaar=geen" n={noOwner} label="zonder eigenaar" tone={noOwner ? "text-amber-700" : ""} />
         <Tile href="/acties?eigenaar=mij" n={summary.filter((a) => a.ownerId === user.id).length} label="mijn lopende acties" />
+        <Tile
+          href="/acties?soort=CORRECTIVE&oorzaak=geen"
+          n={summary.filter((a) => a.kind === "CORRECTIVE" && !a.rootCause?.trim()).length}
+          label="corrigerende maatregel zonder oorzaak"
+          tone={summary.some((a) => a.kind === "CORRECTIVE" && !a.rootCause?.trim()) ? "text-brand-red" : ""}
+        />
       </section>
 
       <div className="mb-6 grid gap-4 lg:grid-cols-3">

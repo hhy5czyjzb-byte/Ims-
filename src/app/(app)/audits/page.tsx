@@ -62,9 +62,14 @@ export default async function AuditsPage({ searchParams }: { searchParams: Promi
         title="Audits"
         description="Interne audits, externe audits door de certificatie-instelling en klantaudits in één planning, met checklist per norm en bevindingen met opvolging via acties."
         actions={
-          <Link href="/audits/cyclus" className="btn-secondary">
-            Auditplanning certificatiecyclus
-          </Link>
+          <>
+            <Link href="/acties?tab=audit" className="btn-secondary">
+              Opvolging bevindingen (actielijst)
+            </Link>
+            <Link href="/audits/cyclus" className="btn-secondary">
+              Auditplanning certificatiecyclus
+            </Link>
+          </>
         }
       />
       <AuditCharts />

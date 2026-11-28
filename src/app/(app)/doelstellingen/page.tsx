@@ -5,12 +5,13 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { formatDate } from "@/lib/format";
 import { OBJECTIVE_CATEGORY_CLASS, OBJECTIVE_CATEGORY_LABEL, OBJECTIVE_STATUS_CLASS, OBJECTIVE_STATUS_LABEL, options } from "@/lib/labels";
-import { BAD, FINAL_STATUSES, GOOD, STATUS_COLOR, STATUS_ORDER, WARN, objectiveDisplayCode, objectiveProgress } from "@/lib/objectives";
+import { smartCheck, BAD, FINAL_STATUSES, GOOD, STATUS_COLOR, STATUS_ORDER, WARN, objectiveDisplayCode, objectiveProgress } from "@/lib/objectives";
 import { objectiveWhere, type ObjectiveSearch } from "@/lib/objective-filters";
 import { getObjectiveLookups } from "@/lib/objective-data";
 import { Badge, Disclosure, EmptyState, Field, PageHeader, ProgressBar, Select } from "@/components/ui";
 import { ChartCard, SegmentBar } from "@/components/charts";
 import { ObjectiveForm } from "@/components/objective-form";
+import { SmartBadge } from "@/components/smart-badge";
 import { createObjective } from "./actions";
 
 export const metadata = { title: "Doelstellingen" };
@@ -96,6 +97,7 @@ export default async function ObjectivesPage({ searchParams }: { searchParams: P
   const count = (set: ObjectiveStatus[]) => all.filter((o) => set.includes(o.status)).length;
   const finals = all.filter((o) => FINAL_STATUSES.includes(o.status));
   const achievedPct = finals.length ? Math.round((finals.filter((o) => o.status === "ACHIEVED").length / finals.length) * 100) : null;
+  const notSmart = all.filter((o) => !smartCheck(o).ok).length;
   const overdue = all.filter((o) => o.nextReviewDate && o.nextReviewDate < now && !FINAL_STATUSES.includes(o.status)).length;
   const exportQuery = new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]).toString();
 
@@ -126,12 +128,13 @@ export default async function ObjectivesPage({ searchParams }: { searchParams: P
         </div>
       )}
 
-      <section className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <section className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         <Tile href="/doelstellingen?status=alle" n={all.length} label="doelstellingen (actief)" />
         <Tile href="/doelstellingen?status=ON_TRACK" n={count(GOOD)} label="op koers of behaald" tone="text-green-700" />
         <Tile href="/doelstellingen?status=aandacht" n={count(WARN)} label="aandacht / deels" tone={count(WARN) ? "text-amber-700" : ""} />
         <Tile href="/doelstellingen?status=OFF_TRACK" n={count(BAD)} label="achter / niet behaald" tone={count(BAD) ? "text-brand-red" : ""} />
         <Tile href="/doelstellingen?status=NOT_ASSESSED" n={count(["NOT_ASSESSED"])} label="nog niet beoordeeld" />
+        <Tile href="/doelstellingen?status=alle&smart=nee" n={notSmart} label="nog niet SMART" tone={notSmart ? "text-amber-700" : ""} />
         <Tile href="/doelstellingen?toetsing=verlopen" n={overdue} label="beoordeling verlopen" tone={overdue ? "text-brand-red" : ""} />
       </section>
 
@@ -199,6 +202,7 @@ export default async function ObjectivesPage({ searchParams }: { searchParams: P
                 <th>Nr.</th>
                 <th>Doelstelling</th>
                 <th>Categorie</th>
+                <th>SMART</th>
                 <th>Eigenaar</th>
                 <th>Termijn</th>
                 <th className="w-40">Voortgang</th>
@@ -207,42 +211,47 @@ export default async function ObjectivesPage({ searchParams }: { searchParams: P
               </tr>
             </thead>
             <tbody>
-              {list.map((o) => {
-                const prog = objectiveProgress(
-                  o.baselineValue === null ? null : Number(o.baselineValue),
-                  o.targetValue === null ? null : Number(o.targetValue),
-                  o.currentValue === null ? null : Number(o.currentValue),
-                );
-                const late = o.nextReviewDate && o.nextReviewDate < now && !FINAL_STATUSES.includes(o.status) && o.status !== "CANCELLED";
-                return (
-                  <tr key={o.id} className={o.active ? "" : "text-neutral-400"}>
-                    <td className="font-mono text-xs whitespace-nowrap">
-                      <Link href={`/doelstellingen/${o.id}`}>{objectiveDisplayCode(o)}</Link>
-                    </td>
-                    <td>
-                      <Link href={`/doelstellingen/${o.id}`} className="font-medium">
-                        {o.title}
-                      </Link>
-                      {(o.indicator || o.targetText) && (
-                        <div className="text-xs text-neutral-500">{[o.indicator, o.targetText && `doel: ${o.targetText}`].filter(Boolean).join(" · ")}</div>
-                      )}
-                    </td>
-                    <td>
-                      <Badge className={OBJECTIVE_CATEGORY_CLASS[o.category]}>{OBJECTIVE_CATEGORY_LABEL[o.category]}</Badge>
-                      {o.discipline && <div className="text-xs text-neutral-500">{o.discipline.name}</div>}
-                    </td>
-                    <td className="text-xs">{o.owner?.name ?? o.ownerText ?? "—"}</td>
-                    <td className="text-xs whitespace-nowrap">{o.deadline ? formatDate(o.deadline) : (o.termText ?? "—")}</td>
-                    <td>{prog ? <ProgressBar value={prog.pct} /> : <span className="text-xs text-neutral-400">—</span>}</td>
-                    <td>
-                      <Badge className={OBJECTIVE_STATUS_CLASS[o.status]}>{OBJECTIVE_STATUS_LABEL[o.status]}</Badge>
-                    </td>
-                    <td className={`text-xs whitespace-nowrap ${late ? "font-semibold text-brand-red" : ""}`}>
-                      {FINAL_STATUSES.includes(o.status) ? "—" : formatDate(o.nextReviewDate)}
-                    </td>
-                  </tr>
-                );
-              })}
+              {list
+                .filter((o) => sp.smart !== "nee" || !smartCheck(o).ok)
+                .map((o) => {
+                  const prog = objectiveProgress(
+                    o.baselineValue === null ? null : Number(o.baselineValue),
+                    o.targetValue === null ? null : Number(o.targetValue),
+                    o.currentValue === null ? null : Number(o.currentValue),
+                  );
+                  const late = o.nextReviewDate && o.nextReviewDate < now && !FINAL_STATUSES.includes(o.status) && o.status !== "CANCELLED";
+                  return (
+                    <tr key={o.id} className={o.active ? "" : "text-neutral-400"}>
+                      <td className="font-mono text-xs whitespace-nowrap">
+                        <Link href={`/doelstellingen/${o.id}`}>{objectiveDisplayCode(o)}</Link>
+                      </td>
+                      <td>
+                        <Link href={`/doelstellingen/${o.id}`} className="font-medium">
+                          {o.title}
+                        </Link>
+                        {(o.indicator || o.targetText) && (
+                          <div className="text-xs text-neutral-500">{[o.indicator, o.targetText && `doel: ${o.targetText}`].filter(Boolean).join(" · ")}</div>
+                        )}
+                      </td>
+                      <td>
+                        <Badge className={OBJECTIVE_CATEGORY_CLASS[o.category]}>{OBJECTIVE_CATEGORY_LABEL[o.category]}</Badge>
+                        {o.discipline && <div className="text-xs text-neutral-500">{o.discipline.name}</div>}
+                      </td>
+                      <td>
+                        <SmartBadge o={o} />
+                      </td>
+                      <td className="text-xs">{o.owner?.name ?? o.ownerText ?? "—"}</td>
+                      <td className="text-xs whitespace-nowrap">{o.deadline ? formatDate(o.deadline) : (o.termText ?? "—")}</td>
+                      <td>{prog ? <ProgressBar value={prog.pct} /> : <span className="text-xs text-neutral-400">—</span>}</td>
+                      <td>
+                        <Badge className={OBJECTIVE_STATUS_CLASS[o.status]}>{OBJECTIVE_STATUS_LABEL[o.status]}</Badge>
+                      </td>
+                      <td className={`text-xs whitespace-nowrap ${late ? "font-semibold text-brand-red" : ""}`}>
+                        {FINAL_STATUSES.includes(o.status) ? "—" : formatDate(o.nextReviewDate)}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

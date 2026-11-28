@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { ActionPriority, AuditStatus, AuditType, ChecklistResult, FindingClass, FindingStatus, Prisma } from "@prisma/client";
+import { findingCloseProblems, rootCauseProblem } from "@/lib/corrective";
 import { safeAction, UserError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth";
@@ -261,7 +262,7 @@ export async function createFinding(auditId: string, formData: FormData): Promis
 async function loadFinding(auditId: string, findingId: string) {
   const finding = await prisma.auditFinding.findFirst({
     where: { id: findingId, auditId },
-    include: { audit: { include: { norms: { select: { id: true } } } }, actions: { select: { status: true } } },
+    include: { audit: { include: { norms: { select: { id: true } } } }, actions: { select: { status: true, kind: true } } },
   });
   if (!finding) throw new UserError("Bevinding niet gevonden.");
   return finding;
@@ -296,11 +297,8 @@ export async function setFindingStatus(auditId: string, findingId: string, statu
     const finding = await loadFinding(auditId, findingId);
     const parsed = z.enum(FindingStatus).parse(status);
     if (parsed === "CLOSED") {
-      const open = finding.actions.filter((a) => a.status === "OPEN" || a.status === "IN_PROGRESS").length;
-      if (open) throw new UserError(`Er staan nog ${open} actie(s) open. Rond die eerst af (of zet ze op 'Vervallen').`);
-      if (finding.classification !== "OBSERVATION" && !finding.rootCause) {
-        throw new UserError("Leg eerst de oorzaakanalyse vast; die is verplicht bij een major of minor.");
-      }
+      const problems = findingCloseProblems(finding);
+      if (problems.length) throw new UserError(`Afhandelen kan nog niet: ${problems.join(" ")}`);
     }
     await prisma.auditFinding.update({ where: { id: findingId }, data: { status: parsed, closedAt: parsed === "CLOSED" ? new Date() : null } });
     await logAudit({
@@ -333,6 +331,8 @@ export async function deleteFinding(auditId: string, findingId: string): Promise
 
 const findingActionSchema = z.object({
   title: requiredText(300),
+  kind: z.enum(["CORRECTION", "CORRECTIVE", "IMPROVEMENT"]).default("CORRECTIVE"),
+  rootCause: optionalText,
   ownerId: optionalId,
   deadline: optionalDate,
   priority: z.enum(ActionPriority).default("MEDIUM"),
@@ -343,7 +343,11 @@ export async function createFindingAction(auditId: string, findingId: string, fo
   return safeAction(async () => {
     const user = await requirePermission("actions.create");
     const finding = await loadFinding(auditId, findingId);
-    const data = parseForm(findingActionSchema, formData);
+    const parsed = parseForm(findingActionSchema, formData);
+    // Oorzaak: ingevuld bij de actie, anders die van de bevinding.
+    const data = { ...parsed, rootCause: parsed.rootCause ?? (parsed.kind === "CORRECTIVE" ? finding.rootCause : null) };
+    const problem = rootCauseProblem(data.kind, data.rootCause);
+    if (problem) throw new UserError(`${problem} Vul de oorzaakanalyse bij de bevinding of bij deze actie in.`);
     const action = await prisma.action.create({
       data: {
         ...data,

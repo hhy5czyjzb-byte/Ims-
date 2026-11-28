@@ -93,8 +93,8 @@ export const ACTION_SOURCE_LABEL: Record<ActionSource, string> = {
 
 export const ACTION_KIND_LABEL: Record<ActionKind, string> = {
   TASK: "Taak",
-  CORRECTION: "Directe correctie",
-  CORRECTIVE: "Corrigerende maatregel",
+  CORRECTION: "Correctie (direct oplossen)",
+  CORRECTIVE: "Corrigerende maatregel (oorzaak wegnemen)",
   IMPROVEMENT: "Verbetering / preventief",
 };
 

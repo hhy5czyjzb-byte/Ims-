@@ -103,3 +103,40 @@ export const OBJECTIVE_IMPORT_FIELDS: ImportField[] = [
   { key: "status", label: "Status", hints: ["status", "resultaat", "stand van zaken"] },
   { key: "explanation", label: "Toelichting status (oorzaak en vervolg)", hints: ["oorzaak en vervolg", "toelichting", "opmerking", "vervolg"] },
 ];
+
+/** SMART-controle: welke letters zijn ingevuld? */
+export type SmartInput = {
+  title?: string | null;
+  description?: string | null;
+  indicator?: string | null;
+  targetText?: string | null;
+  targetValue?: unknown;
+  ownerId?: string | null;
+  ownerText?: string | null;
+  acceptance?: string | null;
+  feasibility?: string | null;
+  deadline?: Date | null;
+  termText?: string | null;
+};
+export const SMART_LETTERS = [
+  { key: "S", label: "Specifiek", hint: "wat precies (doelstelling + toelichting)" },
+  { key: "M", label: "Meetbaar", hint: "indicator en streefwaarde" },
+  { key: "A", label: "Acceptabel", hint: "eigenaar die het heeft aangenomen" },
+  { key: "R", label: "Realistisch", hint: "onderbouwing haalbaarheid en middelen" },
+  { key: "T", label: "Tijdgebonden", hint: "deadline of termijn" },
+] as const;
+export type SmartKey = (typeof SMART_LETTERS)[number]["key"];
+
+const filled = (v: unknown) => v !== null && v !== undefined && String(v).trim() !== "";
+
+export function smartCheck(o: SmartInput): { ok: boolean; letters: Record<SmartKey, boolean>; missing: string[] } {
+  const letters: Record<SmartKey, boolean> = {
+    S: filled(o.title) && filled(o.description),
+    M: filled(o.indicator) && (filled(o.targetText) || filled(o.targetValue)),
+    A: filled(o.ownerId) || filled(o.ownerText),
+    R: filled(o.feasibility),
+    T: !!o.deadline || filled(o.termText),
+  };
+  const missing = SMART_LETTERS.filter((l) => !letters[l.key]).map((l) => `${l.label} (${l.hint})`);
+  return { ok: missing.length === 0, letters, missing };
+}

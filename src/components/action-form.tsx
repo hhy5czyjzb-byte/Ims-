@@ -42,6 +42,13 @@ export function ActionForm({
       <Field label="Deadline">
         <input name="deadline" type="date" defaultValue={toDateInput(action?.deadline)} className="input" />
       </Field>
+      <Field
+        label="Oorzaak (root cause)"
+        className="md:col-span-4"
+        hint="Verplicht bij een corrigerende maatregel: welke oorzaak neemt deze maatregel weg? Bij een correctie, taak of verbetering niet nodig."
+      >
+        <textarea name="rootCause" rows={2} defaultValue={action?.rootCause ?? ""} className="input" />
+      </Field>
       <Field label="Prioriteit">
         <Select name="priority" options={options(ACTION_PRIORITY_LABEL)} defaultValue={action?.priority ?? "MEDIUM"} />
       </Field>

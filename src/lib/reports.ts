@@ -15,9 +15,9 @@ export const SAFETY_TYPES: ReportType[] = ["ACCIDENT", "NEAR_MISS", "UNSAFE_SITU
 
 /**
  * Overzichten van meldingen: gescheiden per groep (eigen lijst, tegels en grafieken).
- * Auditbevindingen staan apart (behandeling bij de audit) en tellen niet mee in de meldingen.
+ * Auditbevindingen horen niet bij de meldingen: die staan bij de audits en (opvolging) in de actielijst.
  */
-export type ReportGroupKey = "incidenten" | "klachten" | "afwijkingen" | "verbetering" | "audit";
+export type ReportGroupKey = "incidenten" | "klachten" | "afwijkingen" | "verbetering";
 export const REPORT_GROUPS: { key: ReportGroupKey; label: string; types: ReportType[]; description: string }[] = [
   {
     key: "incidenten",
@@ -38,7 +38,6 @@ export const REPORT_GROUPS: { key: ReportGroupKey; label: string; types: ReportT
     description: "Interne afwijkingen en non-conformiteiten, met oorzaakanalyse en faalkosten (ISO 9001/14001 §10.2).",
   },
   { key: "verbetering", label: "Verbetervoorstellen en overig", types: ["IMPROVEMENT", "OTHER"], description: "Verbetervoorstellen en overige meldingen." },
-  { key: "audit", label: "Auditbevindingen", types: [], description: "Bevindingen uit interne en externe audits; behandeling bij de audit." },
 ];
 export const DEFAULT_REPORT_GROUP: ReportGroupKey = "incidenten";
 export function reportGroup(key: string | undefined): (typeof REPORT_GROUPS)[number] {

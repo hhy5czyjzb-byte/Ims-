@@ -555,6 +555,7 @@ model Action {
   report                Report?              @relation(fields: [reportId], references: [id], onDelete: SetNull)
   managementReviewId    String?
   managementReview      ManagementReview?    @relation(fields: [managementReviewId], references: [id], onDelete: SetNull)
+  rootCause             String? // oorzaakanalyse (verplicht bij een corrigerende maatregel)
   objectiveId           String?
   objective             Objective?           @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
   verifiedAt            DateTime? // effectiviteit gecontroleerd op
@@ -1365,6 +1366,8 @@ model Objective {
   description          String?
   category             ObjectiveCategory
   indicator            String? // KPI / meetmethode
+  acceptance           String? // SMART – Acceptabel: afgestemd met / draagvlak
+  feasibility          String? // SMART – Realistisch: onderbouwing haalbaarheid, middelen
   baselineText         String? // nulmeting als tekst, bijv. "IF 4,5 (2024)"
   targetText           String? // streefwaarde als tekst, bijv. "IF ≤ 3,8"
   unit                 String? // eenheid bij de getallen, bijv. "%", "t CO2", "IF"

@@ -10,6 +10,8 @@ export type ActionSearch = {
   eigenaar?: string; // mij / user-id / "geen"
   discipline?: string;
   locatie?: string;
+  oorzaak?: string; // "geen" = zonder oorzaak (root cause)
+  tab?: string;
 };
 
 const startOfToday = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -45,6 +47,7 @@ export function actionWhere(sp: ActionSearch, userId: string, now = new Date()):
   else if (sp.eigenaar) and.push({ ownerId: sp.eigenaar });
   if (sp.discipline) and.push({ disciplineId: sp.discipline });
   if (sp.locatie) and.push({ locationId: sp.locatie });
+  if (sp.oorzaak === "geen") and.push({ OR: [{ rootCause: null }, { rootCause: "" }] });
   return and.length ? { AND: and } : {};
 }
 

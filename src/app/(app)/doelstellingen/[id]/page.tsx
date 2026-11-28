@@ -20,6 +20,7 @@ import { ChartCard } from "@/components/charts";
 import { Form } from "@/components/form";
 import { SubmitButton } from "@/components/submit-button";
 import { ObjectiveForm } from "@/components/objective-form";
+import { SmartBadge } from "@/components/smart-badge";
 import { createObjectiveAction, deleteObjective, reviewObjective, updateObjective } from "../actions";
 import type { ObjectiveStatus } from "@prisma/client";
 
@@ -87,6 +88,9 @@ export default async function ObjectivePage({ params }: { params: Promise<{ id: 
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="card lg:col-span-2">
+          <div className="mb-4">
+            <SmartBadge o={o} showMissing />
+          </div>
           {o.description && <p className="mb-4 text-sm whitespace-pre-line text-neutral-700">{o.description}</p>}
           <dl className="grid grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-sm">
             <dt className="text-neutral-500">Indicator</dt>
@@ -107,6 +111,10 @@ export default async function ObjectivePage({ params }: { params: Promise<{ id: 
             </dd>
             <dt className="text-neutral-500">Eigenaar</dt>
             <dd>{o.owner?.name ?? o.ownerText ?? "—"}</dd>
+            <dt className="text-neutral-500">Afgestemd met</dt>
+            <dd>{o.acceptance ?? "—"}</dd>
+            <dt className="text-neutral-500">Realistisch omdat</dt>
+            <dd className="whitespace-pre-line">{o.feasibility ?? "—"}</dd>
             <dt className="text-neutral-500">Termijn</dt>
             <dd>
               {o.startDate && `${formatDate(o.startDate)} – `}

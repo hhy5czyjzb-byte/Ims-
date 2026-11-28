@@ -10,6 +10,7 @@ export type ObjectiveSearch = {
   jaar?: string;
   norm?: string;
   toetsing?: string;
+  smart?: string; // "nee" = nog niet SMART (in code gefilterd)
 };
 
 /** Filters van de doelstellingen (gedeeld met de export); voorwaarden in AND. */
