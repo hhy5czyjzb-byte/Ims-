@@ -7,7 +7,8 @@ import { requirePermission } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { safeAction, UserError, type ActionResult } from "@/lib/action-result";
 import { optionalId, optionalText, parseForm, requiredText } from "@/lib/forms";
-import { CO2_SETTINGS_KEY } from "@/lib/co2-settings";
+import { CO2_SETTINGS_KEY, getCo2Settings } from "@/lib/co2-settings";
+import { diffFields } from "@/lib/audit-diff";
 import { parseDecimal } from "@/lib/co2";
 
 const decimal = z
@@ -34,7 +35,13 @@ export async function saveCo2Settings(formData: FormData): Promise<ActionResult>
       z.object({ emissionType: z.enum(["WTW", "TTW"]), locationBasedCarrierId: optionalId, intensityKpi: z.enum(["FTE", "REVENUE"]) }),
       formData,
     );
+    const before = await getCo2Settings();
     const value = JSON.stringify({ ...data, locationBasedCarrierId: data.locationBasedCarrierId ?? null });
+    const changes = diffFields(
+      before,
+      { ...data, locationBasedCarrierId: data.locationBasedCarrierId ?? null },
+      { emissionType: "Type uitstoot", locationBasedCarrierId: "Location-based factor", intensityKpi: "Intensiteit" },
+    );
     await prisma.appSetting.upsert({
       where: { key: CO2_SETTINGS_KEY },
       create: { key: CO2_SETTINGS_KEY, value, updatedById: user.id },
@@ -46,6 +53,7 @@ export async function saveCo2Settings(formData: FormData): Promise<ActionResult>
       entityType: "AppSetting",
       entityId: CO2_SETTINGS_KEY,
       summary: `CO2-instellingen gewijzigd (type uitstoot ${data.emissionType})`,
+      details: { changes },
     });
     revalidate();
   });
@@ -101,7 +109,13 @@ export async function saveKpi(formData: FormData): Promise<ActionResult> {
     const existing = await prisma.co2Kpi.findFirst({ where: { year: data.year, kind: data.kind, organisationId: data.organisationId ?? null } });
     if (existing) await prisma.co2Kpi.update({ where: { id: existing.id }, data: { value: data.value, label: data.label } });
     else await prisma.co2Kpi.create({ data });
-    await logAudit({ user, action: existing ? "UPDATE" : "CREATE", entityType: "Co2Kpi", summary: `Kengetal ${data.kind} ${data.year} = ${data.value}` });
+    await logAudit({
+      user,
+      action: existing ? "UPDATE" : "CREATE",
+      entityType: "Co2Kpi",
+      summary: `Kengetal ${data.kind} ${data.year} = ${data.value}`,
+      details: existing ? { changes: diffFields(existing, data, { value: "Waarde" }) } : undefined,
+    });
     revalidate();
   });
 }

@@ -10,6 +10,7 @@ import { logAudit } from "@/lib/audit";
 import { safeAction, UserError, type ActionResult } from "@/lib/action-result";
 import { optionalDate, optionalId, optionalText, parseForm, requiredText } from "@/lib/forms";
 import { parseDecimal } from "@/lib/co2";
+import { diffFields } from "@/lib/audit-diff";
 
 const pctField = z
   .string()
@@ -91,7 +92,7 @@ export async function createCo2Measure(formData: FormData): Promise<ActionResult
 export async function updateCo2Measure(id: string, formData: FormData): Promise<ActionResult> {
   return safeAction(async () => {
     const user = await requirePermission("co2.manage");
-    const existing = await prisma.action.findUnique({ where: { id } });
+    const existing = await prisma.action.findUnique({ where: { id }, include: { co2Measure: true } });
     if (!existing) throw new UserError("Maatregel niet gevonden.");
     const parsed = parseForm(schema.extend({ status: z.enum(ActionStatus) }), formData);
     const { status, ...rest } = parsed;
@@ -105,7 +106,32 @@ export async function updateCo2Measure(id: string, formData: FormData): Promise<
         co2Measure: { upsert: { create: co2, update: co2 } },
       },
     });
-    await logAudit({ user, action: "UPDATE", entityType: "Action", entityId: id, summary: `Maatregel #${existing.number} in het plan van aanpak gewijzigd` });
+    const changes = diffFields(
+      { ...existing, ...(existing.co2Measure ?? {}) },
+      { ...action, status, ...co2 },
+      {
+        title: "Maatregel",
+        status: "Status",
+        deadline: "Deadline",
+        ownerText: "Verantwoordelijke",
+        streamGroup: "Emissiestroom",
+        reductionPct: "Reductie op stroom (%)",
+        energyReductionPct: "Reductie op energie (%)",
+        skao: "SKAO/eigen",
+        skaoCategory: "SKAO-categorie",
+        term: "Termijn",
+        progressNote: "Voortgang",
+        investment: "Investering",
+      },
+    );
+    await logAudit({
+      user,
+      action: "UPDATE",
+      entityType: "Action",
+      entityId: id,
+      summary: `Maatregel #${existing.number} in het plan van aanpak gewijzigd`,
+      details: { changes, co2: true },
+    });
     revalidate(id);
   });
 }

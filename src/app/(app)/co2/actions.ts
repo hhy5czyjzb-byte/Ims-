@@ -10,6 +10,7 @@ import { requirePermission, requireUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { canEditConsumption } from "@/lib/rbac";
 import { parseDecimal, parsePeriod, unitMatches } from "@/lib/co2";
+import { diffFields } from "@/lib/audit-diff";
 import { normText, type ImportResult, type ImportRow } from "@/lib/spreadsheet-import";
 import { optionalDate, optionalId, optionalText, parseForm, requiredText } from "@/lib/forms";
 
@@ -96,14 +97,29 @@ export async function updateCarrier(id: string, formData: FormData): Promise<Act
     const user = await requirePermission("co2.manage");
     const data = parseForm(carrierSchema, formData);
     const active = formData.get("active") === "on";
+    const old = await prisma.energyCarrier.findUnique({ where: { id } });
     await prisma.energyCarrier.update({ where: { id }, data: { ...data, active } });
+    const changes = diffFields(
+      old ?? {},
+      { ...data, active },
+      {
+        name: "Naam",
+        unit: "Eenheid",
+        category: "Categorie",
+        defaultScope: "Scope",
+        energyPerUnit: "GJ per eenheid",
+        reportGroup: "Groep",
+        aliases: "Andere namen",
+        active: "Actief",
+      },
+    );
     await logAudit({
       user,
       action: "UPDATE",
       entityType: "EnergyCarrier",
       entityId: id,
-      summary: `Energiedrager "${data.name}" gewijzigd`,
-      details: { ...data, active },
+      summary: `Energiedrager "${data.name}" gewijzigd${changes.length ? `: ${changes.map((c) => c.label.toLowerCase()).join(", ")}` : ""}`,
+      details: { changes },
     });
     revalidateCo2();
   });
@@ -162,11 +178,18 @@ export async function updateFactor(factorId: string, formData: FormData): Promis
       if (clash) throw new UserError("Er is al een factor met deze ingangsdatum.");
     }
     await prisma.emissionFactor.update({ where: { id: factorId }, data });
+    const g = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 1000 * 1000) / 1000);
+    const changes = diffFields(
+      { wtt: g(old.wtt), ttw: g(old.ttw), factor: g(old.factor), biogenic: g(old.biogenic), validFrom: old.validFrom, source: old.source },
+      { wtt: g(data.wtt), ttw: g(data.ttw), factor: g(data.factor), biogenic: g(data.biogenic), validFrom: data.validFrom, source: data.source },
+      { wtt: "WTT (g)", ttw: "TTW (g)", factor: "WTW (g)", biogenic: "Biogeen (g)", validFrom: "Geldig vanaf", source: "Bron" },
+    );
     await logAudit({
       user,
       action: "UPDATE",
       entityType: "EmissionFactor",
       entityId: factorId,
+      details: { changes, carrierId: old.carrierId },
       summary: `Emissiefactor ${old.carrier.name} vanaf ${data.validFrom.toISOString().slice(0, 10)}: ${Math.round(Number(old.factor) * 1000)} → ${Math.round(data.factor * 1000)} g CO2e/${old.carrier.unit} (WTW)`,
     });
     revalidateCo2();
@@ -318,7 +341,19 @@ export async function updateConsumption(id: string, formData: FormData): Promise
       entityType: "EnergyConsumption",
       entityId: id,
       summary: `Verbruik gewijzigd (${Number(c.quantity)} → ${data.quantity})`,
-      details: { ...data, periodStart: data.periodStart.toISOString(), periodEnd: data.periodEnd.toISOString() },
+      details: {
+        changes: diffFields(c, data, {
+          carrierId: "Energiedrager",
+          quantity: "Hoeveelheid",
+          periodStart: "Begin",
+          periodEnd: "Eind",
+          scope: "Scope",
+          description: "Omschrijving",
+          disciplineId: "Bedrijfsonderdeel",
+          locationId: "Vestiging",
+          equipmentId: "Materieel",
+        }),
+      },
     });
     revalidateCo2();
   });
@@ -366,6 +401,7 @@ export async function updateTarget(id: string, formData: FormData): Promise<Acti
     const user = await requirePermission("co2.manage");
     const data = parseForm(targetSchema, formData);
     const active = formData.get("active") === "on";
+    const old = await prisma.reductionTarget.findUnique({ where: { id } });
     await prisma.reductionTarget.update({ where: { id }, data: { ...data, reductionPct: data.reductionPct!, active } });
     await logAudit({
       user,
@@ -373,7 +409,22 @@ export async function updateTarget(id: string, formData: FormData): Promise<Acti
       entityType: "ReductionTarget",
       entityId: id,
       summary: `Reductiedoelstelling "${data.title}" gewijzigd`,
-      details: { ...data, active },
+      details: {
+        changes: diffFields(
+          old ?? {},
+          { ...data, active },
+          {
+            title: "Titel",
+            scope: "Scope",
+            baseYear: "Basisjaar",
+            baselineKg: "Basis (kg)",
+            targetYear: "Doeljaar",
+            reductionPct: "Reductie %",
+            disciplineId: "Bedrijfsonderdeel",
+            active: "Actief",
+          },
+        ),
+      },
     });
     revalidateCo2();
   });

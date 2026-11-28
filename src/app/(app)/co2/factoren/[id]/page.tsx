@@ -3,6 +3,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { carrierGroup } from "@/lib/co2";
+import { formatDateTime } from "@/lib/format";
+import { readChanges } from "@/lib/audit-diff";
 import { ENERGY_CATEGORY_LABEL, options } from "@/lib/labels";
 import { Field, PageHeader, Select } from "@/components/ui";
 import { Form } from "@/components/form";
@@ -28,6 +30,19 @@ export default async function CarrierPage({ params }: { params: Promise<{ id: st
     include: { factors: { orderBy: { validFrom: "desc" } }, _count: { select: { consumptions: true } } },
   });
   if (!c) notFound();
+  const history = await prisma.auditLog.findMany({
+    where: {
+      action: { not: "VIEW" },
+      OR: [
+        { entityType: "EnergyCarrier", entityId: id },
+        { entityType: "EmissionFactor", entityId: { in: c.factors.map((f) => f.id) } },
+        { entityType: "EmissionFactor", summary: { contains: c.name } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: { user: { select: { name: true } } },
+  });
   const nextYear = (c.factors[0]?.validFrom.getUTCFullYear() ?? new Date().getUTCFullYear() - 1) + 1;
   return (
     <>
@@ -120,6 +135,30 @@ export default async function CarrierPage({ params }: { params: Promise<{ id: st
             </Form>
           </div>
         )}
+      </section>
+
+      <section className="card">
+        <h2 className="mb-2">Wijzigingshistorie</h2>
+        {history.length === 0 ? (
+          <p className="text-sm text-neutral-500">Nog geen wijzigingen vastgelegd.</p>
+        ) : (
+          <ul className="divide-y divide-neutral-100 text-sm">
+            {history.map((h) => (
+              <li key={h.id} className="py-1.5">
+                <span className="text-xs text-neutral-500">
+                  {formatDateTime(h.createdAt)} · {h.user?.name ?? h.userEmail ?? "Systeem"}
+                </span>
+                <div>{h.summary}</div>
+                {readChanges(h.details).map((ch) => (
+                  <div key={ch.field} className="text-xs text-neutral-600">
+                    {ch.label}: <span className="line-through">{ch.from}</span> → {ch.to}
+                  </div>
+                ))}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 text-xs text-neutral-500">Volledige audit trail: tabblad Logboek.</p>
       </section>
     </>
   );

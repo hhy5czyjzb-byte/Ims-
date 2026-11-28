@@ -194,3 +194,95 @@ export function lastMonths(n: number, now = new Date()): { key: string; label: s
   return out;
 }
 export const monthKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+
+/** Opeenvolgende reeksen (bijv. jaren): één tint van licht naar donker, de laatste het donkerst. */
+export function sequentialRamp(n: number): string[] {
+  const from = [198, 219, 247];
+  const to = [11, 78, 162];
+  return Array.from({ length: n }, (_, i) => {
+    const t = n === 1 ? 1 : 0.15 + (0.85 * i) / (n - 1);
+    const c = from.map((f, k) => Math.round(f + (to[k] - f) * t));
+    return `rgb(${c.join(",")})`;
+  });
+}
+
+/**
+ * Gegroepeerde kolommen: per groep (bijv. brandstoftype) een kolom per reeks (bijv. jaar), naast elkaar.
+ * Kolommen max. 24px met 4px afgeronde bovenkant, 2px tussenruimte, waarde boven de kolom, legenda en tooltip.
+ */
+export function GroupedColumns({
+  groups,
+  series,
+  colors,
+  height = 200,
+  unit = "",
+}: {
+  groups: string[];
+  series: { name: string; values: number[] }[];
+  colors?: string[];
+  height?: number;
+  unit?: string;
+}) {
+  const max = Math.max(1, ...series.flatMap((s) => s.values));
+  const step = max <= 10 ? 2 : max <= 25 ? 5 : max <= 50 ? 10 : max <= 100 ? 20 : Math.ceil(max / 5 / 10) * 10;
+  const top = Math.ceil(max / step) * step;
+  const ticks = Array.from({ length: top / step + 1 }, (_, i) => i * step);
+  const plot = height - 16;
+  const palette = colors ?? sequentialRamp(series.length);
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
+        {series.map((s, i) => (
+          <span key={s.name} className="inline-flex items-center gap-1.5">
+            <span className="inline-block size-2.5 rounded-sm" style={{ background: palette[i] }} />
+            {s.name}
+          </span>
+        ))}
+      </div>
+      <div className="grid grid-cols-[2rem_1fr] gap-1">
+        <div className="relative text-right text-[10px] text-neutral-400" style={{ height }}>
+          {ticks.map((t) => (
+            <span key={t} className="absolute right-0 -translate-y-1/2 tabular-nums" style={{ top: height - (t / top) * plot }}>
+              {t}
+            </span>
+          ))}
+        </div>
+        <div>
+          <div className="relative flex items-end gap-4 border-b border-neutral-300" style={{ height }}>
+            {ticks.slice(1).map((t) => (
+              <span
+                key={t}
+                className="pointer-events-none absolute inset-x-0 border-t border-dashed border-neutral-200"
+                style={{ top: height - (t / top) * plot }}
+              />
+            ))}
+            {groups.map((g, gi) => (
+              <div key={g} className="relative flex h-full flex-1 items-end justify-center gap-[2px]">
+                {series.map((s, si) => {
+                  const v = s.values[gi] ?? 0;
+                  return (
+                    <div key={s.name} className="group relative flex h-full max-w-6 flex-1 flex-col items-center justify-end">
+                      {v > 0 && <span className="mb-0.5 text-[9px] leading-none text-neutral-600 tabular-nums">{v}</span>}
+                      <span className="w-full rounded-t-[4px]" style={{ height: v > 0 ? Math.max((v / top) * plot - 2, 2) : 0, background: palette[si] }} />
+                      <Tip>
+                        {g} · {s.name}: {v.toLocaleString("nl-NL")}
+                        {unit}
+                      </Tip>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 flex gap-4 text-center text-xs text-neutral-600">
+            {groups.map((g) => (
+              <span key={g} className="flex-1 truncate">
+                {g}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

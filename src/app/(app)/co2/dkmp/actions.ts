@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { safeAction, UserError, type ActionResult } from "@/lib/action-result";
+import { diffFields } from "@/lib/audit-diff";
 import { optionalDate, optionalId, optionalText, parseForm, requiredText } from "@/lib/forms";
 
 const schema = z.object({
@@ -48,8 +49,31 @@ export async function updateDkmpItem(id: string, formData: FormData): Promise<Ac
   return safeAction(async () => {
     const user = await requirePermission("co2.manage");
     const data = parseForm(schema, formData);
+    const old = await prisma.dataQualityItem.findUnique({ where: { id } });
     await prisma.dataQualityItem.update({ where: { id }, data });
-    await logAudit({ user, action: "UPDATE", entityType: "DataQualityItem", entityId: id, summary: `DKMP: ${data.section} – ${data.stream} gewijzigd` });
+    const changes = diffFields(old ?? {}, data, {
+      section: "Groep",
+      stream: "Emissiestroom",
+      unit: "Eenheid",
+      source: "Bron",
+      dataOwner: "Brondata van",
+      executor: "Uitvoerder",
+      requestPeriod: "Uitvraag",
+      analysisPeriod: "Analyse",
+      deviation: "Afwijking",
+      uncertainty: "Onzekerheden",
+      improvement: "Verbeterplan",
+      qualityScore: "Kwaliteit",
+      lastCheckedAt: "Gecontroleerd",
+    });
+    await logAudit({
+      user,
+      action: "UPDATE",
+      entityType: "DataQualityItem",
+      entityId: id,
+      summary: `DKMP: ${data.section} – ${data.stream} gewijzigd`,
+      details: { changes },
+    });
     revalidate();
     redirect("/co2/dkmp");
   });

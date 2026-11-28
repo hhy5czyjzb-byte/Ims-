@@ -1512,3 +1512,17 @@ model ObjectiveReview {
 
   @@index([objectiveId, date])
 }
+
+/// Samenstelling van het wagenpark: aantal voertuigen per jaar, soort voertuig en brandstoftype (CO2-prestatieladder, figuur brandstoftypes).
+model FleetCount {
+  id          String   @id @default(cuid())
+  year        Int
+  vehicleType String // TRUCK | VAN | CAR | MACHINE | OTHER
+  fuelType    String // ELECTRIC | HYBRID | DIESEL | HVO | PETROL | GAS | HYDROGEN | OTHER
+  count       Int
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([year, vehicleType, fuelType])
+}

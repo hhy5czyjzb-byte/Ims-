@@ -8,6 +8,7 @@ const TABS = [
   { href: "/co2/inventaris", label: "Emissie-inventaris" },
   { href: "/co2/voortgang", label: "Voortgang" },
   { href: "/co2/energie", label: "Energie" },
+  { href: "/co2/wagenpark", label: "Wagenpark" },
   { href: "/co2/plan", label: "Plan van aanpak" },
   { href: "/co2/doelstellingen", label: "Doelstellingen" },
   { href: "/co2/verbruik", label: "Verbruik" },
@@ -15,6 +16,7 @@ const TABS = [
   { href: "/co2/factoren", label: "Emissiefactoren" },
   { href: "/co2/instellingen", label: "Instellingen" },
   { href: "/co2/materieel", label: "Materieel" },
+  { href: "/co2/logboek", label: "Logboek" },
   { href: "/co2/dashboard-import", label: "Inlezen" },
 ];
 
