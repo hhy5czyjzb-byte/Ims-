@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { reportCode } from "@/lib/reports";
 import { reportWhere, type ReportSearch } from "@/lib/report-filters";
-import { INJURY_LEVEL_LABEL, REPORT_ORIGIN_LABEL, REPORT_SEVERITY_LABEL, REPORT_STATUS_LABEL, REPORT_TYPE_LABEL } from "@/lib/labels";
+import { ABSENCE_LABEL, INJURY_LEVEL_LABEL, REPORT_ORIGIN_LABEL, REPORT_SEVERITY_LABEL, REPORT_STATUS_LABEL, REPORT_TYPE_LABEL } from "@/lib/labels";
 import { csvResponse, toCsv } from "@/lib/csv";
 import { formatDate } from "@/lib/format";
 
@@ -35,6 +35,8 @@ export async function GET(request: Request) {
     "Ernst",
     "Letsel",
     "Verzuimdagen",
+    "Verzuim",
+    "Categorie ongeval",
     "Meldplichtig",
     "Directe maatregel",
     "Oorzaak",
@@ -59,6 +61,8 @@ export async function GET(request: Request) {
     r.severity ? REPORT_SEVERITY_LABEL[r.severity] : "",
     r.injury ? INJURY_LEVEL_LABEL[r.injury] : "",
     r.lostDays ?? "",
+    r.absence ? ABSENCE_LABEL[r.absence] : "",
+    r.accidentCategory ?? "",
     r.reportable ? "ja" : "nee",
     r.immediateAction,
     r.rootCause,

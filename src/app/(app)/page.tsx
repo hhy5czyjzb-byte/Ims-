@@ -140,13 +140,19 @@ export default async function DashboardPage() {
   const months = lastMonths(12);
   const recentReports = await prisma.report.findMany({
     where: { occurredAt: { gte: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 11, 1)) } },
-    select: { type: true, occurredAt: true, status: true },
+    select: { type: true, occurredAt: true, status: true, absence: true },
   });
-  const safetyTypes = ["ACCIDENT", "NEAR_MISS", "UNSAFE_SITUATION"];
-  const reportSeries = [
-    { name: "Veiligheid", values: months.map((m) => recentReports.filter((r) => safetyTypes.includes(r.type) && monthKey(r.occurredAt) === m.key).length) },
-    { name: "Overig", values: months.map((m) => recentReports.filter((r) => !safetyTypes.includes(r.type) && monthKey(r.occurredAt) === m.key).length) },
+  // Gescheiden overzichten: ongevallen en incidenten / klachten / afwijkingen (auditbevindingen staan bij de audits).
+  const perMonth = (types: string[]) => months.map((m) => recentReports.filter((r) => types.includes(r.type) && monthKey(r.occurredAt) === m.key).length);
+  const incidentSeries = [
+    { name: "Ongevallen", values: perMonth(["ACCIDENT"]) },
+    { name: "Bijna-ongevallen en onveilig", values: perMonth(["NEAR_MISS", "UNSAFE_SITUATION"]) },
+    { name: "Milieu en schade", values: perMonth(["ENVIRONMENTAL_INCIDENT", "DAMAGE"]) },
   ];
+  const complaintSeries = [{ name: "Klachten", values: perMonth(["COMPLAINT"]) }];
+  const ncSeries = [{ name: "Afwijkingen", values: perMonth(["NONCONFORMITY"]) }];
+  const absenceShort12 = recentReports.filter((r) => r.absence === "SHORT").length;
+  const absenceLong12 = recentReports.filter((r) => r.absence === "LONG").length;
   const openReports = await prisma.report.count({ where: { status: { in: ["NEW", "IN_PROGRESS"] } } });
   const accidents12 = recentReports.filter((r) => r.type === "ACCIDENT").length;
 
@@ -227,10 +233,14 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <ChartCard title="Meldingen per maand" subtitle="Laatste 12 maanden" className="lg:col-span-2">
-          <Columns periods={months.map((m) => ({ label: m.label, title: m.title }))} series={reportSeries} height={110} />
+        <ChartCard
+          title="Ongevallen en incidenten per maand"
+          subtitle={`Laatste 12 maanden · verzuim 1–15 dagen: ${absenceShort12} · meer dan 15 dagen: ${absenceLong12}`}
+          className="lg:col-span-2"
+        >
+          <Columns periods={months.map((m) => ({ label: m.label, title: m.title }))} series={incidentSeries} height={110} />
           <p className="mt-2 text-xs">
-            <Link href="/meldingen">Naar de meldingen →</Link>
+            <Link href="/meldingen?groep=incidenten">Naar ongevallen en incidenten →</Link>
           </p>
         </ChartCard>
         <ChartCard title="Lopende acties">
@@ -243,6 +253,20 @@ export default async function DashboardPage() {
           <p className="mt-3 text-xs text-neutral-500">
             {openReports} open melding{openReports === 1 ? "" : "en"}
             {accidents12 > 0 && `, ${accidents12} ongeval${accidents12 === 1 ? "" : "len"} in 12 maanden`}.
+          </p>
+        </ChartCard>
+      </div>
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <ChartCard title="Klachten per maand" subtitle="Laatste 12 maanden">
+          <Columns periods={months.map((m) => ({ label: m.label, title: m.title }))} series={complaintSeries} height={90} />
+          <p className="mt-2 text-xs">
+            <Link href="/meldingen?groep=klachten">Naar de klachten →</Link>
+          </p>
+        </ChartCard>
+        <ChartCard title="Afwijkingen (NC) per maand" subtitle="Laatste 12 maanden">
+          <Columns periods={months.map((m) => ({ label: m.label, title: m.title }))} series={ncSeries} height={90} />
+          <p className="mt-2 text-xs">
+            <Link href="/meldingen?groep=afwijkingen">Naar de afwijkingen →</Link>
           </p>
         </ChartCard>
       </div>

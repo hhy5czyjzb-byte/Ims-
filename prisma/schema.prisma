@@ -1188,6 +1188,12 @@ enum ReportStatus {
   REJECTED
 }
 
+/// Verzuim na letsel (vinkjes bij een melding).
+enum AbsenceClass {
+  SHORT // letsel / verzuim 1 t/m 15 dagen
+  LONG // verzuim meer dan 15 dagen
+}
+
 enum InjuryLevel {
   NONE
   FIRST_AID
@@ -1220,6 +1226,8 @@ model Report {
   immediateAction        String? // directe maatregel / correctie
   injury                 InjuryLevel? // bij ongevallen
   lostDays               Int? // verzuimdagen
+  accidentCategory       String? // soort ongeval (val van hoogte, beknelling, …), zie ACCIDENT_CATEGORIES
+  absence                AbsenceClass? // letsel met verzuim: 1–15 dagen of meer dan 15 dagen
   reportable             Boolean         @default(false) // meldplichtig (Arbeidsinspectie / bevoegd gezag)
   reportedToAuthorityAt  DateTime?
   rootCause              String? // oorzaakanalyse

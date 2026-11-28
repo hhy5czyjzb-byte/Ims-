@@ -1,5 +1,6 @@
 import type { Prisma, ReportOrigin, ReportStatus, ReportType } from "@prisma/client";
 import { REPORT_ORIGIN_LABEL, REPORT_STATUS_LABEL, REPORT_TYPE_LABEL } from "@/lib/labels";
+import { REPORT_GROUPS } from "@/lib/reports";
 
 export type ReportSearch = {
   q?: string;
@@ -10,6 +11,9 @@ export type ReportSearch = {
   locatie?: string;
   jaar?: string;
   audit?: string;
+  groep?: string; // incidenten / klachten / afwijkingen / verbetering (zie REPORT_GROUPS)
+  verzuim?: string; // kort (1–15 dagen) / lang (> 15 dagen) / ja (beide)
+  categorie?: string; // categorie ongeval
 };
 
 /** Filters van de meldingen (gedeeld door overzicht en export). soort "AUDIT" = alleen auditbevindingen (geen meldingen). */
@@ -21,6 +25,12 @@ export function reportWhere(sp: ReportSearch): Prisma.ReportWhereInput {
   if (sp.soort === "veiligheid") and.push({ type: { in: ["ACCIDENT", "NEAR_MISS", "UNSAFE_SITUATION"] } });
   else if (sp.soort && sp.soort in REPORT_TYPE_LABEL) and.push({ type: sp.soort as ReportType });
   else if (sp.soort === "AUDIT") and.push({ id: "__geen__" });
+  const group = REPORT_GROUPS.find((g) => g.key === sp.groep && g.types.length);
+  if (group) and.push({ type: { in: group.types } });
+  if (sp.verzuim === "kort") and.push({ absence: "SHORT" });
+  else if (sp.verzuim === "lang") and.push({ absence: "LONG" });
+  else if (sp.verzuim === "ja") and.push({ absence: { not: null } });
+  if (sp.categorie) and.push({ accidentCategory: sp.categorie });
   if (sp.herkomst && sp.herkomst in REPORT_ORIGIN_LABEL) and.push({ origin: sp.herkomst as ReportOrigin });
   if (sp.discipline) and.push({ disciplineId: sp.discipline });
   if (sp.locatie) and.push({ locationId: sp.locatie });

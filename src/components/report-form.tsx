@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { CheckboxPicker } from "@/components/checkbox-picker";
 import { INJURY_LEVEL_LABEL, REPORT_ORIGIN_LABEL, REPORT_SEVERITY_LABEL, REPORT_TYPE_LABEL, options } from "@/lib/labels";
 import { toDateInput } from "@/lib/format";
+import { ACCIDENT_CATEGORIES } from "@/lib/reports";
 
 type Opt = { value: string; label: string };
 
@@ -65,9 +66,36 @@ export function ReportForm({
       <Field label="Bedrijfsonderdeel">
         <Select name="disciplineId" options={lookups.disciplines} defaultValue={report?.disciplineId} placeholder="—" />
       </Field>
-      <Field label="Letsel (bij ongeval)">
-        <Select name="injury" options={options(INJURY_LEVEL_LABEL)} defaultValue={report?.injury ?? ""} placeholder="—" />
-      </Field>
+      <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3 md:col-span-4 md:grid-cols-4">
+        <legend className="px-1 text-sm font-semibold">Bij ongeval of letsel</legend>
+        <Field label="Categorie ongeval" className="md:col-span-2">
+          <select name="accidentCategory" defaultValue={report?.accidentCategory ?? ""} className="input">
+            <option value="">—</option>
+            {ACCIDENT_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+            {report?.accidentCategory && !(ACCIDENT_CATEGORIES as readonly string[]).includes(report.accidentCategory) && (
+              <option value={report.accidentCategory}>{report.accidentCategory}</option>
+            )}
+          </select>
+        </Field>
+        <Field label="Letsel">
+          <Select name="injury" options={options(INJURY_LEVEL_LABEL)} defaultValue={report?.injury ?? ""} placeholder="—" />
+        </Field>
+        <div className="space-y-1 self-end pb-1 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="absenceShort" defaultChecked={report?.absence === "SHORT"} /> Letsel / verzuim 1–15 dagen
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="absenceLong" defaultChecked={report?.absence === "LONG"} /> Verzuim meer dan 15 dagen
+          </label>
+        </div>
+        <p className="text-xs text-neutral-500 md:col-span-4">
+          De categorie wordt alleen bewaard bij de soort &lsquo;Ongeval&rsquo;. Zijn de verzuimdagen bekend, dan wordt het vinkje daarop gecontroleerd.
+        </p>
+      </fieldset>
       <Field label="Directe maatregel / correctie" className="md:col-span-3">
         <input name="immediateAction" maxLength={5000} defaultValue={report?.immediateAction ?? ""} className="input" placeholder="Wat is er meteen gedaan?" />
       </Field>

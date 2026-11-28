@@ -13,7 +13,10 @@ import { can, canEditReport } from "@/lib/rbac";
 import { optionalDate, optionalId, optionalText, parseForm, requiredText } from "@/lib/forms";
 import { REPORT_STATUS_LABEL, REPORT_TYPE_LABEL } from "@/lib/labels";
 import {
+  absenceFromInput,
   actionSourceForReport,
+  parseAbsence,
+  parseAccidentCategory,
   parseInjury,
   parseReportOrigin,
   parseReportSeverity,
@@ -95,13 +98,27 @@ const createSchema = z.object({
     .optional()
     .transform((v) => v || null),
   reporterText: optionalText,
+  accidentCategory: optionalText,
+  lostDays: optionalInt,
+  absenceShort: checkbox,
+  absenceLong: checkbox,
 });
+
+/** Verzuimvinkjes omzetten naar de verzuimklasse; categorie alleen bij ongevallen. */
+function accidentFields<
+  T extends { type: ReportType; accidentCategory?: string | null; lostDays?: number | null; absenceShort: boolean; absenceLong: boolean },
+>(data: T) {
+  const { absenceShort, absenceLong, ...rest } = data;
+  const { absence, error } = absenceFromInput(absenceShort, absenceLong, data.lostDays);
+  if (error) throw new UserError(error);
+  return { ...rest, absence, accidentCategory: data.type === "ACCIDENT" ? (data.accidentCategory ?? null) : null };
+}
 
 export async function createReport(formData: FormData): Promise<ActionResult> {
   let id = "";
   const r = await safeAction(async () => {
     const user = await requirePermission("reports.create");
-    const data = parseForm(createSchema, formData);
+    const data = accidentFields(parseForm(createSchema, formData));
     if (data.occurredAt.getTime() > Date.now() + 86_400_000) throw new UserError("De datum van het voorval kan niet in de toekomst liggen.");
     const report = await prisma.report.create({ data: { ...data, reportedById: user.id } });
     id = report.id;
@@ -121,7 +138,6 @@ export async function createReport(formData: FormData): Promise<ActionResult> {
 /** Behandelen: alle velden, inclusief analyse en effectiviteit. */
 const updateSchema = createSchema.extend({
   processId: optionalId,
-  lostDays: optionalInt,
   reportable: checkbox,
   reportedToAuthorityAt: optionalDate,
   rootCause: optionalText,
@@ -151,7 +167,8 @@ async function loadEditable(id: string) {
 export async function updateReport(id: string, formData: FormData): Promise<ActionResult> {
   return safeAction(async () => {
     const { user, report } = await loadEditable(id);
-    const { requirementIds, ...data } = parseForm(updateSchema, formData, ["requirementIds"]);
+    const { requirementIds, ...form } = parseForm(updateSchema, formData, ["requirementIds"]);
+    const data = accidentFields(form);
     // Alleen QHSE wijst een behandelaar toe of wijzigt het eigen nummer.
     const manage = can(user.role, "reports.manage");
     const guarded = manage ? data : { ...data, ownerId: report.ownerId, ownerText: report.ownerText, externalRef: report.externalRef };
@@ -269,6 +286,8 @@ const importRowSchema = z.object({
   severity: txt(100),
   injury: txt(100),
   lostDays: txt(10),
+  absence: txt(100),
+  accidentCategory: txt(300),
   immediateAction: txt(10_000),
   rootCause: txt(10_000),
   owner: txt(200),
@@ -323,6 +342,13 @@ export async function importReports(rowsInput: ImportRow[], options: { updateExi
         severity: r.severity !== undefined ? (parseReportSeverity(r.severity) ?? undefined) : undefined,
         injury: r.injury !== undefined ? (parseInjury(r.injury) ?? undefined) : undefined,
         lostDays: r.lostDays !== undefined && Number.isInteger(Number(r.lostDays)) ? Number(r.lostDays) : undefined,
+        absence:
+          r.absence !== undefined
+            ? (parseAbsence(r.absence) ?? undefined)
+            : r.lostDays !== undefined && Number(r.lostDays) > 0
+              ? (absenceFromInput(false, false, Number(r.lostDays)).absence ?? undefined)
+              : undefined,
+        accidentCategory: r.accidentCategory !== undefined && type === "ACCIDENT" ? (parseAccidentCategory(r.accidentCategory) ?? undefined) : undefined,
         immediateAction: r.immediateAction,
         rootCause: r.rootCause,
         ownerId,

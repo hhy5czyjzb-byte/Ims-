@@ -165,7 +165,7 @@ export const SLIDE_PRESETS: SlidePreset[] = [
   },
   {
     key: "ims-reports",
-    label: "Uit IMS: meldingen per soort",
+    label: "Uit IMS: ongevallen en incidenten",
     layout: "CONTENT",
     title: "Meldingen",
     ims: "reports-year",
@@ -173,6 +173,7 @@ export const SLIDE_PRESETS: SlidePreset[] = [
       elements: [
         { ...chart(X, TOP, 6.1, 5.0), kind: "bar", source: "reports-year" },
         ...kpiRow(1, TOP).map((e) => ({ ...e, x: 9.75, w: 3.1, source: "reports-total" })),
+        ...kpiRow(1, 3.3).map((e) => ({ ...e, x: 9.75, w: 3.1, source: "kpi-absence" })),
       ],
     }),
   },

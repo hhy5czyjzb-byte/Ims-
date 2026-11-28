@@ -7,6 +7,7 @@ import { findingCode, auditCode } from "@/lib/audit-plan";
 import { actionOrigin } from "@/lib/action-origin";
 import { actionOriginInclude } from "@/lib/action-filters";
 import { formatDate } from "@/lib/format";
+import { REPORT_GROUPS } from "@/lib/reports";
 import {
   ACTION_STATUS_LABEL,
   COMPLIANCE_STATUS_LABEL,
@@ -25,16 +26,18 @@ export const SOURCE_LABEL: Record<string, string> = {
   "co2-years": "CO2-uitstoot per jaar",
   "actions-open": "Openstaande acties",
   "risks-top": "Belangrijkste risico's en kansen",
-  "reports-year": "Meldingen per soort",
-  "reports-total": "Aantal meldingen",
+  "reports-year": "Ongevallen en incidenten per soort",
+  "reports-total": "Aantal ongevallen en incidenten",
   "audit-findings": "Auditbevindingen",
   "legal-open": "Wettelijke eisen die niet voldoen",
   "kpi-actions-overdue": "Acties te laat",
   "kpi-compliance": "Compliancegraad",
-  "kpi-reports": "Meldingen in het jaar",
+  "kpi-reports": "Ongevallen en incidenten in het jaar",
+  "kpi-absence": "Ongevallen met verzuim",
   "kpi-co2": "CO2 t.o.v. vorig jaar",
 };
 
+const INCIDENT_TYPES = REPORT_GROUPS.find((g) => g.key === "incidenten")!.types;
 const yearRange = (year: number) => ({ gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) });
 const nl = (v: number, d = 0) => v.toLocaleString("nl-NL", { minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (v: number, sign = true) => `${sign && v > 0 ? "+" : v < 0 ? "−" : ""}${nl(Math.abs(v), 1)}%`;
@@ -130,16 +133,16 @@ export async function refreshElement(e: SlideElement, ctx: Ctx): Promise<SlideEl
       };
     }
     if (source === "reports-year") {
-      const groups = await prisma.report.groupBy({ by: ["type"], where: { occurredAt: yearRange(y) }, _count: true });
+      const groups = await prisma.report.groupBy({ by: ["type"], where: { occurredAt: yearRange(y), type: { in: INCIDENT_TYPES } }, _count: true });
       const sorted = groups.sort((a, b) => a._count - b._count);
       return {
         ...e,
         kind: "bar",
         categories: sorted.map((g) => REPORT_TYPE_LABEL[g.type]),
-        series: [{ name: `Meldingen ${y}`, values: sorted.map((g) => g._count) }],
+        series: [{ name: `Ongevallen en incidenten ${y}`, values: sorted.map((g) => g._count) }],
         colors: sorted.map(() => T.redDark),
         decimals: 0,
-        title: `Meldingen per soort (${y})`,
+        title: `Ongevallen en incidenten per soort (${y})`,
       };
     }
   }
@@ -153,11 +156,22 @@ export async function refreshElement(e: SlideElement, ctx: Ctx): Promise<SlideEl
   if (e.type === "kpi") {
     if (source === "reports-total" || source === "kpi-reports") {
       const [n, prev] = await Promise.all([
-        prisma.report.count({ where: { occurredAt: yearRange(y) } }),
-        prisma.report.count({ where: { occurredAt: yearRange(y - 1) } }),
+        prisma.report.count({ where: { occurredAt: yearRange(y), type: { in: INCIDENT_TYPES } } }),
+        prisma.report.count({ where: { occurredAt: yearRange(y - 1), type: { in: INCIDENT_TYPES } } }),
       ]);
       const change = prev ? ((n - prev) / prev) * 100 : null;
-      return { ...e, value: nl(n), label: `meldingen ${y}${change !== null ? ` (${pct(change)} t.o.v. ${y - 1})` : ""}`, color: T.ink };
+      return { ...e, value: nl(n), label: `ongevallen en incidenten ${y}${change !== null ? ` (${pct(change)} t.o.v. ${y - 1})` : ""}`, color: T.ink };
+    }
+    if (source === "kpi-absence") {
+      const rows = await prisma.report.groupBy({ by: ["absence"], where: { occurredAt: yearRange(y), absence: { not: null } }, _count: true });
+      const short = rows.find((r) => r.absence === "SHORT")?._count ?? 0;
+      const long = rows.find((r) => r.absence === "LONG")?._count ?? 0;
+      return {
+        ...e,
+        value: nl(short + long),
+        label: `met verzuim ${y}: ${short}× 1–15 dagen, ${long}× meer dan 15 dagen`,
+        color: long ? T.redDark : short ? T.amber : T.green,
+      };
     }
     if (source === "kpi-actions-overdue") {
       const now = new Date();

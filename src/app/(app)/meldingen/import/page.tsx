@@ -24,7 +24,12 @@ export default async function ReportImportPage() {
         title="Importeren uit Excel"
         description="Lees een bestaand afwijkingen-, klachten- of ongevallenregister in. De soort wordt herkend uit de kolom Soort (of uit de omschrijving), net als ernst, letsel en status. Vestigingen, bedrijfsonderdelen en behandelaars worden op naam gekoppeld."
       />
-      <ImportWizard fields={REPORT_IMPORT_FIELDS} importAction={importReports} registerHref="/meldingen?status=alle" matchHint="Herkend op het eigen nummer." />
+      <ImportWizard
+        fields={REPORT_IMPORT_FIELDS}
+        importAction={importReports}
+        registerHref="/meldingen?groep=incidenten&status=alle"
+        matchHint="Herkend op het eigen nummer."
+      />
     </>
   );
 }

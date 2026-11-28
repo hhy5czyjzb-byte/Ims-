@@ -6,13 +6,15 @@ import { logAudit } from "@/lib/audit";
 import { can, canEditReport } from "@/lib/rbac";
 import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
-import { NEEDS_ANALYSIS, reportCloseProblems, reportDisplayCode, SAFETY_TYPES } from "@/lib/reports";
+import { groupOfType, NEEDS_ANALYSIS, reportCloseProblems, reportDisplayCode, reportGroup, SAFETY_TYPES } from "@/lib/reports";
 import {
   ACTION_KIND_LABEL,
   ACTION_PRIORITY_LABEL,
   ACTION_STATUS_CLASS,
   ACTION_STATUS_LABEL,
   INJURY_LEVEL_LABEL,
+  ABSENCE_CLASS,
+  ABSENCE_LABEL,
   REPORT_ORIGIN_LABEL,
   REPORT_SEVERITY_CLASS,
   REPORT_SEVERITY_LABEL,
@@ -75,7 +77,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/meldingen", label: "Meldingen" }]}
+        breadcrumb={[{ href: `/meldingen?groep=${groupOfType(r.type)}`, label: `Meldingen · ${reportGroup(groupOfType(r.type)).label}` }]}
         title={`${code} ${r.title}`}
         description={
           <span className="flex flex-wrap items-center gap-2">
@@ -125,8 +127,16 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
                 </dd>
               </>
             )}
-            {(safety || r.injury) && (
+            {(safety || r.injury || r.absence) && (
               <>
+                {r.accidentCategory && (
+                  <>
+                    <dt className="text-neutral-500">Categorie ongeval</dt>
+                    <dd>{r.accidentCategory}</dd>
+                  </>
+                )}
+                <dt className="text-neutral-500">Verzuim</dt>
+                <dd>{r.absence ? <Badge className={ABSENCE_CLASS[r.absence]}>{ABSENCE_LABEL[r.absence]}</Badge> : "Geen / onbekend"}</dd>
                 <dt className="text-neutral-500">Letsel</dt>
                 <dd>
                   {r.injury ? INJURY_LEVEL_LABEL[r.injury] : "—"}

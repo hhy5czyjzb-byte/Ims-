@@ -1,4 +1,5 @@
 import type {
+  AbsenceClass,
   ActionKind,
   ActionPriority,
   ActionSource,
@@ -139,6 +140,8 @@ export const REPORT_STATUS_CLASS: Record<ReportStatus, string> = {
   CLOSED: "bg-green-100 text-green-800",
   REJECTED: "bg-neutral-100 text-neutral-600",
 };
+export const ABSENCE_LABEL: Record<AbsenceClass, string> = { SHORT: "Verzuim 1–15 dagen", LONG: "Verzuim meer dan 15 dagen" };
+export const ABSENCE_CLASS: Record<AbsenceClass, string> = { SHORT: "bg-amber-100 text-amber-900", LONG: "bg-brand-red text-white" };
 export const INJURY_LEVEL_LABEL: Record<InjuryLevel, string> = {
   NONE: "Geen letsel",
   FIRST_AID: "EHBO",

@@ -53,3 +53,41 @@ test("herkennen bij import (acties)", () => {
   assert.equal(parseActionSource("Directiebeoordeling 2026"), "MANAGEMENT_REVIEW");
   assert.equal(parseActionSource(""), "MANUAL");
 });
+
+import { absenceFromInput, parseAbsence, parseAccidentCategory, groupOfType, REPORT_GROUPS } from "@/lib/reports";
+import { reportWhere } from "@/lib/report-filters";
+
+test("absenceFromInput: vinkjes, dagen en tegenstrijdigheden", () => {
+  assert.deepEqual(absenceFromInput(true, false, null), { absence: "SHORT" });
+  assert.deepEqual(absenceFromInput(false, true, null), { absence: "LONG" });
+  assert.deepEqual(absenceFromInput(false, false, 3), { absence: "SHORT" });
+  assert.deepEqual(absenceFromInput(false, false, 16), { absence: "LONG" });
+  assert.deepEqual(absenceFromInput(false, false, 0), { absence: null });
+  assert.ok(absenceFromInput(true, true, null).error);
+  assert.ok(absenceFromInput(true, false, 20).error);
+  assert.ok(absenceFromInput(false, true, 15).error);
+  assert.deepEqual(absenceFromInput(false, true, 15.5 as number), { absence: "LONG" });
+});
+
+test("parseAbsence en parseAccidentCategory herkennen tekst uit registers", () => {
+  assert.equal(parseAbsence("Verzuim meer dan 15 dagen"), "LONG");
+  assert.equal(parseAbsence("1-15 dagen"), "SHORT");
+  assert.equal(parseAbsence("22"), "LONG");
+  assert.equal(parseAbsence("115"), "LONG");
+  assert.equal(parseAbsence(""), null);
+  assert.equal(parseAccidentCategory("gevallen van ladder"), "Val van hoogte");
+  assert.equal(parseAccidentCategory("hand bekneld tussen mal"), "Beknelling");
+  assert.equal(parseAccidentCategory("iets heel anders"), "iets heel anders");
+});
+
+test("groepen: klachten, afwijkingen en incidenten gescheiden; audit telt niet mee", () => {
+  assert.equal(groupOfType("COMPLAINT"), "klachten");
+  assert.equal(groupOfType("NONCONFORMITY"), "afwijkingen");
+  assert.equal(groupOfType("ACCIDENT"), "incidenten");
+  const all = REPORT_GROUPS.flatMap((g) => g.types);
+  assert.equal(new Set(all).size, all.length, "elk soort in precies één groep");
+  assert.deepEqual(reportWhere({ groep: "klachten", status: "alle" }), { AND: [{ type: { in: ["COMPLAINT"] } }] });
+  assert.deepEqual(reportWhere({ groep: "incidenten", status: "alle", verzuim: "lang" }), {
+    AND: [{ type: { in: REPORT_GROUPS[0].types } }, { absence: "LONG" }],
+  });
+});

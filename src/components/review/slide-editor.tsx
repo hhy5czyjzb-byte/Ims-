@@ -39,13 +39,14 @@ const SOURCE_NAMES: Record<string, string> = {
   "co2-years": "CO2-uitstoot per jaar",
   "actions-open": "openstaande acties",
   "risks-top": "belangrijkste risico's en kansen",
-  "reports-year": "meldingen per soort",
+  "reports-year": "ongevallen en incidenten per soort",
   "reports-total": "aantal meldingen",
   "audit-findings": "auditbevindingen",
   "legal-open": "wettelijke eisen die niet voldoen",
   "kpi-actions-overdue": "acties te laat",
   "kpi-compliance": "compliancegraad",
-  "kpi-reports": "meldingen in het jaar",
+  "kpi-reports": "ongevallen en incidenten in het jaar",
+  "kpi-absence": "ongevallen met verzuim",
   "kpi-co2": "CO2 t.o.v. vorig jaar",
 };
 
