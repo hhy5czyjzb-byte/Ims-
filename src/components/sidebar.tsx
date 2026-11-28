@@ -42,7 +42,7 @@ export function Sidebar({ user, viewAs }: { user: { name: string; roleLabel: str
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-neutral-200 bg-white">
+    <aside className="flex w-60 shrink-0 flex-col border-r border-neutral-200 bg-white print:hidden">
       <div className="border-b border-neutral-200 px-5 py-4">
         <Link href="/" aria-label="Naar dashboard">
           <Image src={brand.logo.color} alt={brand.companyName} width={180} height={40} priority className="h-auto w-[180px]" />

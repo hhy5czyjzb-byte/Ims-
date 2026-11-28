@@ -11,7 +11,9 @@ import { Badge, Disclosure, EmptyState, Field, PageHeader } from "@/components/u
 import { Form } from "@/components/form";
 import { SubmitButton } from "@/components/submit-button";
 import { ContextNav } from "@/components/context-nav";
-import { approveContextAnalysis } from "./actions";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { PrintButton } from "@/components/print-button";
+import { addSectionAfter, approveContextAnalysis, createDraftFromAnalysis, deleteSection, updateSection, uploadSectionImage } from "./actions";
 
 export const metadata = { title: "Context en stakeholders" };
 
@@ -44,14 +46,20 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
   }
   await logAudit({ user, action: "VIEW", entityType: "ContextAnalysis", entityId: analysis.id });
 
-  const [sections, factors, links, stakeholderCount, obligationCount, current] = await Promise.all([
+  const [sections, factors, links, stakeholderCount, obligationCount, current, newerConcept] = await Promise.all([
     prisma.contextSection.findMany({ where: { analysisId: analysis.id }, orderBy: { sortOrder: "asc" } }),
     prisma.contextFactor.findMany({ where: { active: true } }),
     getFactorLinks(),
     prisma.stakeholder.count({ where: { active: true } }),
     prisma.stakeholderObligation.count(),
     getAnalysis(),
+    prisma.contextAnalysis.findFirst({
+      where: { status: "CONCEPT", createdAt: { gt: analysis.createdAt } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    }),
   ]);
+  const editable = canEdit && analysis.status === "CONCEPT";
   const factorBySection = new Map(factors.filter((f) => f.sectionNumber).map((f) => [f.sectionNumber!, f]));
   const isCurrent = current?.id === analysis.id;
   const late = analysis.status === "APPROVED" && isOverdue(analysis.nextReviewDate);
@@ -114,11 +122,14 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
           </span>
         }
         actions={
-          analysis.sharepointUrl ? (
-            <a href={analysis.sharepointUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary">
-              Openen in SharePoint ↗
-            </a>
-          ) : undefined
+          <>
+            <PrintButton />
+            {analysis.sharepointUrl && (
+              <a href={analysis.sharepointUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary print:hidden">
+                Openen in SharePoint ↗
+              </a>
+            )}
+          </>
         }
       />
       <ContextNav />
@@ -131,6 +142,28 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
       )}
 
       <section className="card mb-6 text-sm">
+        {canEdit && analysis.status !== "CONCEPT" && (
+          <div className="mb-3 flex flex-wrap items-center gap-3 border-b border-neutral-100 pb-3 print:hidden">
+            {newerConcept ? (
+              <Link href={`/context?versie=${newerConcept.id}`} className="btn-secondary">
+                Naar de conceptversie in bewerking →
+              </Link>
+            ) : (
+              <Form action={createDraftFromAnalysis.bind(null, analysis.id)}>
+                <SubmitButton variant="secondary">Wijzigen (nieuwe conceptversie maken)</SubmitButton>
+              </Form>
+            )}
+            <span className="text-xs text-neutral-500">
+              Een vastgestelde versie blijft ongewijzigd als bewijs. Je bewerkt een kopie; na vaststelling vervangt die deze versie.
+            </span>
+          </div>
+        )}
+        {editable && (
+          <p className="mb-3 rounded-md bg-sky-50 px-3 py-2 text-xs text-sky-900 print:hidden">
+            Conceptversie: je kunt elke paragraaf bewerken, toevoegen of verwijderen. Laat de versie daarna vaststellen. Het Word-document in SharePoint wordt
+            niet automatisch bijgewerkt; gebruik &ldquo;Afdrukken / PDF&rdquo; of werk het Word-bestand bij.
+          </p>
+        )}
         <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
           <div className="grid grid-cols-[10rem_1fr] gap-y-1">
             <span className="text-neutral-500">Status</span>
@@ -158,7 +191,7 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
           </div>
         </div>
         {canApprove && analysis.status !== "APPROVED" && (
-          <div className="mt-3 border-t border-neutral-100 pt-3">
+          <div className="mt-3 border-t border-neutral-100 pt-3 print:hidden">
             <Disclosure summary="Deze versie vaststellen">
               <Form action={approveContextAnalysis.bind(null, analysis.id)} className="flex flex-wrap items-end gap-3">
                 <Field label="Vastgesteld op">
@@ -177,8 +210,8 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
         )}
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[15rem_1fr]">
-        <nav className="text-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto" aria-label="Inhoud">
+      <div className="grid gap-6 lg:grid-cols-[15rem_1fr] print:block">
+        <nav className="text-sm print:hidden lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto" aria-label="Inhoud">
           <div className="mb-2 text-xs font-semibold tracking-wide text-neutral-500 uppercase">Inhoud</div>
           <ol className="space-y-2">
             {parts.map((p) => (
@@ -231,6 +264,51 @@ export default async function ContextPage({ searchParams }: { searchParams: Prom
                   {crossLink(s)}
                   {/* Opgeschoond bij het inlezen én bij het tonen (veilig, ook als de database later zou zijn aangepast). */}
                   <div className="doc" dangerouslySetInnerHTML={{ __html: sanitizeContextHtml(s.html) }} />
+                  {editable && (
+                    <div className="mt-4 grid gap-3 border-t border-neutral-100 pt-3 print:hidden">
+                      <Disclosure summary="Paragraaf bewerken">
+                        <Form
+                          key={`${s.id}-${s.title}-${s.html.length}`}
+                          action={updateSection.bind(null, s.id)}
+                          className="grid gap-3 md:grid-cols-[8rem_1fr]"
+                        >
+                          <Field label="Nummer">
+                            <input name="number" defaultValue={s.number ?? ""} maxLength={20} className="input" placeholder="Bijv. 3.1" />
+                          </Field>
+                          <Field label="Titel">
+                            <input name="title" required defaultValue={s.title} maxLength={300} className="input" />
+                          </Field>
+                          <div className="md:col-span-2">
+                            <RichTextEditor name="html" defaultValue={sanitizeContextHtml(s.html)} onUploadImage={uploadSectionImage.bind(null, analysis.id)} />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-4 md:col-span-2">
+                            <SubmitButton>Paragraaf opslaan</SubmitButton>
+                          </div>
+                        </Form>
+                        <Form action={deleteSection.bind(null, s.id)} className="mt-3">
+                          <SubmitButton variant="link" confirm={`Paragraaf "${s.title}" verwijderen?`}>
+                            Paragraaf verwijderen
+                          </SubmitButton>
+                        </Form>
+                      </Disclosure>
+                      <Disclosure summary="Paragraaf hierna toevoegen">
+                        <Form action={addSectionAfter.bind(null, s.id)} resetOnSuccess className="grid gap-3 md:grid-cols-[8rem_1fr]">
+                          <Field label="Nummer">
+                            <input name="number" maxLength={20} className="input" />
+                          </Field>
+                          <Field label="Titel">
+                            <input name="title" required maxLength={300} className="input" />
+                          </Field>
+                          <div className="md:col-span-2">
+                            <RichTextEditor name="html" defaultValue="" onUploadImage={uploadSectionImage.bind(null, analysis.id)} />
+                          </div>
+                          <div className="md:col-span-2">
+                            <SubmitButton>Toevoegen</SubmitButton>
+                          </div>
+                        </Form>
+                      </Disclosure>
+                    </div>
+                  )}
                 </section>
               ))}
             </div>

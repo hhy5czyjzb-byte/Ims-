@@ -11,6 +11,7 @@ Integraal managementsysteem (IMS) voor alle certificeringen van Rouwmaat Groep (
 | Lokale modus zonder inloggen (fase 1), met "Bekijken als" voor de andere rollen                                                                                                                               | ✅                                            |
 | Inloggen met Microsoft 365 (Entra ID), rollen uit Entra ID-groepen                                                                                                                                            | ✅ gebouwd, nog niet gekoppeld (fase 2)       |
 | Normenbeheer: normen, eisen/hoofdstukken, dekking met bewijs                                                                                                                                                  | ✅                                            |
+| Context en stakeholders: analyse uit Word (tekst met afbeeldingen), bewerken als conceptversie, vaststellen, contextfactoren, stakeholders en verplichtingen                                                  | ✅                                            |
 | Processen: proceskaart per discipline, processtappen, RACI, koppelingen                                                                                                                                       | ✅                                            |
 | Documentbeheer: verwijzingen naar SharePoint, sync via Graph, koppelingen                                                                                                                                     | ✅ (sync nog te testen met echte bibliotheek) |
 | Risico's en kansen (incl. RI&E): 5×5-matrix vóór/na maatregelen, prioriteit (★ strategisch), filters, acties, Excel-import, CSV-export                                                                        | ✅                                            |
@@ -22,7 +23,7 @@ Integraal managementsysteem (IMS) voor alle certificeringen van Rouwmaat Groep (
 | Acties en verbeterpunten                                                                                                                                                                                      | ✅                                            |
 | Dashboard                                                                                                                                                                                                     | ✅ eenvoudige versie                          |
 | Stamgegevens (locaties, disciplines, functies) en logboek (audit trail)                                                                                                                                       | ✅                                            |
-| Datamodel voor leveranciers en stakeholders                                                                                                                                                                   | ✅ in database, schermen volgen               |
+| Datamodel voor leveranciers                                                                                                                                                                                   | ✅ in database, schermen volgen               |
 | Directiebeoordeling, …                                                                                                                                                                                        | ⏳ volgende fasen                             |
 
 ## Snel starten (lokaal, laptop)
@@ -63,6 +64,7 @@ Importeer in deze volgorde (elk via de knop "Importeren uit Excel"; kolommen wor
 4. **Wet- en regelgeving** — Wet- en regelgeving → Importeren, tabblad _Register_ (koppelt de risico's uit kolom "Risicoregister", daarom na de risico's).
 5. **Auditvragen** — Wet- en regelgeving → Compliance-audit per vestiging → Importeren, tabblad _Compliance-audit_.
 6. **Milieuaspecten** — Milieuaspecten → Importeren, bestand _Milieuaspectenregister (MAR)_, tabblad _MAR_ (koppelt de W- en R/K-nummers, daarom na het register wet- en regelgeving en het risico- en kansenregister).
+7. **Context- en stakeholderanalyse** — Context en stakeholders → Versies → Word-bestand inlezen (vul "Al vastgesteld op" in als de directie hem al heeft vastgesteld).
 
 Opnieuw importeren werkt bij (op het nummer R01/K01/W001) en maakt geen dubbele regels. Maak vooraf een back-up.
 

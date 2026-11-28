@@ -412,3 +412,179 @@ export async function deleteObligation(id: string): Promise<ActionResult> {
     revalidateContext();
   });
 }
+
+// ── Bewerken in de app (alleen conceptversies; een vastgestelde versie blijft ongewijzigd als bewijs) ──
+
+async function loadConcept(analysisId: string) {
+  const a = await prisma.contextAnalysis.findUnique({ where: { id: analysisId } });
+  if (!a) throw new UserError("Versie niet gevonden.");
+  if (a.status !== "CONCEPT") throw new UserError("Alleen een conceptversie kan worden bewerkt. Maak eerst een nieuwe conceptversie.");
+  return a;
+}
+
+/** Nieuwe conceptversie als kopie van een (vastgestelde) versie, om in de app te bewerken. */
+export async function createDraftFromAnalysis(id: string): Promise<ActionResult> {
+  let newId = "";
+  const result = await safeAction(async () => {
+    const user = await requirePermission("context.edit");
+    const src = await prisma.contextAnalysis.findUnique({ where: { id }, include: { sections: { orderBy: { sortOrder: "asc" } }, images: true } });
+    if (!src) throw new UserError("Versie niet gevonden.");
+    const idMap = new Map(src.images.map((img) => [img.id, randomUUID()]));
+    const rewrite = (html: string) =>
+      html.replace(/\/context\/afbeelding\/([0-9a-f-]{36})/g, (m, old: string) => (idMap.has(old) ? `/context/afbeelding/${idMap.get(old)}` : m));
+    const draft = await prisma.$transaction(
+      async (tx) => {
+        const d = await tx.contextAnalysis.create({
+          data: {
+            title: src.title,
+            versionLabel: src.versionLabel ? `${src.versionLabel} (concept)` : null,
+            fileName: `${src.fileName} (bewerkt in de app)`,
+            sharepointUrl: src.sharepointUrl,
+            ownerText: src.ownerText,
+            reviewCycle: src.reviewCycle,
+            approvedByText: src.approvedByText,
+            status: "CONCEPT",
+            uploadedById: user.id,
+            sections: {
+              create: src.sections.map((s) => ({
+                part: s.part,
+                partTitle: s.partTitle,
+                partSubtitle: s.partSubtitle,
+                partKern: s.partKern,
+                number: s.number,
+                title: s.title,
+                anchor: s.anchor,
+                html: rewrite(s.html),
+                sortOrder: s.sortOrder,
+              })),
+            },
+          },
+        });
+        for (const img of src.images) {
+          await tx.contextImage.create({
+            data: { id: idMap.get(img.id)!, analysisId: d.id, contentType: img.contentType, data: img.data, size: img.size, alt: img.alt },
+          });
+        }
+        return d;
+      },
+      { timeout: 60_000 },
+    );
+    newId = draft.id;
+    await logAudit({
+      user,
+      action: "CREATE",
+      entityType: "ContextAnalysis",
+      entityId: draft.id,
+      summary: `Nieuwe conceptversie gemaakt op basis van ${src.versionLabel ?? src.fileName}`,
+    });
+    revalidateContext();
+  });
+  if (result?.error) return result;
+  redirect(`/context?versie=${newId}`);
+}
+
+const sectionSchema = z.object({
+  number: optionalText,
+  title: requiredText(300),
+  html: z.string().max(2_000_000),
+});
+
+export async function updateSection(sectionId: string, formData: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    const user = await requirePermission("context.edit");
+    const s = await prisma.contextSection.findUnique({ where: { id: sectionId } });
+    if (!s) throw new UserError("Paragraaf niet gevonden.");
+    await loadConcept(s.analysisId);
+    const data = parseForm(sectionSchema, formData);
+    await prisma.contextSection.update({
+      where: { id: sectionId },
+      data: { number: data.number ?? null, title: data.title, html: sanitizeContextHtml(data.html) },
+    });
+    await logAudit({
+      user,
+      action: "UPDATE",
+      entityType: "ContextAnalysis",
+      entityId: s.analysisId,
+      summary: `Paragraaf ${data.number ?? ""} "${data.title}" bewerkt (concept)`.replace("  ", " "),
+    });
+    revalidateContext();
+  });
+}
+
+/** Nieuwe paragraaf direct na een bestaande (zelfde deel). */
+export async function addSectionAfter(sectionId: string, formData: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    const user = await requirePermission("context.edit");
+    const ref = await prisma.contextSection.findUnique({ where: { id: sectionId } });
+    if (!ref) throw new UserError("Paragraaf niet gevonden.");
+    await loadConcept(ref.analysisId);
+    const data = parseForm(sectionSchema.extend({ html: z.string().max(2_000_000).default("") }), formData);
+    const anchor = `${data.number ? `p-${data.number.replace(/\./g, "-")}` : "par"}-${randomUUID().slice(0, 8)}`;
+    await prisma.$transaction([
+      prisma.contextSection.updateMany({ where: { analysisId: ref.analysisId, sortOrder: { gt: ref.sortOrder } }, data: { sortOrder: { increment: 1 } } }),
+      prisma.contextSection.create({
+        data: {
+          analysisId: ref.analysisId,
+          part: ref.part,
+          partTitle: ref.partTitle,
+          partSubtitle: ref.partSubtitle,
+          partKern: ref.partKern,
+          number: data.number ?? null,
+          title: data.title,
+          anchor,
+          html: sanitizeContextHtml(data.html),
+          sortOrder: ref.sortOrder + 1,
+        },
+      }),
+    ]);
+    await logAudit({
+      user,
+      action: "UPDATE",
+      entityType: "ContextAnalysis",
+      entityId: ref.analysisId,
+      summary: `Paragraaf "${data.title}" toegevoegd (concept)`,
+    });
+    revalidateContext();
+  });
+}
+
+export async function deleteSection(sectionId: string): Promise<ActionResult> {
+  return safeAction(async () => {
+    const user = await requirePermission("context.edit");
+    const s = await prisma.contextSection.findUnique({ where: { id: sectionId } });
+    if (!s) throw new UserError("Paragraaf niet gevonden.");
+    await loadConcept(s.analysisId);
+    await prisma.contextSection.delete({ where: { id: sectionId } });
+    await logAudit({
+      user,
+      action: "UPDATE",
+      entityType: "ContextAnalysis",
+      entityId: s.analysisId,
+      summary: `Paragraaf ${s.number ?? ""} "${s.title}" verwijderd (concept)`.replace("  ", " "),
+    });
+    revalidateContext();
+  });
+}
+
+const MAX_IMAGE = 8 * 1024 * 1024;
+
+/** Afbeelding toevoegen aan een conceptversie (vanuit de editor); geeft het adres terug om in de tekst te plaatsen. */
+export async function uploadSectionImage(analysisId: string, formData: FormData): Promise<{ error?: string; src?: string }> {
+  try {
+    const user = await requirePermission("context.edit");
+    await loadConcept(analysisId);
+    const file = formData.get("image");
+    if (!(file instanceof File) || file.size === 0) return { error: "Kies een afbeelding." };
+    if (!IMAGE_TYPES.includes(file.type)) return { error: "Alleen PNG, JPEG, GIF of WebP." };
+    if (file.size > MAX_IMAGE) return { error: "De afbeelding is groter dan 8 MB." };
+    const data = new Uint8Array(await file.arrayBuffer());
+    const id = randomUUID();
+    await prisma.contextImage.create({ data: { id, analysisId, contentType: file.type, data, size: data.length, alt: file.name.slice(0, 200) } });
+    await logAudit({ user, action: "UPDATE", entityType: "ContextAnalysis", entityId: analysisId, summary: `Afbeelding toegevoegd (${file.name})` });
+    return { src: `/context/afbeelding/${id}` };
+  } catch (err) {
+    if (err instanceof UserError) return { error: err.message };
+    console.error("[context] afbeelding uploaden mislukt", err);
+    return { error: "Uploaden mislukt." };
+  }
+}
