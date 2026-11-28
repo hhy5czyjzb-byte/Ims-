@@ -14,6 +14,8 @@ export type ReportSearch = {
   groep?: string; // incidenten / klachten / afwijkingen / verbetering (zie REPORT_GROUPS)
   verzuim?: string; // kort (1–15 dagen) / lang (> 15 dagen) / ja (beide)
   categorie?: string; // categorie ongeval
+  meldplichtig?: string; // "ja"
+  fataal?: string; // "ja"
 };
 
 /** Filters van de meldingen (gedeeld door overzicht en export). soort "AUDIT" = alleen auditbevindingen (geen meldingen). */
@@ -30,6 +32,8 @@ export function reportWhere(sp: ReportSearch): Prisma.ReportWhereInput {
   if (sp.verzuim === "kort") and.push({ absence: "SHORT" });
   else if (sp.verzuim === "lang") and.push({ absence: "LONG" });
   else if (sp.verzuim === "ja") and.push({ absence: { not: null } });
+  if (sp.meldplichtig === "ja") and.push({ reportable: true });
+  if (sp.fataal === "ja") and.push({ injury: "FATAL" });
   if (sp.categorie) and.push({ accidentCategory: sp.categorie });
   if (sp.herkomst && sp.herkomst in REPORT_ORIGIN_LABEL) and.push({ origin: sp.herkomst as ReportOrigin });
   if (sp.discipline) and.push({ disciplineId: sp.discipline });

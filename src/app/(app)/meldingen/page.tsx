@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { getLookups } from "@/lib/lookups";
 import { formatDate } from "@/lib/format";
-import { ACCIDENT_CATEGORIES, REPORT_GROUPS, reportDisplayCode, reportGroup, SAFETY_TYPES } from "@/lib/reports";
+import { ACCIDENT_CATEGORIES, REPORT_GROUPS, reportDisplayCode, reportGroup } from "@/lib/reports";
 import { reportWhere, type ReportSearch } from "@/lib/report-filters";
 import { findingCode } from "@/lib/audit-plan";
 import {
@@ -313,6 +313,18 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <Tile href={base({ verzuim: "ja", status: "alle" })} n={days} label="verzuimdagen (12 mnd)" />
         <Tile href={base({ soort: "NEAR_MISS", status: "alle" })} n={nearMiss} label="bijna-ongevallen en onveilig" />
         <Tile href={base({ status: "lopend" })} n={recent.filter(isOpen).length} label="open (12 mnd)" />
+        <Tile
+          href={base({ meldplichtig: "ja", status: "alle" })}
+          n={recent.filter((r) => r.reportable).length}
+          label="meldplichtig (12 mnd)"
+          tone={recent.some((r) => r.reportable) ? "text-brand-red" : ""}
+        />
+        <Tile
+          href={base({ fataal: "ja", status: "alle" })}
+          n={recent.filter((r) => r.injury === "FATAL").length}
+          label="fataal (12 mnd)"
+          tone={recent.some((r) => r.injury === "FATAL") ? "text-brand-red" : ""}
+        />
       </>
     );
     charts = (
@@ -346,7 +358,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 { label: "Geen verzuim", value: accidents.filter((r) => !r.absence).length, color: STATUS_COLORS.none },
               ]}
             />
-            <p className="mt-3 text-xs text-neutral-500">{accidents.filter((r) => r.reportable).length} meldplichtig</p>
+            <p className="mt-3 text-xs text-neutral-500">
+              <Link href={base({ soort: "ACCIDENT", meldplichtig: "ja", status: "alle" })}>{accidents.filter((r) => r.reportable).length} meldplichtig</Link> ·{" "}
+              <Link href={base({ soort: "ACCIDENT", fataal: "ja", status: "alle" })}>{accidents.filter((r) => r.injury === "FATAL").length} fataal</Link>
+            </p>
           </ChartCard>
         </div>
         <div className="mb-6 grid gap-4 lg:grid-cols-3">
@@ -474,7 +489,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   return (
     <>
       {header}
-      <section className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">{tiles}</section>
+      <section className={`mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 ${group.key === "incidenten" ? "" : "lg:grid-cols-6"}`}>{tiles}</section>
       {charts}
 
       <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
@@ -500,6 +515,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <Field label="Categorie ongeval">
               <Select name="categorie" options={ACCIDENT_CATEGORIES.map((c) => ({ value: c, label: c }))} defaultValue={sp.categorie} placeholder="Alle" />
             </Field>
+            <label className="flex items-center gap-1.5 self-end pb-2 text-sm">
+              <input type="checkbox" name="meldplichtig" value="ja" defaultChecked={sp.meldplichtig === "ja"} /> Meldplichtig
+            </label>
+            <label className="flex items-center gap-1.5 self-end pb-2 text-sm">
+              <input type="checkbox" name="fataal" value="ja" defaultChecked={sp.fataal === "ja"} /> Fataal
+            </label>
           </>
         )}
         <Field label="Status">
@@ -565,7 +586,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                     <Link href={`/meldingen/${r.id}`} className="font-medium">
                       {r.title}
                     </Link>
-                    {SAFETY_TYPES.includes(r.type) && r.reportable && <span className="ml-1 text-xs font-semibold text-brand-red">meldplichtig</span>}
+                    {r.injury === "FATAL" && <Badge className="ml-1 bg-neutral-900 text-white">fataal</Badge>}
+                    {r.reportable && <span className="ml-1 text-xs font-semibold text-brand-red">meldplichtig</span>}
                   </td>
                   <td className="text-xs">
                     {r.discipline?.name && <div>{r.discipline.name}</div>}

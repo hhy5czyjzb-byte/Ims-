@@ -91,3 +91,7 @@ test("groepen: klachten, afwijkingen en incidenten gescheiden; audit telt niet m
     AND: [{ type: { in: REPORT_GROUPS[0].types } }, { absence: "LONG" }],
   });
 });
+
+test("filters meldplichtig en fataal", () => {
+  assert.deepEqual(reportWhere({ status: "alle", meldplichtig: "ja", fataal: "ja" }), { AND: [{ reportable: true }, { injury: "FATAL" }] });
+});

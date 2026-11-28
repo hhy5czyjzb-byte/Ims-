@@ -102,16 +102,35 @@ const createSchema = z.object({
   lostDays: optionalInt,
   absenceShort: checkbox,
   absenceLong: checkbox,
+  reportable: checkbox,
+  fatal: checkbox,
 });
 
 /** Verzuimvinkjes omzetten naar de verzuimklasse; categorie alleen bij ongevallen. */
 function accidentFields<
-  T extends { type: ReportType; accidentCategory?: string | null; lostDays?: number | null; absenceShort: boolean; absenceLong: boolean },
+  T extends {
+    type: ReportType;
+    accidentCategory?: string | null;
+    lostDays?: number | null;
+    absenceShort: boolean;
+    absenceLong: boolean;
+    fatal: boolean;
+    reportable: boolean;
+    injury?: InjuryLevel | null;
+  },
 >(data: T) {
-  const { absenceShort, absenceLong, ...rest } = data;
+  const { absenceShort, absenceLong, fatal, ...rest } = data;
   const { absence, error } = absenceFromInput(absenceShort, absenceLong, data.lostDays);
   if (error) throw new UserError(error);
-  return { ...rest, absence, accidentCategory: data.type === "ACCIDENT" ? (data.accidentCategory ?? null) : null };
+  // Vinkje "fataal" = letsel dodelijk; een dodelijk ongeval is altijd meldplichtig (Arbeidsinspectie).
+  const injury = fatal ? "FATAL" : data.injury === "FATAL" ? null : (data.injury ?? null);
+  return {
+    ...rest,
+    injury,
+    reportable: fatal || data.reportable,
+    absence,
+    accidentCategory: data.type === "ACCIDENT" ? (data.accidentCategory ?? null) : null,
+  };
 }
 
 export async function createReport(formData: FormData): Promise<ActionResult> {
@@ -138,7 +157,6 @@ export async function createReport(formData: FormData): Promise<ActionResult> {
 /** Behandelen: alle velden, inclusief analyse en effectiviteit. */
 const updateSchema = createSchema.extend({
   processId: optionalId,
-  reportable: checkbox,
   reportedToAuthorityAt: optionalDate,
   rootCause: optionalText,
   rootCauseMethod: optionalText,

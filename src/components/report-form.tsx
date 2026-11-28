@@ -82,7 +82,12 @@ export function ReportForm({
           </select>
         </Field>
         <Field label="Letsel">
-          <Select name="injury" options={options(INJURY_LEVEL_LABEL)} defaultValue={report?.injury ?? ""} placeholder="—" />
+          <Select
+            name="injury"
+            options={options(INJURY_LEVEL_LABEL).filter((o) => o.value !== "FATAL")}
+            defaultValue={report?.injury === "FATAL" ? "" : (report?.injury ?? "")}
+            placeholder="—"
+          />
         </Field>
         <div className="space-y-1 self-end pb-1 text-sm">
           <label className="flex items-center gap-2">
@@ -91,9 +96,16 @@ export function ReportForm({
           <label className="flex items-center gap-2">
             <input type="checkbox" name="absenceLong" defaultChecked={report?.absence === "LONG"} /> Verzuim meer dan 15 dagen
           </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="reportable" defaultChecked={report?.reportable ?? false} /> Meldplichtig (Arbeidsinspectie / bevoegd gezag)
+          </label>
+          <label className="flex items-center gap-2 font-semibold text-brand-red-dark">
+            <input type="checkbox" name="fatal" defaultChecked={report?.injury === "FATAL"} /> Fataal (dodelijk)
+          </label>
         </div>
         <p className="text-xs text-neutral-500 md:col-span-4">
-          De categorie wordt alleen bewaard bij de soort &lsquo;Ongeval&rsquo;. Zijn de verzuimdagen bekend, dan wordt het vinkje daarop gecontroleerd.
+          De categorie wordt alleen bewaard bij de soort &lsquo;Ongeval&rsquo;. Zijn de verzuimdagen bekend, dan wordt het vinkje daarop gecontroleerd. Een
+          fataal ongeval is altijd meldplichtig.
         </p>
       </fieldset>
       <Field label="Directe maatregel / correctie" className="md:col-span-3">
@@ -125,9 +137,6 @@ export function ReportForm({
           <Field label="Verzuimdagen">
             <input name="lostDays" type="number" min={0} defaultValue={report?.lostDays ?? ""} className="input" />
           </Field>
-          <label className="flex items-center gap-2 self-end pb-2 text-sm">
-            <input type="checkbox" name="reportable" defaultChecked={report?.reportable ?? false} /> Meldplichtig (Arbeidsinspectie / bevoegd gezag)
-          </label>
           <Field label="Gemeld aan instantie op">
             <input name="reportedToAuthorityAt" type="date" defaultValue={toDateInput(report?.reportedToAuthorityAt)} className="input" />
           </Field>
