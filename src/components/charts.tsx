@@ -207,6 +207,16 @@ export function lastMonths(n: number, now = new Date()): { key: string; label: s
 }
 export const monthKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 
+/**
+ * Vaste kleur per jaar uit het categorische palet (CATEGORICAL), zodat een jaar in elke grafiek dezelfde kleur
+ * heeft en opeenvolgende jaren duidelijk verschillen (gecontroleerd op kleurenblindheid, ook de overgang van
+ * de laatste naar de eerste kleur). 2025 = rood, 2024 = paars, 2023 = groen, 2022 = roze, 2021 = geel, 2020 = aqua.
+ */
+export function yearColor(year: number): string {
+  return CATEGORICAL[(((year - 2018) % CATEGORICAL.length) + CATEGORICAL.length) % CATEGORICAL.length];
+}
+export const yearColors = (years: number[]) => years.map(yearColor);
+
 /** Opeenvolgende reeksen (bijv. jaren): één tint van licht naar donker, de laatste het donkerst. */
 export function sequentialRamp(n: number): string[] {
   const from = [198, 219, 247];
@@ -260,7 +270,8 @@ export function GroupedColumns({
   const top = Math.ceil(max / step) * step;
   const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
   const plot = height - 16;
-  const palette = colors ?? sequentialRamp(series.length);
+  // Jaren als reeksen: vaste, duidelijk verschillende kleur per jaar.
+  const palette = colors ?? (series.every((x) => /^\d{4}$/.test(x.name)) ? yearColors(series.map((x) => Number(x.name))) : sequentialRamp(series.length));
   // Bij veel kolommen één waarde per groep (de laatste reeks, bijv. het laatste jaar) boven de groep; de rest via de tooltip.
   const crowded = groups.length * series.length > 24;
   const last = series.length - 1;

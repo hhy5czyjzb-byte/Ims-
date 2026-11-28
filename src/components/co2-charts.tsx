@@ -1,4 +1,4 @@
-import { CATEGORICAL, Donut, GroupedColumns, sequentialRamp } from "@/components/charts";
+import { CATEGORICAL, Donut, GroupedColumns, yearColors } from "@/components/charts";
 import { GROUP_ORDER, groupSlot } from "@/lib/co2";
 import { categoriesOf, fleetSeries, type ManualCount, type RegisterVehicle } from "@/lib/fleet";
 
@@ -54,7 +54,7 @@ export function FuelPerYear({ perYear, carriers, max = 5 }: { perYear: { year: n
     <GroupedColumns
       groups={cs.map(shortCarrier)}
       series={years.map((y) => ({ name: String(y.year), values: cs.map((c) => Math.round(y.byCarrier.get(c) ?? 0)) }))}
-      colors={sequentialRamp(years.length)}
+      colors={yearColors(years.map((y) => y.year))}
       height={240}
       unit=" liter"
     />
@@ -83,7 +83,7 @@ export function FleetFigure({
     <GroupedColumns
       groups={[...cats.map((c) => c.label), "Totaal"]}
       series={ys.map((y) => ({ name: String(y), values: [...cats.map((c) => s.value(c.key, y)), s.total(y)] }))}
-      colors={sequentialRamp(ys.length)}
+      colors={yearColors(ys)}
       height={220}
       unit=" voertuigen"
     />
