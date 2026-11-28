@@ -116,7 +116,7 @@ export default async function Co2Page({ searchParams }: { searchParams: Promise<
               const ch = change(fp.byScope[s], prev.byScope[s]);
               return (
                 <div key={s} className="card">
-                  <div className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">Scope {s}</div>
+                  <div className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">{s === 3 ? "Zakelijk reizen" : `Scope ${s}`}</div>
                   <div className="mt-1 text-3xl font-bold tabular-nums">{formatTonnes(fp.byScope[s])}</div>
                   <div className="mt-1 text-xs text-neutral-500">
                     CO2e ·{" "}
@@ -145,7 +145,12 @@ export default async function Co2Page({ searchParams }: { searchParams: Promise<
           <div className="card mt-4">
             <div className="mb-2 flex h-4 overflow-hidden rounded-full bg-neutral-100" role="img" aria-label="Verdeling over scopes">
               {([1, 2, 3] as const).map((s) => (
-                <div key={s} className={SCOPE_COLOR[s]} style={{ width: `${fp.totalKg ? (fp.byScope[s] / fp.totalKg) * 100 : 0}%` }} title={`Scope ${s}`} />
+                <div
+                  key={s}
+                  className={SCOPE_COLOR[s]}
+                  style={{ width: `${fp.totalKg ? (fp.byScope[s] / fp.totalKg) * 100 : 0}%` }}
+                  title={s === 3 ? "Zakelijk reizen" : `Scope ${s}`}
+                />
               ))}
             </div>
             <ul className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-neutral-600">

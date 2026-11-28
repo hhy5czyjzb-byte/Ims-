@@ -277,7 +277,7 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
                 </Form>
               </Disclosure>
               <Disclosure summary="Stap wijzigen of verwijderen">
-                <Form action={updateStep.bind(null, id, selected.id)} className="space-y-3">
+                <Form key={`${selected.id}-${selected.updatedAt.toISOString()}`} action={updateStep.bind(null, id, selected.id)} className="space-y-3">
                   <Field label="Naam">
                     <input name="name" required defaultValue={selected.name} className="input" />
                   </Field>
@@ -394,7 +394,7 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
             </Form>
           </Disclosure>
           <Disclosure summary="Proces wijzigen">
-            <Form action={updateProcess.bind(null, id)} className="grid gap-3 sm:grid-cols-2">
+            <Form key={process.updatedAt.toISOString()} action={updateProcess.bind(null, id)} className="grid gap-3 sm:grid-cols-2">
               <Field label="Naam" className="sm:col-span-2">
                 <input name="name" required defaultValue={process.name} className="input" />
               </Field>

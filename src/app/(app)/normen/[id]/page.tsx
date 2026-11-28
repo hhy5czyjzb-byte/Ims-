@@ -80,7 +80,7 @@ export default async function NormDetailPage({ params }: { params: Promise<{ id:
             </Form>
           </Disclosure>
           <Disclosure summary="Norm wijzigen">
-            <Form action={updateNorm.bind(null, norm.id)} className="grid gap-3 sm:grid-cols-2">
+            <Form key={norm.updatedAt.toISOString()} action={updateNorm.bind(null, norm.id)} className="grid gap-3 sm:grid-cols-2">
               <Field label="Code">
                 <input name="code" required defaultValue={norm.code} className="input" />
               </Field>

@@ -303,7 +303,7 @@ export function factorForType(f: { factor: number; ttw: number | null; wtt: numb
 }
 
 /** Scope-label zoals in de CO2-prestatieladder (scope 3 = zakelijk reizen/business travel in de footprint). */
-export const SCOPE_NAME: Record<1 | 2 | 3, string> = { 1: "Scope 1", 2: "Scope 2", 3: "Zakelijk reizen (scope 3)" };
+export const SCOPE_NAME: Record<1 | 2 | 3, string> = { 1: "Scope 1", 2: "Scope 2", 3: "Zakelijk reizen" };
 
 /**
  * Groep in het overzicht (zoals tabel M1A van het CO2-dashboard): eigen instelling, anders afgeleid uit de naam.

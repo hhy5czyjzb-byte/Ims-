@@ -32,12 +32,15 @@ export function BarList({
   items,
   unit = "",
   empty = "Geen gegevens.",
+  max: fixedMax,
 }: {
   items: { label: string; value: number; href?: string }[];
   unit?: string;
   empty?: string;
+  /** Vaste schaal (bijv. 100 bij percentages), anders de grootste waarde. */
+  max?: number;
 }) {
-  const max = Math.max(0, ...items.map((i) => i.value));
+  const max = fixedMax ?? Math.max(0, ...items.map((i) => i.value));
   if (!items.length || max === 0) return <p className="text-sm text-neutral-500">{empty}</p>;
   return (
     <ul className="space-y-1.5 text-sm">
@@ -62,7 +65,10 @@ export function BarList({
                 {unit}
               </Tip>
             </span>
-            <span className="text-right text-neutral-700 tabular-nums">{i.value.toLocaleString("nl-NL")}</span>
+            <span className="text-right text-neutral-700 tabular-nums">
+              {i.value.toLocaleString("nl-NL")}
+              {unit === "%" ? "%" : ""}
+            </span>
           </li>
         );
       })}

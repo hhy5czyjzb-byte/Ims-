@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/rbac";
 import { Field, PageHeader } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -18,6 +19,7 @@ export default async function FunctionPage({ params }: { params: Promise<{ id: s
     include: { users: { select: { id: true, name: true } }, _count: { select: { raciAssignments: true } } },
   });
   if (!f) notFound();
+  await logAudit({ user, action: "VIEW", entityType: "JobFunction", entityId: f.id, summary: `Functie "${f.name}" bekeken` });
   return (
     <>
       <PageHeader

@@ -231,6 +231,7 @@ export async function NormCoverageChart() {
         <BarList
           items={cov.filter((n) => n.active && n.leafCount > 0).map((n) => ({ label: n.code, value: Math.round(n.coveragePct), href: `/normen/${n.id}` }))}
           unit="%"
+          max={100}
           empty="Nog geen eisen."
         />
       </ChartCard>

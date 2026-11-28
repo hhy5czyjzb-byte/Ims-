@@ -162,3 +162,44 @@ export function Disclosure({ summary, children, open, compact }: { summary: Reac
     </details>
   );
 }
+
+/** Paginanavigatie onder een lange lijst; behoudt de filters in de URL. */
+export function Pager({
+  total,
+  paging,
+  params,
+}: {
+  total: number;
+  paging: { page: number; pages: number; all: boolean; from: number; to: number };
+  params: Record<string, string | undefined>;
+}) {
+  if (paging.pages <= 1) return null;
+  const href = (pagina: string | undefined) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v && k !== "pagina") q.set(k, v);
+    if (pagina) q.set("pagina", pagina);
+    const s = q.toString();
+    return s ? `?${s}` : "?";
+  };
+  const nums = Array.from({ length: paging.pages }, (_, i) => i + 1);
+  return (
+    <nav className="mt-3 flex flex-wrap items-center gap-1 text-sm print:hidden" aria-label="Pagina's">
+      <span className="mr-2 text-neutral-500">
+        {paging.from}–{paging.to} van {total}
+      </span>
+      {nums.map((n) => (
+        <a
+          key={n}
+          href={href(n === 1 ? undefined : String(n))}
+          aria-current={n === paging.page ? "page" : undefined}
+          className={`rounded px-2 py-1 no-underline hover:no-underline ${n === paging.page ? "bg-brand-red text-white" : "text-neutral-700 hover:bg-neutral-100"}`}
+        >
+          {n}
+        </a>
+      ))}
+      <a href={href(paging.all ? undefined : "alle")} className="ml-2 text-xs">
+        {paging.all ? "Per 100 tonen" : "Alles tonen"}
+      </a>
+    </nav>
+  );
+}

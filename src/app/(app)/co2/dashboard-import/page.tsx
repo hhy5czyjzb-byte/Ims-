@@ -1,4 +1,4 @@
-import { requirePermission } from "@/lib/auth";
+import { requirePagePermission } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { Co2Nav } from "@/components/co2-nav";
 import { Co2WorkbookImport } from "@/components/co2-workbook-import";
@@ -6,7 +6,7 @@ import { Co2WorkbookImport } from "@/components/co2-workbook-import";
 export const metadata = { title: "CO2-dashboard inlezen" };
 
 export default async function Co2DashboardImportPage() {
-  await requirePermission("co2.manage");
+  await requirePagePermission("co2.manage");
   return (
     <>
       <PageHeader

@@ -213,10 +213,11 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
           )}
         </section>
         <section className="card text-sm">
-          <h2 className="mb-2">Scope 3 — brandstof- en energiegerelateerd (WTT)</h2>
+          <h2 className="mb-2">Well-to-tank-deel (informatief)</h2>
           <p className="text-2xl font-bold tabular-nums">{t1(inv.wttKg)} t</p>
           <p className="mt-1 text-neutral-600">
-            Well-to-tank-deel van het verbruik (scope 3, categorie 3). Informatief; bij WTW is dit al in scope 1 en 2 meegenomen.
+            Het deel van de uitstoot bij winning en transport van de brandstof. Bij well-to-wheel (WTW) zit dit al in scope 1 en 2; alleen apart nodig bij een
+            scope 3-analyse.
           </p>
         </section>
         <section className="card text-sm">

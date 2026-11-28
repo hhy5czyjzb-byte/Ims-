@@ -206,6 +206,16 @@ export async function requirePermission(permission: Permission): Promise<Session
   return user;
 }
 
+/**
+ * Voor pagina's (niet voor server-acties): zonder recht naar een nette "geen toegang"-pagina
+ * in plaats van een foutmelding (500).
+ */
+export async function requirePagePermission(permission: Permission): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!can(user.role, permission)) redirect("/geen-toegang");
+  return user;
+}
+
 /** Graph-token van de huidige gebruiker (server-side, verlaat de server nooit). */
 export async function getGraphAccessToken(): Promise<string | null> {
   if (localMode) return null;

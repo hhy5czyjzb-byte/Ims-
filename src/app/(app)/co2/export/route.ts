@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     [],
     ["Totaal scope 1 (kg)", fp.byScope[1].toFixed(2).replace(".", ",")],
     ["Totaal scope 2 (kg)", fp.byScope[2].toFixed(2).replace(".", ",")],
-    ["Totaal scope 3 (kg)", fp.byScope[3].toFixed(2).replace(".", ",")],
+    ["Totaal zakelijk reizen (kg)", fp.byScope[3].toFixed(2).replace(".", ",")],
     ["Totaal (kg)", fp.totalKg.toFixed(2).replace(".", ",")],
   ];
   await logAudit({ user, action: "VIEW", entityType: "EnergyConsumption", summary: `CO2-footprint ${fp.range.label} geëxporteerd (${rows.length} regels)` });

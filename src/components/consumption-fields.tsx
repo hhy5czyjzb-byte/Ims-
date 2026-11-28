@@ -64,7 +64,7 @@ export function ConsumptionFields({
           <option value="">{carrier ? `Standaard (scope ${carrier.defaultScope})` : "Standaard van de energiedrager"}</option>
           <option value="1">Scope 1</option>
           <option value="2">Scope 2</option>
-          <option value="3">Scope 3</option>
+          <option value="3">Zakelijk reizen</option>
         </select>
       </label>
 

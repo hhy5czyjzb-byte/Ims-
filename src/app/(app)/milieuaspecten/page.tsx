@@ -17,7 +17,8 @@ import {
 import { aspectMatches, aspectWhere, type AspectSearch } from "@/lib/aspect-filters";
 import { countAspects } from "@/lib/aspect-stats";
 import { ASPECT_PRIORITY_CLASS, ASPECT_PRIORITY_LABEL, ASPECT_PRIORITY_SHORT, ASPECT_SITE_TYPE_LABEL, options } from "@/lib/labels";
-import { Badge, Disclosure, EmptyState, Field, PageHeader, Select } from "@/components/ui";
+import { Badge, Disclosure, EmptyState, Field, PageHeader, Pager, Select } from "@/components/ui";
+import { paginate } from "@/lib/paging";
 import { AspectForm } from "@/components/aspect-form";
 import { AspectNav } from "@/components/aspect-nav";
 import { createAspect } from "./actions";
@@ -70,8 +71,9 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
     getAspectSuggestions(),
   ]);
   const aspects = rows.filter((a) => aspectMatches(sp, a));
+  const paging = paginate(aspects, sp.pagina);
   const c = countAspects(allActive);
-  const exportQuery = new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]).toString();
+  const exportQuery = new URLSearchParams(Object.entries(sp).filter(([k, v]) => v && k !== "pagina") as [string, string][]).toString();
   const list = (values: string[]) => values.map((v) => ({ value: v, label: v }));
   const origins = [...new Set(allActive.map((a) => a.origin).filter(Boolean) as string[])].sort();
 
@@ -298,7 +300,7 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
               </tr>
             </thead>
             <tbody>
-              {aspects.map((a) => {
+              {paging.items.map((a) => {
                 const e = numOrNull(a.effectScore);
                 const b = numOrNull(a.exposure);
                 const w = numOrNull(a.probability);
@@ -370,8 +372,9 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
           </table>
         </div>
       )}
+      <Pager total={aspects.length} paging={paging} params={sp as Record<string, string | undefined>} />
       <p className="mt-2 text-xs text-neutral-500">
-        {aspects.length} aspect{aspects.length === 1 ? "" : "en"} getoond. Grijs = locatie tijdelijk niet in werking. Rood bij open acties = significant zonder
+        {aspects.length} aspect{aspects.length === 1 ? "" : "en"} gevonden. Grijs = locatie tijdelijk niet in werking. Rood bij open acties = significant zonder
         voorzieningen, maatregel of actie.
       </p>
     </>

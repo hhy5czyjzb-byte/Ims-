@@ -1,4 +1,4 @@
-import { requirePermission } from "@/lib/auth";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getCo2Settings } from "@/lib/co2-settings";
 import { Field, PageHeader, Select } from "@/components/ui";
@@ -12,7 +12,7 @@ export const metadata = { title: "CO2-instellingen" };
 const KPI_LABEL: Record<string, string> = { FTE: "Aantal FTE", REVENUE: "Omzet (€)", KM: "Gereden kilometers", OTHER: "Overig" };
 
 export default async function Co2SettingsPage() {
-  await requirePermission("co2.manage");
+  await requirePagePermission("co2.manage");
   const [settings, carriers, orgs, kpis] = await Promise.all([
     getCo2Settings(),
     prisma.energyCarrier.findMany({ where: { defaultScope: 2 }, orderBy: { name: "asc" }, select: { id: true, name: true } }),

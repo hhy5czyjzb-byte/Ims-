@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/rbac";
 import { carrierGroup } from "@/lib/co2";
 import { formatDateTime } from "@/lib/format";
@@ -18,7 +19,7 @@ export const metadata = { title: "Energiedrager" };
 const SCOPES = [
   { value: "1", label: "Scope 1" },
   { value: "2", label: "Scope 2" },
-  { value: "3", label: "Scope 3 / zakelijk reizen" },
+  { value: "3", label: "Zakelijk reizen" },
 ];
 
 export default async function CarrierPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,6 +31,7 @@ export default async function CarrierPage({ params }: { params: Promise<{ id: st
     include: { factors: { orderBy: { validFrom: "desc" } }, _count: { select: { consumptions: true } } },
   });
   if (!c) notFound();
+  await logAudit({ user, action: "VIEW", entityType: "EnergyCarrier", entityId: c.id, summary: `Energiedrager "${c.name}" bekeken` });
   const history = await prisma.auditLog.findMany({
     where: {
       action: { not: "VIEW" },

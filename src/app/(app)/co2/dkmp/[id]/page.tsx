@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { requirePermission } from "@/lib/auth";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { PageHeader } from "@/components/ui";
 import { Form } from "@/components/form";
 import { SubmitButton } from "@/components/submit-button";
@@ -12,13 +13,14 @@ export const metadata = { title: "DKMP-regel" };
 
 export default async function DkmpItemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await requirePermission("co2.manage");
+  const user = await requirePagePermission("co2.manage");
   const [item, carriers, sections] = await Promise.all([
     prisma.dataQualityItem.findUnique({ where: { id } }),
     prisma.energyCarrier.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.dataQualityItem.findMany({ distinct: ["section"], select: { section: true } }),
   ]);
   if (!item) notFound();
+  await logAudit({ user, action: "VIEW", entityType: "DataQualityItem", entityId: item.id, summary: `DKMP-onderdeel bekeken` });
   return (
     <>
       <PageHeader

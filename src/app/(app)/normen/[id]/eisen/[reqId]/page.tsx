@@ -152,7 +152,7 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
       {canEdit && (
         <div className="mt-6">
           <Disclosure summary="Eis wijzigen">
-            <Form action={updateRequirement.bind(null, id, req.id)} className="grid gap-3 sm:grid-cols-4">
+            <Form key={req.updatedAt.toISOString()} action={updateRequirement.bind(null, id, req.id)} className="grid gap-3 sm:grid-cols-4">
               <Field label="Paragraaf">
                 <input name="clause" required defaultValue={req.clause} className="input" />
               </Field>

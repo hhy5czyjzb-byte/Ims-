@@ -36,7 +36,7 @@ export function TargetForm({
           options={[
             { value: "1", label: "Scope 1" },
             { value: "2", label: "Scope 2" },
-            { value: "3", label: "Scope 3" },
+            { value: "3", label: "Zakelijk reizen" },
           ]}
           defaultValue={target?.scope ? String(target.scope) : ""}
           placeholder="Totaal (alle scopes)"

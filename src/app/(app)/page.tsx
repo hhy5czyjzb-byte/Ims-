@@ -29,7 +29,7 @@ import { can } from "@/lib/rbac";
 import { FINAL_STATUSES, STATUS_COLOR, STATUS_ORDER } from "@/lib/objectives";
 import { OBJECTIVE_STATUS_LABEL } from "@/lib/labels";
 import { formatTonnes, formatPct } from "@/lib/co2";
-import { loadFactors, loadFootprint, targetStatus } from "@/lib/co2-data";
+import { latestDataYear, loadFactors, loadFootprint, targetStatus } from "@/lib/co2-data";
 
 export const metadata = { title: "Dashboard" };
 
@@ -160,9 +160,12 @@ export default async function DashboardPage() {
   const openReports = await prisma.report.count({ where: { status: { in: ["NEW", "IN_PROGRESS"] } } });
   const accidents12 = recentReports.filter((r) => r.type === "ACCIDENT").length;
 
-  const [co2Now, co2Prev, co2Targets] = await Promise.all([
-    loadFootprint(today.getFullYear(), "jaar", {}, co2Factors),
-    loadFootprint(today.getFullYear() - 1, "jaar", {}, co2Factors),
+  // Laatste volledige jaar met verbruik en het jaar ervoor; het lopende jaar alleen als er al verbruik is.
+  const co2Year = await latestDataYear();
+  const [co2Now, co2Prev, co2Current, co2Targets] = await Promise.all([
+    loadFootprint(co2Year, "jaar", {}, co2Factors),
+    loadFootprint(co2Year - 1, "jaar", {}, co2Factors),
+    co2Year < today.getFullYear() ? loadFootprint(today.getFullYear(), "jaar", {}, co2Factors) : Promise.resolve(null),
     prisma.reductionTarget.findMany({ where: { active: true }, orderBy: { targetYear: "asc" }, take: 4 }),
   ]);
   const co2TargetRows = await Promise.all(co2Targets.map(async (t) => ({ t, s: await targetStatus(t, co2Factors) })));
@@ -325,7 +328,7 @@ export default async function DashboardPage() {
                 <Link href={r.id ? `/acties?discipline=${r.id}` : "/acties"} className="flex items-center gap-2 text-inherit no-underline hover:no-underline">
                   <span className="w-28 shrink-0 truncate">{r.name}</span>
                   <span className="h-3 flex-1 overflow-hidden rounded bg-neutral-100">
-                    <span className="block h-full rounded bg-brand-red" style={{ width: `${(r.count / maxDisc) * 100}%` }} />
+                    <span className="block h-full rounded bg-[#257de0]" style={{ width: `${(r.count / maxDisc) * 100}%` }} />
                   </span>
                   <span className="w-6 text-right tabular-nums">{r.count}</span>
                 </Link>
@@ -435,9 +438,6 @@ export default async function DashboardPage() {
               )}
             </>
           )}
-          <p className="mt-3 border-t border-dashed border-neutral-200 pt-2 text-xs text-neutral-400">
-            Binnenkort: certificaten, keuringen en directiebeoordeling.
-          </p>
         </section>
       </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -593,14 +593,15 @@ export default async function DashboardPage() {
                   <th></th>
                   <th className="text-right">Scope 1</th>
                   <th className="text-right">Scope 2</th>
-                  <th className="text-right">Scope 3</th>
+                  <th className="text-right">Zakelijk reizen</th>
                   <th className="text-right">Totaal</th>
                 </tr>
               </thead>
               <tbody>
                 {[
-                  { label: `${today.getFullYear() - 1}`, fp: co2Prev },
-                  { label: `${today.getFullYear()} (t/m vandaag)`, fp: co2Now },
+                  { label: `${co2Year - 1}`, fp: co2Prev },
+                  { label: `${co2Year}`, fp: co2Now },
+                  ...(co2Current && co2Current.rows.length ? [{ label: `${today.getFullYear()} (t/m vandaag)`, fp: co2Current }] : []),
                 ].map(({ label, fp }) => (
                   <tr key={label}>
                     <td className="whitespace-nowrap">{label}</td>

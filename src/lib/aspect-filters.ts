@@ -23,6 +23,7 @@ export type AspectSearch = {
   risico?: string; // gekoppeld risico / kans (id)
   co2?: string;
   actief?: string;
+  pagina?: string; // paginering van de lijst (geen filter)
 };
 
 const PRIOS = ["HIGH", "MEDIUM", "LOW"];

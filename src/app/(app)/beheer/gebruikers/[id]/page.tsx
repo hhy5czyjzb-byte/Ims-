@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/rbac";
 import { formatDateTime } from "@/lib/format";
 import { ROLE_LABEL } from "@/lib/labels";
@@ -23,6 +24,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
     prisma.jobFunction.findMany({ orderBy: { name: "asc" } }),
   ]);
   if (!u) notFound();
+  await logAudit({ user, action: "VIEW", entityType: "User", entityId: u.id, summary: `Gebruiker "${u.name}" bekeken` });
   return (
     <>
       <PageHeader

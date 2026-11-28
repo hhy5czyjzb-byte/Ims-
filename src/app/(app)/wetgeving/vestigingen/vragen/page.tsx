@@ -11,8 +11,9 @@ import { createQuestion, deleteQuestion, updateQuestion } from "../actions";
 
 export const metadata = { title: "Auditvragen" };
 
-export default async function QuestionsPage() {
+export default async function QuestionsPage({ searchParams }: { searchParams: Promise<{ wijzig?: string }> }) {
   const user = await requireUser();
+  const { wijzig } = await searchParams;
   const canEdit = can(user.role, "legal.edit");
   const [questions, legal] = await Promise.all([
     prisma.complianceQuestion.findMany({
@@ -71,7 +72,7 @@ export default async function QuestionsPage() {
               </thead>
               <tbody>
                 {questions.map((q) => (
-                  <tr key={q.id} className={q.active ? "" : "opacity-50"}>
+                  <tr key={q.id} id={`v-${q.id}`} className={q.active ? "" : "opacity-50"}>
                     <td className="tabular-nums">{q.sortOrder}</td>
                     <td className="text-xs">
                       {q.legalRequirement ? (
@@ -87,9 +88,27 @@ export default async function QuestionsPage() {
                         {q.question} {!q.active && <Badge className="bg-neutral-100 text-neutral-600">Niet actief</Badge>}
                       </div>
                       {q.evidenceHint && <div className="text-xs text-neutral-500">Bewijs: {q.evidenceHint}</div>}
-                      {canEdit && (
+                      {canEdit && wijzig !== q.id && (
+                        <Link
+                          href={`?wijzig=${q.id}#v-${q.id}`}
+                          scroll={false}
+                          className="mt-1 inline-block text-xs text-neutral-500 hover:text-brand-red-dark"
+                        >
+                          ▸ Wijzigen
+                        </Link>
+                      )}
+                      {/* Alleen het formulier van de gekozen vraag wordt meegestuurd (scheelt per vraag de hele lijst wettelijke eisen). */}
+                      {canEdit && wijzig === q.id && (
                         <div className="mt-2">
-                          <Disclosure compact summary="Wijzigen">
+                          <Disclosure
+                            compact
+                            open
+                            summary={
+                              <Link href="?" scroll={false}>
+                                Sluiten
+                              </Link>
+                            }
+                          >
                             <QuestionFields
                               key={q.updatedAt.toISOString()}
                               formAction={updateQuestion.bind(null, q.id)}

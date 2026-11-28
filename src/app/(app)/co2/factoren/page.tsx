@@ -15,7 +15,7 @@ export const metadata = { title: "Emissiefactoren" };
 const SCOPES = [
   { value: "1", label: "Scope 1" },
   { value: "2", label: "Scope 2" },
-  { value: "3", label: "Scope 3 / zakelijk reizen" },
+  { value: "3", label: "Zakelijk reizen" },
 ];
 const gram = (kg: unknown) => (kg === null || kg === undefined ? "—" : (Number(kg) * 1000).toLocaleString("nl-NL", { maximumFractionDigits: 1 }));
 

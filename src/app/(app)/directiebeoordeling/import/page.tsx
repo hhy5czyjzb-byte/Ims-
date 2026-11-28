@@ -1,11 +1,11 @@
-import { requirePermission } from "@/lib/auth";
+import { requirePagePermission } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { ReviewImportForm } from "@/components/review/review-import-form";
 
 export const metadata = { title: "PowerPoint-template inlezen" };
 
 export default async function ReviewImportPage() {
-  await requirePermission("review.edit");
+  await requirePagePermission("review.edit");
   return (
     <>
       <PageHeader

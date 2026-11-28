@@ -183,7 +183,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
 
           <Disclosure summary={doc.sharePointItemId ? "Verwijzing verwijderen" : "Gegevens wijzigen"}>
             {!doc.sharePointItemId && (
-              <Form action={updateManualDocument.bind(null, id)} className="grid gap-3 sm:grid-cols-2">
+              <Form key={doc.updatedAt.toISOString()} action={updateManualDocument.bind(null, id)} className="grid gap-3 sm:grid-cols-2">
                 <Field label="Documentnummer">
                   <input name="documentNumber" defaultValue={doc.documentNumber ?? ""} className="input" />
                 </Field>

@@ -1,4 +1,4 @@
-import { requirePermission } from "@/lib/auth";
+import { requirePagePermission } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { ImportWizard } from "@/components/import-wizard";
 import { OBJECTIVE_IMPORT_FIELDS } from "@/lib/objectives";
@@ -7,7 +7,7 @@ import { importObjectives } from "../actions";
 export const metadata = { title: "Doelstellingen importeren" };
 
 export default async function ObjectiveImportPage() {
-  await requirePermission("objectives.edit");
+  await requirePagePermission("objectives.edit");
   return (
     <>
       <PageHeader

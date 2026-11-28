@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { requirePermission } from "@/lib/auth";
+import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { legalDisplayCode } from "@/lib/compliance";
 import { PageHeader } from "@/components/ui";
 import { Form } from "@/components/form";
@@ -12,7 +13,7 @@ import { deleteObligation, updateObligation } from "../../../actions";
 export const metadata = { title: "Verplichting wijzigen" };
 
 export default async function EditObligationPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission("context.edit");
+  const user = await requirePagePermission("context.edit");
   const { id } = await params;
   const [o, stakeholders, legal] = await Promise.all([
     prisma.stakeholderObligation.findUnique({
@@ -27,6 +28,7 @@ export default async function EditObligationPage({ params }: { params: Promise<{
     }),
   ]);
   if (!o) notFound();
+  await logAudit({ user, action: "VIEW", entityType: "StakeholderObligation", entityId: o.id, summary: `Verplichting bekeken` });
   return (
     <>
       <PageHeader
@@ -40,6 +42,7 @@ export default async function EditObligationPage({ params }: { params: Promise<{
       <ContextNav />
       <section className="card max-w-5xl">
         <ObligationFields
+          key={o.updatedAt.toISOString()}
           obligation={o}
           selectedStakeholders={o.stakeholders.map((s) => s.id)}
           selectedLegal={o.legalRequirements.map((l) => l.id)}
