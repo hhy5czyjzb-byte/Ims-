@@ -6,7 +6,8 @@ import { formatDate } from "@/lib/format";
 import {
   ACTION_STATUS_CLASS,
   ACTION_STATUS_LABEL,
-  ASPECT_TYPE_LABEL,
+  ASPECT_PRIORITY_CLASS,
+  ASPECT_PRIORITY_SHORT,
   AUDIT_STATUS_CLASS,
   AUDIT_STATUS_LABEL,
   AUDIT_TYPE_CLASS,
@@ -20,7 +21,7 @@ import { RiskMatrix } from "@/components/risk-matrix";
 import { residual } from "@/lib/risk";
 import { auditCode } from "@/lib/audit-plan";
 import { complianceSummary, legalDisplayCode } from "@/lib/compliance";
-import { aspectCode } from "@/lib/aspects";
+import { aspectDisplayCode } from "@/lib/aspects";
 import { listBackups } from "@/lib/backup";
 import { localMode } from "@/lib/env";
 import { can } from "@/lib/rbac";
@@ -96,16 +97,21 @@ export default async function DashboardPage() {
       select: { id: true, number: true, externalRef: true, title: true, article: true, status: true, nextReviewDate: true, owner: { select: { name: true } } },
     }),
     prisma.environmentalAspect.findMany({
-      where: { active: true, significant: true },
-      orderBy: [{ score: { sort: "desc", nulls: "last" } }, { number: "asc" }],
+      where: { active: true, significant: true, inOperation: true },
+      orderBy: [{ priority: "asc" }, { externalRef: { sort: "asc", nulls: "last" } }, { number: "asc" }],
       select: {
         id: true,
         number: true,
+        externalRef: true,
         activity: true,
         aspect: true,
-        aspectType: true,
-        score: true,
+        businessUnit: true,
+        locationText: true,
+        theme: true,
+        priority: true,
+        opportunity: true,
         controls: true,
+        measure: true,
         _count: { select: { actions: { where: { status: { in: ["OPEN", "IN_PROGRESS"] } } } } },
       },
     }),
@@ -412,7 +418,7 @@ export default async function DashboardPage() {
         <section className="card lg:col-span-2">
           <div className="mb-3 flex items-baseline justify-between">
             <h2>Significante milieuaspecten</h2>
-            <Link href="/milieuaspecten?significant=ja" className="text-sm">
+            <Link href="/milieuaspecten?significant=ja&werking=ja" className="text-sm">
               Register →
             </Link>
           </div>
@@ -423,18 +429,25 @@ export default async function DashboardPage() {
               <tbody>
                 {sigAspects.slice(0, 8).map((a) => (
                   <tr key={a.id}>
-                    <td className="w-12 text-center font-semibold tabular-nums">{a.score ?? "—"}</td>
+                    <td className="w-10 text-center">
+                      {a.priority && <Badge className={ASPECT_PRIORITY_CLASS[a.priority]}>{ASPECT_PRIORITY_SHORT[a.priority]}</Badge>}
+                    </td>
                     <td>
                       <Link href={`/milieuaspecten/${a.id}`}>
-                        {aspectCode(a.number)} {a.aspect}
+                        {aspectDisplayCode(a)} {a.aspect}
                       </Link>
-                      <div className="text-xs text-neutral-500">{a.activity}</div>
+                      <div className="text-xs text-neutral-500">
+                        {[a.businessUnit, a.locationText, a.activity].filter(Boolean).join(" · ")}
+                        {a.opportunity && " · kans"}
+                      </div>
                     </td>
                     <td className="text-xs whitespace-nowrap">
                       {a._count.actions > 0 ? (
                         <span>{a._count.actions} open actie(s)</span>
+                      ) : a.measure ? (
+                        <span className="text-neutral-500">Maatregel gepland</span>
                       ) : a.controls ? (
-                        <span className="text-neutral-500">Beheersmaatregelen</span>
+                        <span className="text-neutral-500">Voorzieningen</span>
                       ) : (
                         <span className="font-semibold text-brand-red">Geen maatregel / actie</span>
                       )}
@@ -447,16 +460,19 @@ export default async function DashboardPage() {
           {sigAspects.length > 8 && <p className="mt-2 text-xs text-neutral-500">En nog {sigAspects.length - 8} significante aspecten.</p>}
         </section>
         <section className="card">
-          <h2 className="mb-3">Significant per type</h2>
+          <h2 className="mb-3">Significant per thema</h2>
           {sigAspects.length === 0 ? (
             <p className="text-sm text-neutral-500">—</p>
           ) : (
             <ul className="space-y-1 text-sm">
-              {[...new Set(sigAspects.map((a) => a.aspectType))].map((t) => (
+              {[...new Set(sigAspects.map((a) => a.theme ?? "Overig"))].sort().map((t) => (
                 <li key={t}>
-                  <Link href={`/milieuaspecten?significant=ja&type=${t}`} className="flex justify-between text-inherit no-underline hover:no-underline">
-                    <span>{ASPECT_TYPE_LABEL[t]}</span>
-                    <span className="tabular-nums">{sigAspects.filter((a) => a.aspectType === t).length}</span>
+                  <Link
+                    href={`/milieuaspecten?significant=ja&werking=ja${t === "Overig" ? "" : `&thema=${encodeURIComponent(t)}`}`}
+                    className="flex justify-between text-inherit no-underline hover:no-underline"
+                  >
+                    <span>{t}</span>
+                    <span className="tabular-nums">{sigAspects.filter((a) => (a.theme ?? "Overig") === t).length}</span>
                   </Link>
                 </li>
               ))}

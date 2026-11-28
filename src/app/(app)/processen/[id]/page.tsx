@@ -371,7 +371,7 @@ export default async function ProcessDetailPage({ params, searchParams }: { para
           <p className="text-sm text-neutral-500">Geen milieuaspecten gekoppeld.</p>
         ) : (
           <ul className="space-y-1 text-sm">
-            <AspectLinkItems items={process.environmentalAspects} />
+            <AspectLinkItems items={process.environmentalAspects} moreHref={`/milieuaspecten?proces=${id}`} />
           </ul>
         )}
       </section>

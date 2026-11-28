@@ -10,7 +10,7 @@ import { getLookups, getRequirementOptions } from "@/lib/lookups";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/format";
 import { riskDisplayCode } from "@/lib/risk";
 import { legalDisplayCode } from "@/lib/compliance";
-import { aspectCode } from "@/lib/aspects";
+import { aspectDisplayCode } from "@/lib/aspects";
 import { formatKg } from "@/lib/co2";
 import { findingCode } from "@/lib/audit-plan";
 import { ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
@@ -161,7 +161,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
                 <dt className="text-neutral-500">Milieuaspect</dt>
                 <dd>
                   <Link href={`/milieuaspecten/${action.environmentalAspect.id}`}>
-                    {aspectCode(action.environmentalAspect.number)} {action.environmentalAspect.aspect}
+                    {aspectDisplayCode(action.environmentalAspect)} {action.environmentalAspect.aspect}
                   </Link>
                 </dd>
               </>

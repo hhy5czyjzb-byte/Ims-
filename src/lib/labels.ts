@@ -4,6 +4,8 @@ import type {
   ActionStatus,
   AuditStatus,
   Applicability,
+  AspectPriority,
+  AspectSiteType,
   AspectType,
   AuditType,
   ChecklistResult,
@@ -211,6 +213,26 @@ export const ASPECT_TYPE_LABEL: Record<AspectType, string> = {
   LIGHT: "Licht",
   TRANSPORT: "Transport en verkeer",
   OTHER: "Overig",
+};
+
+export const ASPECT_PRIORITY_LABEL: Record<AspectPriority, string> = {
+  HIGH: "Hoog",
+  MEDIUM: "Middel",
+  LOW: "Laag",
+};
+
+export const ASPECT_PRIORITY_SHORT: Record<AspectPriority, string> = { HIGH: "H", MEDIUM: "M", LOW: "L" };
+
+export const ASPECT_PRIORITY_CLASS: Record<AspectPriority, string> = {
+  HIGH: "bg-brand-red text-white",
+  MEDIUM: "bg-amber-100 text-amber-800",
+  LOW: "bg-neutral-100 text-neutral-600",
+};
+
+export const ASPECT_SITE_TYPE_LABEL: Record<AspectSiteType, string> = {
+  SITE: "Vestiging",
+  PROJECT: "Project",
+  GROUP: "Groep",
 };
 
 export const SITUATION_LABEL: Record<OperatingSituation, string> = {

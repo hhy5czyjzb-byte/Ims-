@@ -786,11 +786,10 @@ async function seedDemoLegal() {
   }
 }
 
-/** Voorbeeldregister milieuaspecten (idempotent op activiteit + aspect). Significantie volgens de standaarddrempel 27. */
+/** Voorbeeldregister milieuaspecten volgens de MAR-methode (E × B × W, prio H/M/L). Idempotent op activiteit. */
 async function seedDemoAspects() {
   if (await prisma.environmentalAspect.findFirst({ where: { activity: { endsWith: "(voorbeeld)" } } })) return;
   const qhse = await prisma.user.findFirst({ where: { role: "QHSE" } });
-  const mk = await prisma.user.findFirst({ where: { role: "MIDDENKADER" } });
   const disc = async (name: string) => (await prisma.discipline.findUniqueOrThrow({ where: { name } })).id;
   const groenlo = await prisma.location.findUniqueOrThrow({ where: { name: "Groenlo" } });
   const process = await prisma.process.findFirst({ where: { code: "DEMO-BET-01" } });
@@ -798,124 +797,142 @@ async function seedDemoAspects() {
   const r612 = { id: (await prisma.normRequirement.findUniqueOrThrow({ where: { normId_clause: { normId: iso14001.id, clause: "6.1.2" } } })).id };
   const geluid = await prisma.legalRequirement.findFirst({ where: { title: { startsWith: "Omgevingsvergunning locatie Groenlo" } } });
   const kwarts = await prisma.risk.findFirst({ where: { title: { startsWith: "Blootstelling aan kwartsstof" } } });
-  const T = 27;
 
   const items: {
-    activity: string;
-    aspect: string;
-    aspectType: "AIR" | "NOISE" | "SOIL" | "ENERGY" | "WASTE" | "WATER";
-    impact: string;
-    situation: "NORMAL" | "ABNORMAL" | "EMERGENCY";
-    controls: string | null;
-    f: number;
-    e: number;
-    o: number;
-    legal?: boolean;
-    stakeholder?: boolean;
+    bu: string;
     discipline: string;
+    activity: string;
+    theme: string;
+    aspect: string;
+    impact: string;
+    controls: string | null;
+    e: number;
+    b: number;
+    w: number;
+    prio: "HIGH" | "MEDIUM" | "LOW";
+    opportunity?: boolean;
+    context: string;
+    legal?: boolean;
     links?: { legal?: boolean; risk?: boolean; process?: boolean };
   }[] = [
     {
-      activity: "Breken van puin (voorbeeld)",
-      aspect: "Stofemissie",
-      aspectType: "AIR",
-      impact: "Luchtverontreiniging, hinder omwonenden",
-      situation: "NORMAL",
-      controls: "Watervernevelaars, snelheid op terrein beperkt",
-      f: 5,
-      e: 3,
-      o: 3,
-      stakeholder: true,
+      bu: "Afval & Recycling",
       discipline: "Afval/Transport",
+      activity: "Breken van puin (voorbeeld)",
+      theme: "Stof",
+      aspect: "Stofemissie bij breken",
+      impact: "hinder, verspreiding",
+      controls: "Watervernevelaars, snelheid op terrein beperkt",
+      e: 3,
+      b: 6,
+      w: 3,
+      prio: "MEDIUM",
+      context: "Wet- en regelgeving, compliance en NIS2",
+      legal: true,
       links: { risk: true },
     },
     {
-      activity: "Breken van puin (voorbeeld)",
-      aspect: "Geluid van breker en shovels",
-      aspectType: "NOISE",
-      impact: "Geluidshinder omwonenden",
-      situation: "NORMAL",
-      controls: "Werktijden beperkt tot dagperiode",
-      f: 5,
-      e: 2,
-      o: 3,
+      bu: "Afval & Recycling",
       discipline: "Afval/Transport",
+      activity: "Breken van puin (voorbeeld)",
+      theme: "Geluid",
+      aspect: "Geluid van breker en shovels",
+      impact: "hinder",
+      controls: "Werktijden beperkt tot dagperiode",
+      e: 3,
+      b: 6,
+      w: 1,
+      prio: "LOW",
+      context: "Wet- en regelgeving, compliance en NIS2",
+      legal: true,
       links: { legal: true },
     },
     {
+      bu: "Beton",
+      discipline: "Beton",
       activity: "Mengen betonmortel (voorbeeld)",
+      theme: "Energie",
       aspect: "Elektriciteitsverbruik menginstallatie",
-      aspectType: "ENERGY",
-      impact: "Uitputting fossiele brandstoffen, CO2-uitstoot",
-      situation: "NORMAL",
+      impact: "uitputting, verandering klimaat",
       controls: null,
-      f: 5,
-      e: 2,
-      o: 2,
-      discipline: "Beton",
+      e: 3,
+      b: 6,
+      w: 1,
+      prio: "HIGH",
+      context: "Energie, CO₂ en elektrificatie",
       links: { process: true },
     },
     {
+      bu: "Beton",
+      discipline: "Beton",
       activity: "Reinigen truckmixers (voorbeeld)",
+      theme: "Water",
       aspect: "Lozing spoelwater met cementresten",
-      aspectType: "WATER",
-      impact: "Verontreiniging oppervlaktewater (hoge pH)",
-      situation: "NORMAL",
+      impact: "waterverontreiniging",
       controls: "Bezinkbassin, hergebruik spoelwater",
-      f: 4,
-      e: 3,
-      o: 2,
+      e: 7,
+      b: 6,
+      w: 0.5,
+      prio: "LOW",
+      context: "Wet- en regelgeving, compliance en NIS2",
       legal: true,
-      discipline: "Beton",
       links: { process: true },
     },
     {
-      activity: "Tanken materieel (voorbeeld)",
-      aspect: "Morsen van diesel",
-      aspectType: "SOIL",
-      impact: "Bodemverontreiniging",
-      situation: "ABNORMAL",
-      controls: "Vloeistofdichte tankplaats, absorptiemiddel aanwezig",
-      f: 2,
-      e: 3,
-      o: 1,
+      bu: "Infra",
       discipline: "Infra",
+      activity: "Tanken materieel (voorbeeld)",
+      theme: "Bodem",
+      aspect: "Morsen van diesel",
+      impact: "bodemverontreiniging",
+      controls: "Vloeistofdichte tankplaats, absorptiemiddel aanwezig",
+      e: 7,
+      b: 3,
+      w: 0.5,
+      prio: "LOW",
+      context: "Wet- en regelgeving, compliance en NIS2",
     },
     {
-      activity: "Opslag olie en smeermiddelen (voorbeeld)",
-      aspect: "Lekkage bij brand",
-      aspectType: "SOIL",
-      impact: "Bodem- en waterverontreiniging",
-      situation: "EMERGENCY",
-      controls: null,
-      f: 1,
-      e: 5,
-      o: 3,
+      bu: "Infra",
       discipline: "Infra",
+      activity: "Vrachtverkeer en machines (voorbeeld)",
+      theme: "Energie",
+      aspect: "Elektrisch materieel inzetten",
+      impact: "minder uitstoot",
+      controls: null,
+      e: 7,
+      b: 6,
+      w: 1,
+      prio: "MEDIUM",
+      opportunity: true,
+      context: "Energie, CO₂ en elektrificatie",
     },
   ];
 
   for (const it of items) {
-    const score = it.f * it.e * it.o;
     const legalLinked = !!(it.links?.legal && geluid);
-    const significant = score >= T || !!it.legal || legalLinked || !!it.stakeholder;
     await prisma.environmentalAspect.create({
       data: {
+        businessUnit: it.bu,
+        locationText: "Groenlo",
         activity: it.activity,
+        theme: it.theme,
         aspect: it.aspect,
-        aspectType: it.aspectType,
+        aspectType:
+          it.theme === "Energie" ? "ENERGY" : it.theme === "Geluid" ? "NOISE" : it.theme === "Water" ? "WATER" : it.theme === "Bodem" ? "SOIL" : "AIR",
         impact: it.impact,
-        situation: it.situation,
         controls: it.controls,
-        frequency: it.f,
-        severity: it.e,
-        extent: it.o,
-        score,
+        contextFactor: it.context,
+        effectScore: it.e,
+        exposure: it.b,
+        probability: it.w,
+        priority: it.prio,
+        opportunity: !!it.opportunity,
         legalApplies: !!it.legal,
-        stakeholderConcern: !!it.stakeholder,
-        co2Relevant: it.aspectType === "ENERGY" || it.aspectType === "AIR",
-        significant,
-        ownerId: it.discipline === "Beton" ? qhse?.id : mk?.id,
+        co2Relevant: it.theme === "Energie",
+        significant: it.prio !== "LOW",
+        ownerText: `Manager ${it.bu}`,
+        origin: "Voorbeeld",
         createdById: qhse?.id,
         disciplineId: await disc(it.discipline),
         locationId: groenlo.id,

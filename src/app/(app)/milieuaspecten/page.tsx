@@ -1,58 +1,87 @@
 import Link from "next/link";
-import type { AspectType } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { getLookups } from "@/lib/lookups";
-import { getAspectLinkOptions } from "@/lib/legal-links";
-import { getSignificanceThreshold } from "@/lib/settings";
-import { formatDate, isOverdue } from "@/lib/format";
-import { aspectCode, determineSignificance } from "@/lib/aspects";
-import { aspectWhere, type AspectSearch } from "@/lib/aspect-filters";
-import { ASPECT_TYPE_LABEL, SITUATION_CLASS, SITUATION_LABEL, options } from "@/lib/labels";
+import { getAspectLinkOptions, getAspectSuggestions } from "@/lib/legal-links";
+import {
+  ASPECT_RISK_LEVEL_CLASS,
+  ASPECT_RISK_LEVEL_LABEL,
+  aspectDisplayCode,
+  aspectRisk,
+  aspectRiskLevel,
+  PRIORITY_SIGNAL_LABEL,
+  prioritySignal,
+} from "@/lib/aspects";
+import { aspectMatches, aspectWhere, type AspectSearch } from "@/lib/aspect-filters";
+import { countAspects } from "@/lib/aspect-stats";
+import { ASPECT_PRIORITY_CLASS, ASPECT_PRIORITY_LABEL, ASPECT_PRIORITY_SHORT, ASPECT_SITE_TYPE_LABEL, options } from "@/lib/labels";
 import { Badge, Disclosure, EmptyState, Field, PageHeader, Select } from "@/components/ui";
-import { Form } from "@/components/form";
-import { SubmitButton } from "@/components/submit-button";
 import { AspectForm } from "@/components/aspect-form";
-import { createAspect, setSignificanceThreshold } from "./actions";
+import { AspectNav } from "@/components/aspect-nav";
+import { createAspect } from "./actions";
 
 export const metadata = { title: "Milieuaspecten" };
+
+const fmt = (n: number | null) => (n === null ? "—" : n.toLocaleString("nl-NL", { maximumFractionDigits: 2 }));
+const numOrNull = (v: unknown) => (v === null || v === undefined ? null : Number(String(v)));
 
 export default async function AspectsPage({ searchParams }: { searchParams: Promise<AspectSearch> }) {
   const user = await requireUser();
   const sp = await searchParams;
   const canEdit = can(user.role, "aspects.edit");
-  const threshold = await getSignificanceThreshold();
 
-  const [aspects, allActive, lookups, processes, linkOptions] = await Promise.all([
+  const [rows, allActive, lookups, processes, linkOptions, suggestions] = await Promise.all([
     prisma.environmentalAspect.findMany({
       where: aspectWhere(sp, user.id),
-      orderBy: [{ significant: "desc" }, { score: { sort: "desc", nulls: "last" } }, { activity: "asc" }],
+      orderBy: [{ externalRef: { sort: "asc", nulls: "last" } }, { number: "asc" }],
       include: {
         owner: { select: { name: true } },
-        discipline: { select: { name: true } },
-        location: { select: { name: true } },
-        _count: { select: { legalRequirements: true, actions: { where: { status: { in: ["OPEN", "IN_PROGRESS"] } } } } },
+        _count: { select: { actions: { where: { status: { in: ["OPEN", "IN_PROGRESS"] } } } } },
       },
-      take: 3000,
+      take: 5000,
     }),
-    prisma.environmentalAspect.findMany({ where: { active: true }, select: { aspectType: true, significant: true } }),
+    prisma.environmentalAspect.findMany({
+      where: { active: true },
+      select: {
+        businessUnit: true,
+        locationText: true,
+        contextFactor: true,
+        theme: true,
+        siteType: true,
+        inOperation: true,
+        priority: true,
+        opportunity: true,
+        origin: true,
+        lifecycleSource: true,
+        effectScore: true,
+        exposure: true,
+        probability: true,
+      },
+    }),
     getLookups(),
     prisma.process.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     canEdit ? getAspectLinkOptions() : Promise.resolve(null),
+    getAspectSuggestions(),
   ]);
-
-  const significantCount = allActive.filter((a) => a.significant).length;
-  const byType = (Object.keys(ASPECT_TYPE_LABEL) as AspectType[])
-    .map((t) => ({ t, total: allActive.filter((a) => a.aspectType === t).length, sig: allActive.filter((a) => a.aspectType === t && a.significant).length }))
-    .filter((x) => x.total > 0);
+  const aspects = rows.filter((a) => aspectMatches(sp, a));
+  const c = countAspects(allActive);
   const exportQuery = new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]).toString();
+  const list = (values: string[]) => values.map((v) => ({ value: v, label: v }));
+  const origins = [...new Set(allActive.map((a) => a.origin).filter(Boolean) as string[])].sort();
+
+  const Tile = ({ href, n, label, tone }: { href: string; n: number; label: string; tone?: string }) => (
+    <Link href={href} className="rounded-md border border-neutral-200 px-3 py-2 text-inherit no-underline hover:border-brand-red hover:no-underline">
+      <div className={`text-2xl font-bold tabular-nums ${tone ?? ""}`}>{n}</div>
+      <div className="text-xs text-neutral-500">{label}</div>
+    </Link>
+  );
 
   return (
     <>
       <PageHeader
         title="Milieuaspecten"
-        description="Register van milieuaspecten en -effecten per activiteit, discipline en locatie (ISO 14001 6.1.2), met scoring en bepaling van significantie."
+        description="Milieuaspectenregister (MAR) per bedrijfsonderdeel, locatie en activiteit (ISO 14001 6.1.2). Risico = effect × voorkomen × waarschijnlijkheid; de prio (H/M/L) is de eigen weging — prio H of M is significant."
         actions={
           <>
             {canEdit && (
@@ -66,56 +95,73 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
           </>
         }
       />
+      <AspectNav />
 
       <section className="card mb-6">
-        <div className="flex flex-wrap items-start gap-6">
-          <div>
-            <div className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">Significant</div>
-            <Link href="/milieuaspecten?significant=ja" className="text-3xl font-bold text-brand-red no-underline">
-              {significantCount}
-            </Link>
-            <span className="ml-1 text-sm text-neutral-500">van {allActive.length} aspecten</span>
-          </div>
-          <div className="flex flex-1 flex-wrap gap-2">
-            {byType.map((x) => (
-              <Link
-                key={x.t}
-                href={`/milieuaspecten?type=${x.t}`}
-                className="rounded-md border border-neutral-200 px-3 py-2 text-sm text-inherit no-underline hover:border-brand-red hover:no-underline"
-              >
-                <div className="font-medium">{ASPECT_TYPE_LABEL[x.t]}</div>
-                <div className="text-xs text-neutral-500">
-                  {x.total} aspect{x.total === 1 ? "" : "en"}
-                  {x.sig > 0 && <span className="font-semibold text-brand-red"> · {x.sig} significant</span>}
-                </div>
-              </Link>
-            ))}
-          </div>
+        <h2 className="mb-1">Welke aspecten zijn belangrijk?</h2>
+        <p className="mb-3 text-xs text-neutral-500">Aspecten op locaties die in werking zijn ({c.total}).</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+          <Tile
+            href="/milieuaspecten?significant=ja&werking=ja"
+            n={c.significant}
+            label={`significant (waarvan ${c.significantOpportunities} kansen)`}
+            tone="text-brand-red"
+          />
+          <Tile href="/milieuaspecten?prio=HIGH&werking=ja" n={c.high} label="prio hoog" />
+          <Tile href="/milieuaspecten?prio=MEDIUM&werking=ja" n={c.medium} label="prio middel" />
+          <Tile href="/milieuaspecten?prio=LOW&werking=ja" n={c.low} label="prio laag" />
+          <Tile href="/milieuaspecten?niveau=hoog%2B&werking=ja" n={c.riskHigh} label="risico hoog of zeer hoog" />
+          <Tile href="/milieuaspecten?niveau=medium&werking=ja" n={c.riskMedium} label="risico middel" />
+          <Tile
+            href="/milieuaspecten?signaal=ja&werking=ja"
+            n={c.signalLower + c.signalHigher}
+            label="signaal prio ≠ risico"
+            tone={c.signalLower + c.signalHigher ? "text-amber-700" : ""}
+          />
+          <Tile href="/milieuaspecten?levenscyclus=concept" n={c.lifecycleConcept} label="levenscyclus nog concept" />
         </div>
-        <p className="mt-3 text-xs text-neutral-500">
-          Significant bij score F × E × O ≥ {threshold}, een bindende verplichting, of zorgen bij belanghebbenden — of handmatig bepaald door QHSE.
+        <p className="mt-2 text-xs text-neutral-500">
+          {c.noPrio > 0 && `${c.noPrio} zonder prio · `}
+          {c.notScored > 0 && `${c.notScored} nog niet gescoord · `}
+          {c.opportunities} kansen · {c.projects} op projecten · {allActive.filter((a) => !a.inOperation).length} op locaties tijdelijk niet in werking (tellen
+          niet mee)
         </p>
       </section>
 
       {canEdit && linkOptions && (
-        <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_22rem]">
+        <div className="mb-6">
           <Disclosure summary="Milieuaspect toevoegen">
-            <AspectForm formAction={createAspect} lookups={lookups} linkOptions={linkOptions} threshold={threshold} submitLabel="Opslaan" />
-          </Disclosure>
-          <Disclosure summary="Drempel significantie">
-            <Form key={threshold} action={setSignificanceThreshold} className="space-y-2">
-              <Field label="Significant vanaf score (1–125)" hint="Bij wijzigen wordt de significantie van alle niet-handmatig bepaalde aspecten herberekend.">
-                <input name="threshold" type="number" min={1} max={125} required defaultValue={threshold} className="input" />
-              </Field>
-              <SubmitButton variant="secondary">Drempel opslaan</SubmitButton>
-            </Form>
+            <AspectForm formAction={createAspect} lookups={lookups} linkOptions={linkOptions} suggestions={suggestions} submitLabel="Opslaan" />
           </Disclosure>
         </div>
       )}
 
       <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
         <Field label="Zoeken">
-          <input name="q" defaultValue={sp.q} className="input w-52" placeholder="Activiteit, aspect, effect…" />
+          <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Nr., aspect, maatregel…" />
+        </Field>
+        <Field label="Bedrijfsonderdeel">
+          <Select name="bu" options={list(suggestions.businessUnits)} defaultValue={sp.bu} placeholder="Alle" />
+        </Field>
+        <Field label="Locatie">
+          <Select name="locatie" options={list(suggestions.locations)} defaultValue={sp.locatie} placeholder="Alle" className="max-w-56" />
+        </Field>
+        <Field label="Activiteit">
+          <Select name="activiteit" options={list(suggestions.activities)} defaultValue={sp.activiteit} placeholder="Alle" className="max-w-56" />
+        </Field>
+        <Field label="Thema">
+          <Select name="thema" options={list(suggestions.themes)} defaultValue={sp.thema} placeholder="Alle" />
+        </Field>
+        <Field label="Contextfactor">
+          <Select name="context" options={list(suggestions.contextFactors)} defaultValue={sp.context} placeholder="Alle" className="max-w-56" />
+        </Field>
+        <Field label="Prio">
+          <Select
+            name="prio"
+            options={[...options(ASPECT_PRIORITY_LABEL), { value: "geen", label: "Nog geen prio" }]}
+            defaultValue={sp.prio}
+            placeholder="Alle"
+          />
         </Field>
         <Field label="Significant">
           <Select
@@ -128,11 +174,65 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
             placeholder="Alle"
           />
         </Field>
-        <Field label="Type">
-          <Select name="type" options={options(ASPECT_TYPE_LABEL)} defaultValue={sp.type} placeholder="Alle" />
+        <Field label="Risiconiveau">
+          <Select
+            name="niveau"
+            options={[
+              { value: "hoog+", label: "Hoog of zeer hoog" },
+              ...(["veryHigh", "high", "medium", "low"] as const).map((l) => ({ value: l, label: ASPECT_RISK_LEVEL_LABEL[l] })),
+              { value: "geen", label: "Nog niet gescoord" },
+            ]}
+            defaultValue={sp.niveau}
+            placeholder="Alle"
+          />
         </Field>
-        <Field label="Situatie">
-          <Select name="situatie" options={options(SITUATION_LABEL)} defaultValue={sp.situatie} placeholder="Alle" />
+        <Field label="Signaal">
+          <Select
+            name="signaal"
+            options={[
+              { value: "ja", label: "Prio ≠ risico" },
+              { value: "lower", label: PRIORITY_SIGNAL_LABEL.lower },
+              { value: "higher", label: PRIORITY_SIGNAL_LABEL.higher },
+            ]}
+            defaultValue={sp.signaal}
+            placeholder="Alle"
+          />
+        </Field>
+        <Field label="Kans / bedreiging">
+          <Select
+            name="soort"
+            options={[
+              { value: "bedreiging", label: "Bedreiging" },
+              { value: "kans", label: "Kans" },
+            ]}
+            defaultValue={sp.soort}
+            placeholder="Alle"
+          />
+        </Field>
+        <Field label="Type">
+          <Select name="type" options={options(ASPECT_SITE_TYPE_LABEL)} defaultValue={sp.type} placeholder="Alle" />
+        </Field>
+        <Field label="Locatie in werking">
+          <Select
+            name="werking"
+            options={[
+              { value: "ja", label: "In werking" },
+              { value: "nee", label: "Tijdelijk niet in werking" },
+            ]}
+            defaultValue={sp.werking}
+            placeholder="Alle"
+          />
+        </Field>
+        <Field label="Eigenaar">
+          <Select
+            name="eigenaar"
+            options={[{ value: "mij", label: "Mijn aspecten" }, ...list(suggestions.owners)]}
+            defaultValue={sp.eigenaar}
+            placeholder="Iedereen"
+          />
+        </Field>
+        <Field label="Herkomst">
+          <Select name="herkomst" options={list(origins)} defaultValue={sp.herkomst} placeholder="Alle" />
         </Field>
         <Field label="Proces">
           <Select
@@ -140,17 +240,8 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
             options={processes.map((p) => ({ value: p.id, label: p.name }))}
             defaultValue={sp.proces}
             placeholder="Alle"
-            className="max-w-56"
+            className="max-w-48"
           />
-        </Field>
-        <Field label="Discipline">
-          <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
-        </Field>
-        <Field label="Locatie">
-          <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
-        </Field>
-        <Field label="Eigenaar">
-          <Select name="eigenaar" options={[{ value: "mij", label: "Mijn aspecten" }, ...lookups.users]} defaultValue={sp.eigenaar} placeholder="Iedereen" />
         </Field>
         <Field label="CO2">
           <Select name="co2" options={[{ value: "ja", label: "CO2-relevant" }]} defaultValue={sp.co2} placeholder="Alle" />
@@ -176,69 +267,81 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
           <table className="table">
             <thead>
               <tr>
-                <th>Code</th>
+                <th>Nr.</th>
+                <th>Bedrijfsonderdeel · locatie</th>
                 <th>Activiteit → aspect → effect</th>
-                <th>Situatie</th>
-                <th className="text-center">F·E·O</th>
-                <th className="text-center">Score</th>
-                <th>Significantie</th>
+                <th className="text-center">E·B·W</th>
+                <th>Risico</th>
+                <th className="text-center">Prio</th>
                 <th>Eigenaar</th>
                 <th className="text-center">Open acties</th>
-                <th>Beoordelen vóór</th>
               </tr>
             </thead>
             <tbody>
               {aspects.map((a) => {
-                const sig = determineSignificance({
-                  score: a.score,
-                  threshold,
-                  legalApplies: a.legalApplies || a._count.legalRequirements > 0,
-                  stakeholderConcern: a.stakeholderConcern,
-                  manual: a.significanceManual ? { significant: a.significant, reason: a.significanceReason } : null,
-                });
-                const late = a.active && isOverdue(a.reviewDate);
+                const e = numOrNull(a.effectScore);
+                const b = numOrNull(a.exposure);
+                const w = numOrNull(a.probability);
+                const risk = aspectRisk(e, b, w);
+                const level = aspectRiskLevel(risk);
+                const signal = prioritySignal({ priority: a.priority, risk, opportunity: a.opportunity });
                 return (
-                  <tr key={a.id} className={a.active ? "" : "opacity-50"}>
+                  <tr key={a.id} className={!a.active ? "opacity-50" : !a.inOperation ? "bg-neutral-50 text-neutral-500" : ""}>
                     <td className="font-mono text-xs whitespace-nowrap">
-                      {aspectCode(a.number)}
-                      {a.externalRef && <div className="text-neutral-400">{a.externalRef}</div>}
+                      <Link href={`/milieuaspecten/${a.id}`}>{aspectDisplayCode(a)}</Link>
                     </td>
-                    <td>
-                      <div className="text-xs text-neutral-500">{a.activity}</div>
-                      <Link href={`/milieuaspecten/${a.id}`} className="font-medium">
-                        {a.aspect}
-                      </Link>
-                      {a.impact && <div className="text-xs text-neutral-600">→ {a.impact}</div>}
-                      <div className="text-xs text-neutral-400">
-                        {ASPECT_TYPE_LABEL[a.aspectType]} · {a.discipline?.name ?? "Bedrijfsbreed"} · {a.location?.name ?? "Alle locaties"}
-                        {a.co2Relevant && " · CO2"}
+                    <td className="text-xs">
+                      <div className="font-medium text-neutral-800">{a.businessUnit ?? "—"}</div>
+                      <div className="text-neutral-500">
+                        {a.locationText ?? "—"}
+                        {a.siteType !== "SITE" && ` · ${ASPECT_SITE_TYPE_LABEL[a.siteType].toLowerCase()}`}
+                        {!a.inOperation && " · niet in werking"}
                       </div>
                     </td>
                     <td>
-                      <Badge className={SITUATION_CLASS[a.situation]}>{SITUATION_LABEL[a.situation]}</Badge>
+                      <div className="text-xs text-neutral-500">
+                        {a.activity}
+                        {a.theme && ` · ${a.theme}`}
+                      </div>
+                      <Link href={`/milieuaspecten/${a.id}`} className="font-medium">
+                        {a.aspect}
+                      </Link>
+                      {a.impact && <span className="text-xs text-neutral-600"> → {a.impact}</span>}
+                      <div className="mt-0.5 flex flex-wrap gap-1">
+                        {a.opportunity && <Badge className="bg-green-100 text-green-800">Kans</Badge>}
+                        {a.co2Relevant && <Badge className="bg-sky-100 text-sky-800">CO2</Badge>}
+                        {signal && <Badge className="bg-amber-50 text-amber-800 ring-1 ring-amber-300">⚠ {PRIORITY_SIGNAL_LABEL[signal]}</Badge>}
+                      </div>
                     </td>
                     <td className="text-center text-xs whitespace-nowrap text-neutral-600 tabular-nums">
-                      {a.frequency && a.severity && a.extent ? `${a.frequency}·${a.severity}·${a.extent}` : "—"}
+                      {risk === null ? "—" : `${fmt(e)}·${fmt(b)}·${fmt(w)}`}
                     </td>
-                    <td className="text-center font-semibold tabular-nums">{a.score ?? "—"}</td>
-                    <td title={sig.reasons.join(" · ")}>
-                      {a.significant ? (
-                        <Badge className="bg-brand-red text-white">Significant</Badge>
+                    <td className="whitespace-nowrap">
+                      {level ? (
+                        <Badge className={ASPECT_RISK_LEVEL_CLASS[level]}>
+                          {fmt(risk)} {ASPECT_RISK_LEVEL_LABEL[level].toLowerCase()}
+                        </Badge>
                       ) : (
-                        <Badge className="bg-neutral-100 text-neutral-600">Niet significant</Badge>
+                        <span className="text-xs text-neutral-400">niet gescoord</span>
                       )}
-                      {a.significanceManual && <span className="ml-1 text-xs text-neutral-500">(handm.)</span>}
                     </td>
-                    <td>{a.owner?.name ?? <span className={a.significant ? "text-brand-red" : "text-neutral-400"}>Geen</span>}</td>
+                    <td className="text-center">
+                      {a.priority ? (
+                        <Badge className={ASPECT_PRIORITY_CLASS[a.priority]}>{ASPECT_PRIORITY_SHORT[a.priority]}</Badge>
+                      ) : (
+                        <span className="text-xs text-neutral-400">—</span>
+                      )}
+                    </td>
+                    <td className="text-xs">{a.owner?.name ?? a.ownerText ?? <span className="text-neutral-400">—</span>}</td>
                     <td
-                      className={`text-center tabular-nums ${a._count.actions === 0 ? (a.significant && !a.controls ? "font-semibold text-brand-red" : "text-neutral-300") : ""}`}
-                      title={a.significant && !a.controls && a._count.actions === 0 ? "Significant, zonder beheersmaatregelen of actie" : undefined}
+                      className={`text-center tabular-nums ${a._count.actions === 0 ? (a.significant && !a.controls && !a.measure ? "font-semibold text-brand-red" : "text-neutral-300") : ""}`}
+                      title={
+                        a.significant && !a.controls && !a.measure && a._count.actions === 0
+                          ? "Significant, zonder voorzieningen, maatregel of actie"
+                          : undefined
+                      }
                     >
                       {a._count.actions}
-                    </td>
-                    <td className={`whitespace-nowrap ${late ? "font-semibold text-brand-red" : ""}`}>
-                      {formatDate(a.reviewDate)}
-                      {late && " ⚠"}
                     </td>
                   </tr>
                 );
@@ -248,8 +351,8 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
         </div>
       )}
       <p className="mt-2 text-xs text-neutral-500">
-        {aspects.length} aspect{aspects.length === 1 ? "" : "en"} getoond. Beweeg over de significantie voor de reden. Rood bij open acties = significant zonder
-        beheersmaatregelen of actie.
+        {aspects.length} aspect{aspects.length === 1 ? "" : "en"} getoond. Grijs = locatie tijdelijk niet in werking. Rood bij open acties = significant zonder
+        voorzieningen, maatregel of actie.
       </p>
     </>
   );

@@ -24,9 +24,9 @@ export default async function AspectImportPage() {
         title="Importeren uit Excel"
         description={
           <>
-            Lees het bestaande milieuaspectenregister in. Koppel F, E en O (1–5) om de score te laten berekenen, of koppel de score uit het eigen register.{" "}
-            <strong>Koppel je een kolom &quot;significant&quot;, dan wordt die beoordeling overgenomen</strong> (als handmatige bepaling), zodat jullie
-            bestaande methode leidend blijft.
+            Lees het milieuaspectenregister (MAR) in, tabblad <strong>MAR</strong>. De kolommen worden herkend; risico, risiconiveau en signaal rekent de app
+            zelf uit. Register nr. (W-nummers) en Risico- en kansenregister (R/K-nummers) worden gekoppeld: importeer daarom eerst het register wet- en
+            regelgeving en het risico- en kansenregister.
           </>
         }
       />
@@ -34,7 +34,7 @@ export default async function AspectImportPage() {
         fields={ASPECT_IMPORT_FIELDS}
         importAction={importAspects}
         registerHref="/milieuaspecten"
-        matchHint="Herkend op kenmerk, of anders op activiteit + aspect + situatie."
+        matchHint="Herkend op nummer (A001), of anders op bedrijfsonderdeel + locatie + activiteit + aspect."
       />
     </>
   );

@@ -10,7 +10,8 @@ export type FieldKind = "text" | "date" | "int" | "decimal" | "period";
 export type PreviewKind =
   | "legalStatus"
   | "aspectSituation"
-  | "aspectType"
+  | "aspectPriority"
+  | "opportunity"
   | "yesNo"
   | "legalCategory"
   | "period"
@@ -68,7 +69,7 @@ export function suggestMapping(headers: string[], fields: ImportField[]): Mappin
   return mapping;
 }
 
-/** Eerste rij met minstens twee gevulde cellen geldt als kopregel (registers beginnen vaak met een titelregel). */
+/** Zoek de kopregel (registers beginnen vaak met een titel en groepskoppen). */
 export function findHeaderRow(rows: unknown[][]): number {
   // Kopregel = eerste regel met (bijna) evenveel tekstcellen als de breedste regel bovenin.
   // Zo worden titelregels en groepskoppen boven de echte kopregel (bijv. "BEOORDELING", "AANPAK") overgeslagen.

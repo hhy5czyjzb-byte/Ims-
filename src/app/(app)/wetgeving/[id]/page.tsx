@@ -316,7 +316,9 @@ export default async function LegalDetailPage({ params }: { params: Promise<{ id
       <section className="card mt-4">
         <h2 className="mb-3">Koppelingen</h2>
         <div className="grid gap-4 text-sm md:grid-cols-2 lg:grid-cols-5">
-          <LinkList title="Milieuaspecten">{req.environmentalAspects.length ? [<AspectLinkItems key="a" items={req.environmentalAspects} />] : []}</LinkList>
+          <LinkList title="Milieuaspecten">
+            {req.environmentalAspects.length ? [<AspectLinkItems key="a" items={req.environmentalAspects} moreHref={`/milieuaspecten?wet=${id}`} />] : []}
+          </LinkList>
           <LinkList title="Normeisen">
             {req.requirements.map((r) => (
               <li key={r.id}>

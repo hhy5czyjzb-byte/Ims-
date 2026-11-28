@@ -730,6 +730,18 @@ model ComplianceAssessment {
 // Milieuaspecten (ISO 14001 6.1.2)
 // ─────────────────────────────────────────────────────────────
 
+enum AspectPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum AspectSiteType {
+  SITE
+  PROJECT
+  GROUP
+}
+
 enum AspectType {
   AIR
   NOISE
@@ -754,37 +766,57 @@ enum OperatingSituation {
 
 /// Milieuaspect: activiteit → aspect → milieueffect, met scoring en significantie.
 model EnvironmentalAspect {
-  id                 String             @id @default(cuid())
-  number             Int                @unique @default(autoincrement())
-  externalRef        String?            @unique // kenmerk uit het (Excel-)bronregister; gebruikt bij herimport
-  activity           String // activiteit, bijv. "Breken van puin"
-  aspectType         AspectType         @default(OTHER)
-  aspect             String // aspect, bijv. "Stofemissie"
-  impact             String? // milieueffect, bijv. "Luchtverontreiniging, hinder omwonenden"
-  situation          OperatingSituation @default(NORMAL)
-  controls           String? // beheersmaatregelen
-  frequency          Int? // F: frequentie / kans 1–5
-  severity           Int? // E: ernst 1–5
-  extent             Int? // O: omvang 1–5
-  score              Int? // F × E × O, of overgenomen uit import
-  legalApplies       Boolean            @default(false) // bindende verplichting van toepassing
-  stakeholderConcern Boolean            @default(false) // belanghebbenden hebben zorgen
-  co2Relevant        Boolean            @default(false) // energie / emissies → CO2-prestatieladder
-  significant        Boolean            @default(false) // uitkomst, opgeslagen voor filteren
-  significanceManual Boolean            @default(false) // handmatig bepaald i.p.v. berekend
-  significanceReason String? // toelichting bij handmatige bepaling
-  reviewDate         DateTime? // volgende beoordeling
-  active             Boolean            @default(true)
-  ownerId            String?
-  owner              User?              @relation("AspectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  createdById        String?
-  createdBy          User?              @relation("AspectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  disciplineId       String?
-  discipline         Discipline?        @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
-  locationId         String?
-  location           Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id                String             @id @default(cuid())
+  number            Int                @unique @default(autoincrement())
+  externalRef       String?            @unique // nummer uit het eigen register (A001); gebruikt bij herimport
+  businessUnit      String? // bedrijfsonderdeel zoals in het register (Beton, Infra, Transport, Afval & Recycling, …)
+  locationText      String? // locatie zoals in het register (Groenlo, Betoncentrale Rijssen, Project / werk, …)
+  siteType          AspectSiteType     @default(SITE)
+  inOperation       Boolean            @default(true) // status locatie: tijdelijk niet in werking telt niet mee
+  activity          String // activiteit, bijv. "Op- en overslag"
+  mba               String? // milieubelastende activiteit (Bal hoofdstuk 3)
+  theme             String? // milieuthema (Geluid, Lucht, Bodem, …)
+  aspectType        AspectType         @default(OTHER) // afgeleid van het thema
+  aspect            String // milieuaspect
+  impact            String? // milieueffect
+  situation         OperatingSituation @default(NORMAL)
+  contextFactor     String? // contextfactor uit de contextanalyse
+  legalApplies      Boolean            @default(false) // wettelijke eis van toepassing
+  legalText         String? // wet- en regelgeving (vrije tekst uit het register)
+  stakeholders      String? // betrokken belanghebbenden
+  complaints        Boolean            @default(false) // klachten bekend
+  controls          String? // voorzieningen / beheersmaatregelen
+  effectScore       Decimal?           @db.Decimal(6, 2) // E: effect (1, 3, 7, 15, 40)
+  exposure          Decimal?           @db.Decimal(6, 2) // B: voorkomen (0,5 – 10)
+  probability       Decimal?           @db.Decimal(6, 2) // W: waarschijnlijkheid (0,1 – 10)
+  opportunity       Boolean            @default(false) // kans (true) of bedreiging (false)
+  priority          AspectPriority? // eigen weging H/M/L; H of M = significant
+  priorityRationale String? // onderbouwing prio (bij afwijking van het risiconiveau)
+  lcRawMaterials    Int? // levenscyclus: grondstofwinning (1–3, leeg = n.v.t.)
+  lcDesign          Int? // ontwerp
+  lcProduction      Int? // productie
+  lcTransport       Int? // transport
+  lcUse             Int? // gebruik
+  lcEndOfLife       Int? // einde levensduur
+  lcDisposal        Int? // definitieve verwijdering
+  lifecycleSource   String? // bron levenscyclus: MAR 2025 / Concept 2026 / Vastgesteld
+  measure           String? // maatregel / doelstelling uit het register
+  ownerText         String? // eigenaar als functie
+  origin            String? // herkomst (MAR 2025, Aanvulling 2026, …)
+  co2Relevant       Boolean            @default(false) // energie / emissies → CO2-prestatieladder
+  significant       Boolean            @default(false) // prio hoog of middel; opgeslagen voor filteren
+  reviewDate        DateTime? // volgende beoordeling
+  active            Boolean            @default(true)
+  ownerId           String?
+  owner             User?              @relation("AspectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById       String?
+  createdBy         User?              @relation("AspectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  disciplineId      String?
+  discipline        Discipline?        @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  locationId        String?
+  location          Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   processes         Process[]          @relation("AspectProcesses")
   risks             Risk[]             @relation("AspectRisks")

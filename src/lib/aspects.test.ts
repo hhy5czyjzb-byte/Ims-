@@ -1,35 +1,67 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aspectCode, aspectScore, defaultCo2Relevant, determineSignificance } from "./aspects";
+import {
+  aspectCode,
+  aspectDisplayCode,
+  aspectRisk,
+  aspectRiskLevel,
+  aspectTypeFromTheme,
+  defaultCo2Relevant,
+  isSignificant,
+  prioritySignal,
+  situationFromTheme,
+} from "./aspects";
 
-test("aspectCode en score", () => {
+test("codes", () => {
   assert.equal(aspectCode(4), "MA-004");
-  assert.equal(aspectScore(3, 4, 2), 24);
-  assert.equal(aspectScore(3, null, 2), null);
-  assert.equal(aspectScore(0, 4, 2), null);
+  assert.equal(aspectDisplayCode({ number: 4, externalRef: "A004" }), "A004");
+  assert.equal(aspectDisplayCode({ number: 4, externalRef: null }), "MA-004");
 });
 
-test("significantie: drempel, wetgeving, belanghebbenden", () => {
-  const base = { threshold: 27, legalApplies: false, stakeholderConcern: false };
-  assert.deepEqual(determineSignificance({ ...base, score: 27 }), { significant: true, reasons: ["Score 27 ≥ drempel 27"] });
-  assert.deepEqual(determineSignificance({ ...base, score: 26 }), { significant: false, reasons: [] });
-  assert.equal(determineSignificance({ ...base, score: 4, legalApplies: true }).significant, true);
-  assert.equal(determineSignificance({ ...base, score: null, stakeholderConcern: true }).significant, true);
-  assert.deepEqual(determineSignificance({ ...base, score: null }), { significant: false, reasons: [] });
+test("risico = E × B × W (Fine & Kinney)", () => {
+  assert.equal(aspectRisk(3, 7, 3), 63);
+  assert.equal(aspectRisk(7, 6, 0.5), 21);
+  assert.equal(aspectRisk("3", "0.5", "0.1"), 0.15);
+  assert.equal(aspectRisk(3, null, 1), null);
+  assert.equal(aspectRisk(3, 0, 1), 0);
 });
 
-test("significantie: handmatige bepaling gaat voor", () => {
-  const r = determineSignificance({
-    score: 100,
-    threshold: 27,
-    legalApplies: true,
-    stakeholderConcern: false,
-    manual: { significant: false, reason: "Afgedekt door vergunning" },
-  });
-  assert.deepEqual(r, { significant: false, reasons: ["Handmatig bepaald: Afgedekt door vergunning"] });
+test("risiconiveau: ≤20 laag, ≤70 middel, ≤200 hoog, daarboven zeer hoog", () => {
+  assert.equal(aspectRiskLevel(20), "low");
+  assert.equal(aspectRiskLevel(20.5), "medium");
+  assert.equal(aspectRiskLevel(70), "medium");
+  assert.equal(aspectRiskLevel(71), "high");
+  assert.equal(aspectRiskLevel(200), "high");
+  assert.equal(aspectRiskLevel(201), "veryHigh");
+  assert.equal(aspectRiskLevel(null), null);
 });
 
-test("CO2-relevantie standaard voor energie, lucht en transport", () => {
-  assert.equal(defaultCo2Relevant("ENERGY"), true);
-  assert.equal(defaultCo2Relevant("NOISE"), false);
+test("significant = prio hoog of middel", () => {
+  assert.equal(isSignificant("HIGH"), true);
+  assert.equal(isSignificant("MEDIUM"), true);
+  assert.equal(isSignificant("LOW"), false);
+  assert.equal(isSignificant(null), false);
+});
+
+test("signaal prio en risico (kansen tellen niet mee)", () => {
+  assert.equal(prioritySignal({ priority: "LOW", risk: 63, opportunity: false }), "lower");
+  assert.equal(prioritySignal({ priority: "HIGH", risk: 9, opportunity: false }), "higher");
+  assert.equal(prioritySignal({ priority: "MEDIUM", risk: 63, opportunity: false }), null);
+  assert.equal(prioritySignal({ priority: "HIGH", risk: 250, opportunity: false }), null);
+  assert.equal(prioritySignal({ priority: "LOW", risk: 63, opportunity: true }), null);
+  assert.equal(prioritySignal({ priority: null, risk: 63, opportunity: false }), null);
+});
+
+test("type, situatie en CO2 uit het thema", () => {
+  assert.equal(aspectTypeFromTheme("Geluid"), "NOISE");
+  assert.equal(aspectTypeFromTheme("F-gassen"), "AIR");
+  assert.equal(aspectTypeFromTheme("CO₂"), "ENERGY");
+  assert.equal(aspectTypeFromTheme("Calamiteiten"), "OTHER");
+  assert.equal(aspectTypeFromTheme("", "lozing spoelwater"), "WATER");
+  assert.equal(situationFromTheme("Calamiteiten"), "EMERGENCY");
+  assert.equal(situationFromTheme("Bodem"), "NORMAL");
+  assert.equal(defaultCo2Relevant("Energie"), true);
+  assert.equal(defaultCo2Relevant("CO₂"), true);
+  assert.equal(defaultCo2Relevant("Geluid", "Energie, CO₂ en elektrificatie"), true);
+  assert.equal(defaultCo2Relevant("Geluid", "Wet- en regelgeving"), false);
 });

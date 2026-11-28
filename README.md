@@ -17,7 +17,7 @@ Integraal managementsysteem (IMS) voor alle certificeringen van Rouwmaat Groep (
 | Audits (intern, extern, klant): planning, checklist per norm, bevindingen met opvolging, planning over de certificatiecyclus                                                                                  | ✅                                            |
 | Wet- en regelgeving: register met compliancestatus, toetsingen (evaluatie naleving), acties, Excel-import met kolommen koppelen, CSV-export                                                                   | ✅                                            |
 | Compliance-audit per vestiging: vragenbank, checklist per vestiging met oordeel en bevinding, score, acties, Excel-import en -export                                                                          | ✅                                            |
-| Milieuaspecten: register met scoring (F × E × O), significantie (instelbare drempel), acties, Excel-import, CSV-export                                                                                        | ✅                                            |
+| Milieuaspecten (MAR): risico E × B × W, prio H/M/L (significant), signaal prio ≠ risico, levenscyclus, overzicht per BU/locatie/thema, Excel-import, CSV-export                                               | ✅                                            |
 | CO2-prestatieladder: energiedragers met emissiefactoren (met ingangsdatum), verbruik per periode/discipline/locatie/materieel, footprint scope 1-2-3, doelstellingen en maatregelen, Excel-import, CSV-export | ✅                                            |
 | Acties en verbeterpunten                                                                                                                                                                                      | ✅                                            |
 | Dashboard                                                                                                                                                                                                     | ✅ eenvoudige versie                          |
@@ -62,6 +62,7 @@ Importeer in deze volgorde (elk via de knop "Importeren uit Excel"; kolommen wor
 3. **Kansen** — zelfde bestand, tabblad _Kansen_.
 4. **Wet- en regelgeving** — Wet- en regelgeving → Importeren, tabblad _Register_ (koppelt de risico's uit kolom "Risicoregister", daarom na de risico's).
 5. **Auditvragen** — Wet- en regelgeving → Compliance-audit per vestiging → Importeren, tabblad _Compliance-audit_.
+6. **Milieuaspecten** — Milieuaspecten → Importeren, bestand _Milieuaspectenregister (MAR)_, tabblad _MAR_ (koppelt de W- en R/K-nummers, daarom na het register wet- en regelgeving en het risico- en kansenregister).
 
 Opnieuw importeren werkt bij (op het nummer R01/K01/W001) en maakt geen dubbele regels. Maak vooraf een back-up.
 

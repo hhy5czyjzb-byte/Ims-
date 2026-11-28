@@ -42,3 +42,22 @@ export async function getAspectLinkOptions() {
     legal: legal.map((l) => ({ value: l.id, label: `${legalDisplayCode(l)} ${l.title}${l.article ? ` — ${l.article}` : ""}` })),
   };
 }
+
+/** Bestaande waarden in het milieuaspectenregister, als keuzelijst in het formulier. */
+export async function getAspectSuggestions() {
+  const distinct = async (field: "businessUnit" | "locationText" | "activity" | "theme" | "contextFactor" | "ownerText") => {
+    // activity is verplicht (niet nullable); de andere velden kunnen leeg zijn.
+    const where = field === "activity" ? { active: true } : { active: true, [field]: { not: null } };
+    const rows = await prisma.environmentalAspect.findMany({ where, distinct: [field], select: { [field]: true }, orderBy: { [field]: "asc" } });
+    return rows.map((r) => (r as unknown as Record<string, string>)[field]).filter(Boolean);
+  };
+  const [businessUnits, locations, activities, themes, contextFactors, owners] = await Promise.all([
+    distinct("businessUnit"),
+    distinct("locationText"),
+    distinct("activity"),
+    distinct("theme"),
+    distinct("contextFactor"),
+    distinct("ownerText"),
+  ]);
+  return { businessUnits, locations, activities, themes, contextFactors, owners };
+}

@@ -200,7 +200,7 @@ export default async function RiskDetailPage({ params }: { params: Promise<{ id:
           <section className="card text-sm lg:col-span-2">
             <h2 className="mb-2">Milieuaspecten</h2>
             <ul className="space-y-1">
-              <AspectLinkItems items={risk.environmentalAspects} />
+              <AspectLinkItems items={risk.environmentalAspects} moreHref={`/milieuaspecten?risico=${id}`} />
             </ul>
           </section>
         )}

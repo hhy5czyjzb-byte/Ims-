@@ -17,12 +17,12 @@ import {
 } from "@/lib/spreadsheet-import";
 import { parseApplicability, parseCategory, parseImpact, parseImplementationStatus, parseStatus } from "@/lib/legal-import";
 import { parseRiskType, parseTreatmentStatus } from "@/lib/risk-import";
-import { parseAspectType, parseSituation } from "@/lib/aspect-import";
+import { parseOpportunity, parsePriority, parseSituation } from "@/lib/aspect-import";
 import { parseDecimal, parsePeriod, formatQuantity } from "@/lib/co2";
 import { formatDate } from "@/lib/format";
 import {
   APPLICABILITY_LABEL,
-  ASPECT_TYPE_LABEL,
+  ASPECT_PRIORITY_LABEL,
   COMPLIANCE_STATUS_LABEL,
   IMPACT_LEVEL_LABEL,
   IMPLEMENTATION_STATUS_LABEL,
@@ -47,7 +47,14 @@ const PREVIEW: Record<PreviewKind, (raw: string, row: ImportRow) => string | nul
     const s = parseSituation(raw);
     return s ? SITUATION_LABEL[s] : null;
   },
-  aspectType: (raw, row) => ASPECT_TYPE_LABEL[parseAspectType(raw, row.aspect)],
+  aspectPriority: (raw) => {
+    const p = parsePriority(raw);
+    return p === undefined ? null : p === null ? "geen prio" : ASPECT_PRIORITY_LABEL[p];
+  },
+  opportunity: (raw) => {
+    const o = parseOpportunity(raw);
+    return o === undefined ? null : o ? "Kans" : "Bedreiging";
+  },
   period: (raw) => {
     const p = parsePeriod(raw);
     return p ? (p.start === p.end ? formatDate(p.start) : `${formatDate(p.start)} t/m ${formatDate(p.end)}`) : null;
