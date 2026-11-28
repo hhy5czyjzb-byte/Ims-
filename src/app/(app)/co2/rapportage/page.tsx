@@ -1,12 +1,12 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { EMISSION_TYPE_LABEL } from "@/lib/co2";
 import { latestDataYear, loadInventory, loadProgress } from "@/lib/co2-data";
 import { loadPlanData } from "@/lib/co2-plan-data";
-import { emissionSummary, fuelSummary, getReportTexts, pipeTable } from "@/lib/co2-report";
+import { emissionSummary, fuelSummary, getReportTexts, majorEnergyStreams, pipeTable } from "@/lib/co2-report";
+import { Chapter, Empty, Invalshoek, PdcaFigure, Rich, Section } from "./report-blocks";
 import { PageHeader } from "@/components/ui";
 import { ChartCard } from "@/components/charts";
 import { Co2Nav } from "@/components/co2-nav";
@@ -18,68 +18,6 @@ const t2 = (kg: number) => (kg / 1000).toLocaleString("nl-NL", { minimumFraction
 const t1 = (kg: number) => (kg / 1000).toLocaleString("nl-NL", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const gj = (v: number) => v.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pc = (v: number, d = 1) => `${(Math.abs(v) < 0.5 * 10 ** -d ? 0 : v).toLocaleString("nl-NL", { minimumFractionDigits: d, maximumFractionDigits: d })}%`;
-
-/** Kop van een invalshoek, met een gekleurde band (in de PDF op een nieuwe pagina). */
-function Invalshoek({ id, letter, title, subtitle }: { id: string; letter: string; title: string; subtitle: string }) {
-  return (
-    <div id={id} className="mt-10 mb-4 rounded-xl bg-gradient-to-r from-brand-red to-brand-red-dark px-6 py-5 text-white print:break-before-page">
-      <div className="text-xs font-semibold tracking-widest uppercase opacity-80">Invalshoek {letter}</div>
-      <h2 className="text-2xl font-bold text-white">{title}</h2>
-      <p className="mt-1 text-sm opacity-90">{subtitle}</p>
-    </div>
-  );
-}
-
-/** Tekstblok uit de verslagteksten; leeg = uitnodiging om in te vullen (alleen op het scherm). */
-function Text({ value, empty, canEdit }: { value: string; empty: string; canEdit: boolean }) {
-  if (value.trim()) return <div className="text-sm leading-relaxed whitespace-pre-line text-neutral-800">{value}</div>;
-  return (
-    <p className="rounded border border-dashed border-neutral-300 px-3 py-2 text-sm text-neutral-500 print:hidden">
-      {empty}{" "}
-      {canEdit && (
-        <Link href="/co2/rapportage/teksten" className="text-xs">
-          Tekst invullen →
-        </Link>
-      )}
-    </p>
-  );
-}
-
-function Section({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
-  return (
-    <section id={id} className="card mb-4 break-inside-avoid-page">
-      <h3 className="mb-2 text-lg font-semibold">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
-function PipeTable({ text, head, empty, canEdit }: { text: string; head: string[]; empty: string; canEdit: boolean }) {
-  const rows = pipeTable(text);
-  if (!rows.length) return <Text value="" empty={empty} canEdit={canEdit} />;
-  return (
-    <div className="overflow-x-auto">
-      <table className="table">
-        <thead>
-          <tr>
-            {head.map((h) => (
-              <th key={h}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i} className="align-top">
-              {head.map((_, j) => (
-                <td key={j}>{r[j] ?? ""}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 export default async function ReportPage({ searchParams }: { searchParams: Promise<{ jaar?: string }> }) {
   const user = await requireUser();
@@ -125,6 +63,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
   };
   const scopePct = (s: 1 | 2) => calc.scopes.find((x) => x.scope === s)!.totalPct;
   const energyPct = pva.target?.totalGjPct ?? calc.energyTotalPct;
+  const majorStreams = majorEnergyStreams(inv.lines.filter((l) => l.gj !== null).map((l) => ({ name: l.name, gj: l.gj! })));
 
   const ScopeTable = ({ s, title }: { s: 1 | 2 | 3; title: string }) => (
     <table className="table mb-3" data-export-name={title}>
@@ -189,7 +128,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
       </form>
 
       {/* Voorblad */}
-      <section className="relative mb-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white px-8 py-10">
+      <section className="relative mb-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white px-8 py-10 print:flex print:min-h-[180mm] print:flex-col print:justify-center">
         <div className="absolute -top-16 -right-16 size-64 rounded-full bg-brand-red/10" aria-hidden />
         <div className="absolute right-28 -bottom-20 size-44 rounded-full bg-brand-grey-light/50" aria-hidden />
         <div className="absolute top-0 left-0 h-full w-1.5 bg-brand-red" aria-hidden />
@@ -199,6 +138,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
           </div>
           <h2 className="mt-4 text-4xl font-bold text-neutral-900">CO2-jaarverslag {year}</h2>
           <p className="mt-1 text-xl text-brand-red-dark">Rouwmaat Groep</p>
+          {texts.publication && <p className="mt-1 text-sm text-neutral-500">{texts.publication}</p>}
           <div className="mt-8 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               [t1(inv.totalKg), "t CO2 totaal"],
@@ -219,11 +159,13 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         <div className="mb-2 font-semibold">Inhoud</div>
         <ol className="grid gap-1 sm:grid-cols-2">
           {[
+            ["#leeswijzer", "Leeswijzer"],
             ["#statement", "Management statement & energiebeleid"],
-            ["#organisatie", "Algemene eisen: organisatie"],
+            ["#organisatie", "Algemene eisen: organisatie, planning, wetgeving en risico's"],
             ["#a", "Invalshoek A — CO2-uitstoot en energieverbruik"],
-            ["#b", "Invalshoek B — Doelstellingen, maatregelen en voortgang"],
-            ["#c", "Invalshoek C — Communicatie"],
+            ["#energiebeoordeling", "Energiebeoordeling, conclusies en flexibiliteit"],
+            ["#b", "Invalshoek B — Doelstellingen, plan van aanpak en voortgang"],
+            ["#c", "Invalshoek C — Sleutelpersonen en communicatie"],
             ["#d", "Invalshoek D — Samenwerking"],
           ].map(([href, label]) => (
             <li key={href}>
@@ -233,33 +175,75 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         </ol>
       </nav>
 
-      <Section id="statement" title="Management statement & energiebeleid">
-        <Text value={texts.statement} empty="Nog geen managementstatement en energiebeleid." canEdit={canEdit} />
+      <Chapter id="leeswijzer" title="Leeswijzer" newPage={false} />
+      <Section>
+        <Rich value={texts.readingGuide} empty="Nog geen leeswijzer (opbouw van het verslag en de ondersteunende documenten)." canEdit={canEdit} />
+      </Section>
+
+      <Chapter id="statement" title="Management statement & energiebeleid" />
+      <Section>
+        <Rich
+          value={texts.statement}
+          empty="Nog geen managementstatement en energiebeleid."
+          canEdit={canEdit}
+          className="lg:columns-2 lg:gap-8 [&>*]:break-inside-avoid"
+        />
         {(texts.statementName || texts.statementDate) && (
-          <p className="mt-3 text-sm text-neutral-600">
-            {texts.statementDate && <>Datum: {texts.statementDate} · </>}
-            {texts.statementName && <>Naam: {texts.statementName}</>}
-          </p>
+          <table className="mt-5 w-full max-w-xl text-sm">
+            <tbody>
+              <tr className="text-xs text-neutral-500 uppercase">
+                <td className="pr-4">Datum</td>
+                <td className="pr-4">Naam</td>
+                <td>Handtekening</td>
+              </tr>
+              <tr className="font-medium">
+                <td className="pr-4 pt-1">{texts.statementDate}</td>
+                <td className="pr-4 pt-1">{texts.statementName}</td>
+                <td className="border-b border-neutral-400 pt-1" />
+              </tr>
+            </tbody>
+          </table>
         )}
       </Section>
 
-      <div id="organisatie" className="grid gap-4 lg:grid-cols-2">
+      <Chapter id="organisatie" kicker="Algemene eisen" title="Organisatie" />
+      <div className="grid gap-4 lg:grid-cols-2">
         <Section title="Organisatiebeschrijving">
-          <Text value={texts.organisation} empty="Nog geen beschrijving van de organisatie." canEdit={canEdit} />
+          <Rich value={texts.organisation} empty="Nog geen beschrijving van de organisatie." canEdit={canEdit} />
         </Section>
         <Section title="Organisatiegrens">
-          <Text value={texts.boundary} empty="Nog geen beschrijving van de organisatiegrens en de entiteiten." canEdit={canEdit} />
+          <Rich value={texts.boundary} empty="Nog geen beschrijving van de organisatiegrens en de entiteiten." canEdit={canEdit} />
         </Section>
       </div>
-      <Section title="CO2-prestatieladder projecten (gunningvoordeel)">
-        <Text value={texts.projects} empty="Geef aan of er in het verslagjaar projecten met gunningvoordeel liepen." canEdit={canEdit} />
+      <Section title="Planning" className="break-inside-avoid-page">
+        <Rich value={texts.planning} empty="Beschrijf hoe het energie- en CO2-managementsysteem volgens de PDCA-cyclus werkt." canEdit={canEdit} />
+        {(texts.pdcaPlan || texts.pdcaDo || texts.pdcaCheck || texts.pdcaAct || texts.planning) && (
+          <PdcaFigure plan={texts.pdcaPlan} doText={texts.pdcaDo} check={texts.pdcaCheck} act={texts.pdcaAct} />
+        )}
+      </Section>
+      <Section title="Wetgeving en risicobeheer">
+        <Rich
+          value={texts.legalRisk}
+          empty="Beschrijf hoe wet- en regelgeving en risico's en kansen voor het CO2-managementsysteem worden bewaakt."
+          canEdit={canEdit}
+        />
+        <p className="mt-2 text-xs text-neutral-500 print:hidden">
+          In het IMS: <Link href="/wetgeving">wet- en regelgeving</Link> · <Link href="/risicos">risico&apos;s en kansen</Link>
+        </p>
+      </Section>
+      <Section title="CO2-prestatieladder projecten">
+        <Rich value={texts.projects} empty="Geef aan of er in het verslagjaar projecten met gunningvoordeel liepen." canEdit={canEdit} />
       </Section>
 
       <Invalshoek id="a" letter="A" title="Waar staan we nu?" subtitle="CO2-uitstoot en energieverbruik" />
       <Section title={`CO2-footprint scope 1 & 2 — ${year}`}>
-        <p className="mb-3 text-sm text-neutral-700">
-          De CO2-footprint is opgesteld conform het GHG-protocol, met {EMISSION_TYPE_LABEL[inv.type].toLowerCase()}-emissiefactoren. {emission.join(" ")}
-        </p>
+        {texts.footprintText ? (
+          <Rich value={texts.footprintText} className="mb-3" />
+        ) : (
+          <p className="mb-3 text-sm text-neutral-700">
+            De CO2-footprint is opgesteld conform het GHG-protocol, met {EMISSION_TYPE_LABEL[inv.type].toLowerCase()}-emissiefactoren. {emission.join(" ")}
+          </p>
+        )}
         <div className="overflow-x-auto">
           <ScopeTable s={1} title="Scope 1" />
           <ScopeTable s={2} title="Scope 2 (market based)" />
@@ -267,18 +251,35 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         </div>
         <p className="text-sm font-semibold">Totale emissies scope 1, 2 en zakelijk reizen: {t2(inv.totalKg)} t CO2</p>
         {inv.locationBased && (
-          <p className="mt-2 text-sm text-neutral-700">
-            Location based scope 2: {Math.round(inv.locationBased.kwh).toLocaleString("nl-NL")} kWh ×{" "}
-            {inv.locationBased.factorKg === null ? "—" : Math.round(inv.locationBased.factorKg * 1000)} g/kWh ={" "}
-            {inv.locationBased.kg === null ? "—" : t1(inv.locationBased.kg)} t CO2.
-          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="table" data-export-name="Location based">
+              <thead>
+                <tr>
+                  <th>Scope 2 (location based)</th>
+                  <th className="text-right">Aantal</th>
+                  <th>Eenheid</th>
+                  <th className="text-right">Factor (g CO2/eenheid)</th>
+                  <th className="text-right">Uitstoot (t CO2)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Elektriciteitsverbruik - gridmix (NL)</td>
+                  <td className="text-right tabular-nums">{Math.round(inv.locationBased.kwh).toLocaleString("nl-NL")}</td>
+                  <td>kWh</td>
+                  <td className="text-right tabular-nums">{inv.locationBased.factorKg === null ? "—" : Math.round(inv.locationBased.factorKg * 1000)}</td>
+                  <td className="text-right tabular-nums">{inv.locationBased.kg === null ? "—" : t1(inv.locationBased.kg)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         )}
       </Section>
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard title={`CO2-footprint scope 1 & 2 — ${year}`} subtitle="t CO2 per groep, heel jaar">
           <GroupDonut items={inv.groups.map((g) => ({ group: g.group, value: g.kg / 1000 }))} unit=" t" centerLabel="t CO2" decimals={1} />
         </ChartCard>
-        <ChartCard title={`Energiebalans — ${year}`} subtitle="GJ per groep, heel jaar (figuur M2)">
+        <ChartCard title={`Figuur M2. Energiebalans — ${year}`} subtitle="GJ per groep, heel jaar">
           <GroupDonut items={[...energyByGroup.entries()].map(([group, value]) => ({ group, value }))} unit=" GJ" centerLabel="GJ" />
         </ChartCard>
       </div>
@@ -320,28 +321,61 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         </div>
       </Section>
       <Section title="Niet-CO2-broeikasgassen">
-        <Text value={texts.nonCo2} empty="Geef aan of er niet-CO2-broeikasgassen (bijv. koelgassen) in de organisatie zijn." canEdit={canEdit} />
+        <Rich value={texts.nonCo2} empty="Geef aan of er niet-CO2-broeikasgassen (bijv. koelgassen) in de organisatie zijn." canEdit={canEdit} />
       </Section>
 
-      <Section title="Energiebeoordeling: brandstofgebruik">
-        <p className="mb-3 text-sm leading-relaxed text-neutral-800">{fuel.sentences.join(" ") || "Nog geen brandstofverbruik in liters."}</p>
+      <Chapter id="energiebeoordeling" kicker="Invalshoek A" title="Energiebeoordeling" />
+      <Section>
+        <Rich value={texts.energyReview} empty="Licht toe hoe is onderzocht waar de meeste energie wordt verbruikt." canEdit={canEdit} />
+        <p className="mt-3 mb-2 text-sm font-medium">Emissiestromen die in {year} samen verantwoordelijk zijn voor ten minste 80% van het energieverbruik:</p>
+        {majorStreams.length ? (
+          <ol className="space-y-1.5">
+            {majorStreams.map((m, i) => (
+              <li key={m.name} className="flex items-center gap-3 rounded-lg bg-neutral-50 px-3 py-2 text-sm">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-red text-xs font-bold text-white">{i + 1}</span>
+                <span className="flex-1 font-medium">{m.name}</span>
+                <span className="tabular-nums">{gj(m.gj)} GJ</span>
+                <span className="w-24 text-right text-neutral-500 tabular-nums">
+                  {pc(m.pct)} (cum. {pc(m.cumPct, 0)})
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-sm text-neutral-500">Nog geen energieverbruik in GJ.</p>
+        )}
+      </Section>
+      <Section title="Brandstofgebruik">
+        {texts.fuelText ? (
+          <Rich value={texts.fuelText} className="mb-3" />
+        ) : (
+          <p className="mb-3 text-sm leading-relaxed text-neutral-800">{fuel.sentences.join(" ") || "Nog geen brandstofverbruik in liters."}</p>
+        )}
         <ChartCard title="Brandstofverbruik per jaar" subtitle="liter per energiedrager" className="border-0 p-0 shadow-none">
           <FuelPerYear perYear={fuel.perYear} carriers={fuel.carriers} />
         </ChartCard>
       </Section>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ChartCard title="Figuur V1. Milieuclassificaties vrachtwagens per jaar" subtitle="Aantal vrachtwagens per Euroklasse">
+      <Section title="Vrachtwagenpark" className="break-inside-avoid-page">
+        <Rich value={texts.truckText} empty="Beschrijf de ontwikkeling van het vrachtwagenpark (brandstof, Euroklasse)." canEdit={canEdit} className="mb-4" />
+        <ChartCard
+          title="Figuur V1. Overzicht milieuclassificaties per jaar"
+          subtitle="Aantal vrachtwagens per Euroklasse"
+          className="border-0 p-0 shadow-none"
+        >
           <FleetFigure kind="EURO" manual={fleetManual} vehicles={fleetVehicles} vehicleType="TRUCK" />
         </ChartCard>
-        <ChartCard title="Figuur V3. Brandstoftypes wagenpark" subtitle="Aantal voertuigen per brandstoftype">
+      </Section>
+      <Section title="Wagenpark" className="break-inside-avoid-page">
+        <Rich value={texts.fleetText} empty="Beschrijf de samenstelling en ontwikkeling van het wagenpark." canEdit={canEdit} className="mb-4" />
+        <ChartCard title="Figuur V3. Brandstoftypes wagenpark" subtitle="Aantal voertuigen per brandstoftype" className="border-0 p-0 shadow-none">
           <FleetFigure kind="FUEL" manual={fleetManual} vehicles={fleetVehicles} />
         </ChartCard>
-      </div>
-      <Section title="Conclusies, aanbevelingen en genomen maatregelen">
-        <Text value={texts.conclusions} empty="Nog geen conclusies en aanbevelingen." canEdit={canEdit} />
+      </Section>
+      <Section title="Conclusies, aanbevelingen en genomen maatregelen" className="print:break-before-page">
+        <Rich value={texts.conclusions} empty="Nog geen conclusies en aanbevelingen." canEdit={canEdit} />
       </Section>
       <Section title="Flexibiliteit van het energiesysteem">
-        <Text
+        <Rich
           value={texts.flexibility}
           empty="Beschrijf hoe de organisatie bijdraagt aan een flexibel energiesysteem (netcongestie, slim laden)."
           canEdit={canEdit}
@@ -349,46 +383,64 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
       </Section>
 
       <Invalshoek id="b" letter="B" title="Van inzicht naar reductie" subtitle="Onze doelstellingen en actieplan" />
-      <Section title="Strategie">
-        <Text value={texts.strategy} empty="Beschrijf de strategie (korte termijn) om de CO2-uitstoot te verminderen." canEdit={canEdit} />
+      <Section title="Algemene uitleg strategie">
+        <Rich value={texts.strategy} empty="Beschrijf de strategie om de CO2-uitstoot te verminderen." canEdit={canEdit} />
       </Section>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="CO2-doelstelling">
-          <p className="mb-3 rounded-lg bg-neutral-50 px-4 py-3 text-base font-semibold text-neutral-900 italic">
-            {pva.target?.text12 ?? pva.target?.textAll ?? target?.description ?? target?.title ?? "Nog geen doelstelling."}
-          </p>
-          <table className="table">
+      <Section title="Korte termijn CO2-doelstellingen" className="break-inside-avoid-page">
+        <Rich value={texts.co2TargetText} className="mb-3" />
+        <p className="mb-3 rounded-lg border-l-4 border-brand-red bg-neutral-50 px-4 py-3 text-base font-semibold text-neutral-900 italic">
+          {pva.target?.text12 ?? pva.target?.textAll ?? target?.description ?? target?.title ?? "Nog geen doelstelling."}
+        </p>
+        <table className="table max-w-2xl">
+          <thead>
+            <tr>
+              <th colSpan={2}>Subdoelstellingen CO2</th>
+            </tr>
+          </thead>
+          <tbody>
+            {([1, 2] as const).map((s) => (
+              <tr key={s}>
+                <td className="w-28 font-medium">Scope {s}</td>
+                <td>
+                  {pc(scopePct(s))} reductie in {targetYear} vergeleken met {baseYear}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Section>
+      <Section title="Korte termijn energiedoelstellingen" className="break-inside-avoid-page">
+        <Rich value={texts.energyTargetText} className="mb-3" />
+        <p className="mb-3 rounded-lg border-l-4 border-brand-red bg-neutral-50 px-4 py-3 text-base font-semibold text-neutral-900 italic">
+          Rouwmaat Groep wil in {targetYear} het energieverbruik met {pc(energyPct, 0)} verminderen ten opzichte van {baseYear}.
+        </p>
+        {pipeTable(texts.energyGoals).length ? (
+          <table className="table max-w-2xl">
             <thead>
               <tr>
-                <th colSpan={2}>Subdoelstellingen CO2</th>
+                <th colSpan={2}>Subdoelstellingen energie</th>
               </tr>
             </thead>
             <tbody>
-              {([1, 2] as const).map((s) => (
-                <tr key={s}>
-                  <td className="font-medium">Scope {s}</td>
-                  <td>
-                    {pc(scopePct(s))} reductie in {targetYear} vergeleken met {baseYear}
-                  </td>
+              {pipeTable(texts.energyGoals).map((r, i) => (
+                <tr key={i} className="align-top">
+                  <td className="w-44 font-medium">{r[0]}</td>
+                  <td>{r.slice(1).join(" ")}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </Section>
-        <Section title="Energiedoelstelling">
-          <p className="mb-3 rounded-lg bg-neutral-50 px-4 py-3 text-base font-semibold text-neutral-900 italic">
-            Rouwmaat Groep wil in {targetYear} het energieverbruik met {pc(energyPct, 0)} verminderen ten opzichte van {baseYear}.
-          </p>
-          <PipeTable
-            text={texts.energyGoals}
-            head={["Subdoelstelling energie", "Doel"]}
-            empty="Vul de subdoelstellingen energie in (zelf opwekken, opslag, duurzame energie)."
-            canEdit={canEdit}
-          />
-        </Section>
-      </div>
-      <Section title="Plan van aanpak — maatregelen met de grootste reductie">
-        {topMeasures.length ? (
+        ) : (
+          <Empty text="Vul de subdoelstellingen energie in (zelf opwekken, opslag, duurzame energie)." canEdit={canEdit} />
+        )}
+      </Section>
+      <Section title="Korte termijn strategie">
+        <Rich value={texts.shortTermStrategy} empty="Beschrijf de korte termijn strategie (laaghangend fruit, grootste emissiestromen)." canEdit={canEdit} />
+      </Section>
+      <Section title="Plan van aanpak" className="break-inside-avoid-page">
+        {texts.planText ? (
+          <Rich value={texts.planText} />
+        ) : topMeasures.length ? (
           <ol className="space-y-2">
             {topMeasures.map(({ r, a }, i) => (
               <li key={r.id} className="flex gap-3 rounded-lg border border-neutral-200 p-3">
@@ -408,24 +460,33 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         ) : (
           <p className="text-sm text-neutral-500">Nog geen maatregelen met een reductiepercentage.</p>
         )}
-        <p className="mt-2 text-xs text-neutral-500">
+        <p className="mt-2 text-xs text-neutral-500 print:hidden">
           Alle maatregelen: <Link href="/co2/plan">plan van aanpak</Link> · berekening: <Link href="/co2/plan/berekening">berekening doelstelling</Link>
         </p>
       </Section>
       <Section title="Verantwoording doelstellingen">
-        <Text
+        <Rich
           value={texts.justification}
           empty="Licht toe waarom de doelstelling ambitieus en realistisch is (sectorgenoten, Trias Energetica)."
           canEdit={canEdit}
         />
       </Section>
 
-      <Section title="Voortgang jaarlijkse CO2-emissies (t CO2)">
+      <Section title="Voortgang op de doelstellingen — scope 1 en 2" className="print:break-before-page">
+        {texts.progressText ? (
+          <Rich value={texts.progressText} className="mb-3" />
+        ) : (
+          <p className="mb-3 text-sm text-neutral-700">
+            {emission.join(" ")}
+            {year === baseYear &&
+              ` ${year} is het basisjaar voor de huidige reductiedoelstelling; de voortgang ten opzichte van de doelstelling is vanaf verslagjaar ${year + 1} zichtbaar.`}
+          </p>
+        )}
         <div className="overflow-x-auto">
           <table className="table" data-export-name="Voortgang CO2">
             <thead>
               <tr>
-                <th>Emissiestroom</th>
+                <th>Emissiestroom (t CO2)</th>
                 {years.map((y) => (
                   <th key={y} className="text-right">
                     {y}
@@ -434,17 +495,31 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
               </tr>
             </thead>
             <tbody>
-              {rows.map(([k, s]) => (
-                <tr key={k}>
-                  <td>{s.name}</td>
-                  {progress.map((p) => (
-                    <td key={p.year} className="text-right tabular-nums">
-                      {valOf(p, k, "kg") ? t2(valOf(p, k, "kg")) : "—"}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              <tr className="bg-neutral-50 font-semibold">
+              {([1, 2, 3] as const).map((sc) => {
+                const list = rows.filter(([, s]) => s.scope === sc);
+                if (!list.length) return null;
+                return [
+                  ...list.map(([k, s]) => (
+                    <tr key={k}>
+                      <td>{s.name}</td>
+                      {progress.map((p) => (
+                        <td key={p.year} className="text-right tabular-nums">
+                          {valOf(p, k, "kg") ? t2(valOf(p, k, "kg")) : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  )),
+                  <tr key={`t${sc}`} className="bg-neutral-50 font-medium">
+                    <td className="text-right">Totaal {sc === 3 ? "zakelijk reizen" : `scope ${sc}`}</td>
+                    {progress.map((p) => (
+                      <td key={p.year} className="text-right tabular-nums">
+                        {t2(p.byScope[sc])}
+                      </td>
+                    ))}
+                  </tr>,
+                ];
+              })}
+              <tr className="bg-neutral-100 font-semibold">
                 <td>Totale emissies</td>
                 {progress.map((p) => (
                   <td key={p.year} className="text-right tabular-nums">
@@ -455,19 +530,13 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
             </tbody>
           </table>
         </div>
-        {year === baseYear && (
-          <p className="mt-2 text-sm text-neutral-700">
-            {year} is het basisjaar voor de huidige reductiedoelstelling; de voortgang ten opzichte van de doelstelling is vanaf verslagjaar {year + 1}{" "}
-            zichtbaar.
-          </p>
-        )}
       </Section>
-      <Section title="Voortgang energieverbruik (GJ)">
+      <Section title="Voortgang energiedoelstelling">
         <div className="overflow-x-auto">
           <table className="table" data-export-name="Voortgang energie">
             <thead>
               <tr>
-                <th>Emissiestroom</th>
+                <th>Emissiestroom (GJ)</th>
                 {years.map((y) => (
                   <th key={y} className="text-right">
                     {y}
@@ -488,7 +557,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
                     ))}
                   </tr>
                 ))}
-              <tr className="bg-neutral-50 font-semibold">
+              <tr className="bg-neutral-100 font-semibold">
                 <td>Totaal energieverbruik</td>
                 {progress.map((p) => (
                   <td key={p.year} className="text-right tabular-nums">
@@ -499,63 +568,78 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
             </tbody>
           </table>
         </div>
+        <Rich value={texts.energyProgressText} className="mt-3" />
       </Section>
-      <Section title="Vergelijking met sectorgenoten">
-        <PipeTable
-          text={texts.peers}
-          head={[
-            "",
-            "Organisatie",
-            "Trede / niveau",
-            "Basisjaar",
-            "Intensiteit basisjaar",
-            "Laatst bekende intensiteit",
-            "Voortgang",
-            "Korte termijn doelstelling",
-          ]}
-          empty="Vul de vergelijking met sectorgenoten in."
-          canEdit={canEdit}
-        />
-        {texts.peersText && <div className="mt-3 text-sm whitespace-pre-line text-neutral-800">{texts.peersText}</div>}
+      <Section title="Vergelijking met sectorgenoten" className="print:break-before-page">
+        <Rich value={texts.peersIntro} className="mb-3" />
+        <Rich value={texts.peers} empty="Vul de vergelijking met sectorgenoten in." canEdit={canEdit} />
+        <Rich value={texts.peersText} className="mt-3" />
       </Section>
 
       <Invalshoek id="c" letter="C" title="CO2-bewustwording" subtitle="Binnen en buiten de organisatie" />
       <Section title="Sleutelpersonen">
-        <PipeTable text={texts.keyPersons} head={["Rol", "Naam", "Taak", "CO2-bewustzijn"]} empty="Vul de sleutelpersonen in." canEdit={canEdit} />
+        <Rich value={texts.keyPersonsIntro} className="mb-3" />
+        <Rich value={texts.keyPersons} empty="Vul de sleutelpersonen in." canEdit={canEdit} />
+        {texts.support && (
+          <div className="mt-4 rounded-lg border-l-4 border-brand-red bg-neutral-50 px-4 py-3">
+            <div className="mb-1 text-sm font-semibold text-brand-red-dark">Ondersteuning</div>
+            <Rich value={texts.support} />
+          </div>
+        )}
       </Section>
-      <Section title="Communicatieplan">
-        <Text value={texts.communication} empty="Beschrijf de interne en externe communicatie (doelgroepen, boodschap, doel)." canEdit={canEdit} />
-        <div className="mt-3">
-          <PipeTable
-            text={texts.channels}
-            head={["Middel", "Planning", "Verantwoordelijke", "Toelichting"]}
-            empty="Vul de communicatiemiddelen in."
-            canEdit={canEdit}
-          />
-        </div>
+      <Section title="Communicatieplan" className="print:break-before-page">
+        <Rich value={texts.communication} empty="Beschrijf hoe de interne en externe communicatie is geregeld." canEdit={canEdit} />
+        {texts.channels && (
+          <>
+            <h4 className="mt-4 mb-2 font-semibold">Middelen</h4>
+            <Rich value={texts.channels} />
+          </>
+        )}
+        {texts.audienceExternal && (
+          <>
+            <h4 className="mt-4 mb-2 font-semibold">Externe doelgroep</h4>
+            <Rich value={texts.audienceExternal} />
+          </>
+        )}
+        {texts.audienceInternal && (
+          <>
+            <h4 className="mt-4 mb-2 font-semibold">Interne doelgroep</h4>
+            <Rich value={texts.audienceInternal} />
+          </>
+        )}
+      </Section>
+      <Section title="Verantwoordelijke en planning">
+        <Rich value={texts.commPlanning} empty="Vul per communicatiemiddel de planning en de verantwoordelijke in." canEdit={canEdit} />
       </Section>
 
       <Invalshoek id="d" letter="D" title="Samenwerking" subtitle="Inventarisatie kennis- en samenwerkingsbehoeftes" />
-      <Section title="Kennis- en samenwerkingsbehoeftes">
-        <Text value={texts.collaboration} empty="Beschrijf de kennis- en samenwerkingsbehoeftes." canEdit={canEdit} />
+      <Section title="Inventarisatie kennis- en samenwerkingsbehoeftes">
+        <Rich value={texts.collaboration} empty="Beschrijf de kennis- en samenwerkingsbehoeftes." canEdit={canEdit} />
       </Section>
       <Section title="Samenwerkingsverbanden">
         {pipeTable(texts.partners).length ? (
           <ul className="grid gap-2 sm:grid-cols-2">
             {pipeTable(texts.partners).map((r, i) => (
-              <li key={i} className="rounded-lg bg-neutral-50 px-3 py-2 text-sm">
-                🤝 {r.join(" — ")}
+              <li key={i} className="flex items-center gap-2 rounded-lg border-l-4 border-brand-red bg-neutral-50 px-3 py-2 text-sm font-medium">
+                {r.join(" — ")}
               </li>
             ))}
           </ul>
         ) : (
-          <Text value="" empty="Vul de samenwerkingsverbanden in (één per regel)." canEdit={canEdit} />
+          <Empty text="Vul de samenwerkingsverbanden in (één per regel)." canEdit={canEdit} />
         )}
+        <Rich value={texts.partnersText} className="mt-4" />
       </Section>
-      <p className="mt-6 text-center text-xs text-neutral-500">
-        Rouwmaat Groep · CO2-jaarverslag {year} · cijfers uit het IMS ({EMISSION_TYPE_LABEL[inv.type]}), stand{" "}
-        {new Date().toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" })}
-      </p>
+
+      <section className="mt-10 rounded-2xl border border-neutral-200 bg-white px-8 py-12 text-center print:break-before-page">
+        <div className="mx-auto mb-4 h-1 w-16 rounded bg-brand-red" aria-hidden />
+        <h2 className="text-3xl font-bold text-neutral-900">Bedankt voor het lezen</h2>
+        <Rich value={texts.closing} className="mx-auto mt-3 max-w-xl text-base" />
+        <p className="mt-6 text-xs text-neutral-500">
+          Rouwmaat Groep · CO2-jaarverslag {year} · cijfers uit het IMS ({EMISSION_TYPE_LABEL[inv.type]}), stand{" "}
+          {new Date().toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" })}
+        </p>
+      </section>
     </>
   );
 }

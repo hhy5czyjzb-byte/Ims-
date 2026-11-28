@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { emissionSummary, fuelSummary, pipeTable } from "@/lib/co2-report";
+import { emissionSummary, fuelSummary, majorEnergyStreams, pipeTable, richBlocks } from "@/lib/co2-report";
 
 const line = (name: string, quantity: number, unit = "liter", group = "Brandstofverbruik wagenpark") => ({ name, unit, scope: 1, group, quantity, kg: 0 });
 
@@ -45,4 +45,60 @@ test("emissionSummary en pipeTable", () => {
     ["a", "b"],
     ["c", "d", "e"],
   ]);
+});
+
+test("richBlocks: alinea's, koppen, opsomming en tabel met tussenkop", () => {
+  const b = richBlocks(
+    [
+      "## Inleiding",
+      "Eerste regel",
+      "tweede regel",
+      "",
+      "Wij doen dit door:",
+      "• punt een",
+      "  vervolg van punt een",
+      "- punt twee",
+      "",
+      "Naam | Taak | Bewustzijn",
+      "---|---|---",
+      "Directie |  |",
+      "Dave | Leiding | Niveau 4",
+      "",
+      " | Rouwmaat | De Hamer",
+      "Trede | 1 | 1",
+    ].join("\n"),
+  );
+  assert.deepEqual(b[0], { kind: "h", level: 2, text: "Inleiding" });
+  assert.deepEqual(b[1], { kind: "p", text: "Eerste regel\ntweede regel" });
+  assert.deepEqual(b[3], { kind: "ul", items: ["punt een vervolg van punt een", "punt twee"] });
+  assert.equal(b[4].kind, "table");
+  if (b[4].kind === "table") {
+    assert.deepEqual(b[4].head, ["Naam", "Taak", "Bewustzijn"]);
+    assert.equal(b[4].rows.length, 2);
+    assert.equal(b[4].rows[0].group, true);
+    assert.equal(b[4].rows[1].group, false);
+  }
+  if (b[5].kind === "table") assert.deepEqual(b[5].head, ["", "Rouwmaat", "De Hamer"]);
+});
+
+test("majorEnergyStreams: grootste stromen tot en met 80%", () => {
+  const r = majorEnergyStreams([
+    { name: "Gas", gj: 1500 },
+    { name: "Diesel wagenpark", gj: 55900 },
+    { name: "Grijze stroom", gj: 1900 },
+    { name: "Teruglevering", gj: -175 },
+    { name: "Diesel materieel", gj: 2000 },
+  ]);
+  assert.deepEqual(
+    r.map((x) => x.name),
+    ["Diesel wagenpark"],
+  );
+  assert.equal(
+    majorEnergyStreams([
+      { name: "a", gj: 50 },
+      { name: "b", gj: 30 },
+      { name: "c", gj: 20 },
+    ]).length,
+    2,
+  );
 });

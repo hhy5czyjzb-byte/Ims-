@@ -7,29 +7,86 @@ import { prisma } from "@/lib/db";
  */
 export const CO2_REPORT_KEY = "co2.report";
 
-const t = (max = 8000) => z.string().max(max).default("");
+const t = (max = 12000) => z.string().max(max).default("");
+/**
+ * Alle tekstvelden ondersteunen eenvoudige opmaak (`richBlocks`): lege regel = nieuwe alinea, "## " kop,
+ * "### " tussenkop, "- " opsomming, regels met | = tabel (eerste regel kolomkoppen).
+ */
 export const reportTextSchema = z.object({
+  publication: t(200), // regel onder de titel op het voorblad, bijv. "CO2-prestatieladder – Publicatie oktober 2026"
+  readingGuide: t(), // leeswijzer
   statement: t(), // managementstatement & energiebeleid
   statementDate: t(40),
   statementName: t(200),
   organisation: t(), // organisatiebeschrijving
   boundary: t(), // organisatiegrens (tekst + entiteiten)
+  planning: t(), // planning: PDCA-cyclus
+  pdcaPlan: t(1000), // tekst in het PDCA-figuur
+  pdcaDo: t(1000),
+  pdcaCheck: t(1000),
+  pdcaAct: t(1000),
+  legalRisk: t(), // wetgeving en risicobeheer
   projects: t(), // projecten met gunningvoordeel
+  footprintText: t(), // toelichting footprint (leeg = automatische tekst)
   nonCo2: t(), // niet-CO2-broeikasgassen
+  energyReview: t(), // energiebeoordeling (inleiding; de stromen tot 80% rekent de app uit)
+  fuelText: t(), // brandstofgebruik (leeg = automatische tekst)
+  truckText: t(), // vrachtwagenpark (bij figuur V1)
+  fleetText: t(), // wagenpark (bij figuur V3)
   conclusions: t(), // conclusies, aanbevelingen en genomen maatregelen
   flexibility: t(), // flexibiliteit van het energiesysteem
-  strategy: t(), // strategie (korte termijn)
+  strategy: t(), // algemene uitleg strategie
+  co2TargetText: t(), // korte termijn CO2-doelstellingen (inleiding)
+  energyTargetText: t(), // korte termijn energiedoelstellingen (inleiding)
   energyGoals: t(), // subdoelstellingen energie: "Onderwerp | doel" per regel
+  shortTermStrategy: t(), // korte termijn strategie
+  planText: t(), // plan van aanpak (leeg = de vijf grootste maatregelen uit het plan van aanpak)
   justification: t(), // verantwoording doelstellingen
-  peers: t(), // vergelijking sectorgenoten: regels met kolommen gescheiden door |
+  progressText: t(), // voortgang CO2 (leeg = automatische tekst)
+  energyProgressText: t(), // voortgang energie
+  peersIntro: t(), // vergelijking met sectorgenoten: inleiding
+  peers: t(), // tabel: eerste regel kolomkoppen
   peersText: t(),
-  keyPersons: t(), // sleutelpersonen: "Rol | Naam | Taak | CO2-bewustzijn" per regel
-  communication: t(), // communicatieplan: tekst
-  channels: t(), // middelen: "Middel | Planning | Verantwoordelijke | Toelichting" per regel
-  collaboration: t(), // kennis- en samenwerkingsbehoeften
+  keyPersonsIntro: t(),
+  keyPersons: t(), // tabel: eerste regel kolomkoppen, regel met alleen de eerste kolom = tussenkop
+  support: t(), // ondersteuning (adviseur)
+  communication: t(), // communicatieplan: inleiding
+  channels: t(), // middelen
+  audienceExternal: t(), // externe doelgroepen: tabel
+  audienceInternal: t(), // interne doelgroepen: tabel
+  commPlanning: t(), // verantwoordelijke en planning per middel
+  collaboration: t(), // inventarisatie kennis- en samenwerkingsbehoeftes
   partners: t(), // samenwerkingsverbanden, één per regel
+  partnersText: t(), // toelichting samenwerkingsverbanden / waardeketen
+  closing: t(), // slot: "Bedankt voor het lezen" + contact
 });
 export type ReportTexts = z.infer<typeof reportTextSchema>;
+
+export const REPORT_FILE_TYPE = "ims-co2-jaarverslag-teksten";
+
+/**
+ * Teksten uit een bestand (download van deze pagina): alleen bekende velden met een niet-lege waarde.
+ * Gooit een fout met een Nederlandse melding als het geen tekstenbestand is.
+ */
+export function textsFromFile(json: string): Partial<ReportTexts> {
+  let data: unknown;
+  try {
+    data = JSON.parse(json);
+  } catch {
+    throw new Error("Dit is geen geldig tekstenbestand (geen JSON).");
+  }
+  const obj = data && typeof data === "object" && "texts" in data ? (data as { texts: unknown }).texts : data;
+  if (!obj || typeof obj !== "object") throw new Error("Dit is geen tekstenbestand van het CO2-jaarverslag.");
+  const out: Partial<ReportTexts> = {};
+  const shape = reportTextSchema.shape;
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    if (!(k in shape) || typeof v !== "string" || !v.trim()) continue;
+    const r = shape[k as keyof ReportTexts].safeParse(v.trim());
+    if (r.success) out[k as keyof ReportTexts] = r.data;
+  }
+  if (!Object.keys(out).length) throw new Error("Het bestand bevat geen teksten voor het CO2-jaarverslag.");
+  return out;
+}
 
 export function parseReportTexts(value: string | null | undefined): ReportTexts {
   try {
@@ -53,7 +110,100 @@ export function pipeTable(text: string): string[][] {
     .map((l) => l.split("|").map((c) => c.trim()));
 }
 
+// ── Opmaak in de teksten ───────────────────────────────────────
+
+export type RichBlock =
+  | { kind: "p"; text: string }
+  | { kind: "h"; level: 2 | 3; text: string }
+  | { kind: "ul"; items: string[] }
+  | { kind: "table"; head: string[]; rows: { cells: string[]; group: boolean }[] };
+
+const BULLET = /^\s*(?:[-•*▪●]|\d+[.)])\s+/;
+
+/**
+ * Eenvoudige opmaak voor de verslagteksten: lege regel = nieuwe alinea; "## kop" en "### tussenkop";
+ * regels die beginnen met "- " of "• " = opsomming; opeenvolgende regels met | = tabel (eerste regel
+ * = kolomkoppen; een regel met alleen tekst in de eerste kolom = tussenkop in de tabel).
+ */
+export function richBlocks(text: string): RichBlock[] {
+  const out: RichBlock[] = [];
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  let para: string[] = [];
+  const flush = () => {
+    if (para.length) out.push({ kind: "p", text: para.join("\n") });
+    para = [];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+    const h = /^(#{2,3})\s+(.*)$/.exec(line);
+    if (h) {
+      flush();
+      out.push({ kind: "h", level: h[1].length === 2 ? 2 : 3, text: h[2].trim() });
+      continue;
+    }
+    if (line.includes("|")) {
+      flush();
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim().includes("|")) {
+        const cells = lines[i]
+          .trim()
+          .replace(/\|\s*$/, "")
+          .split("|")
+          .map((c) => c.trim());
+        if (!cells.every((c) => /^:?-{2,}:?$|^$/.test(c))) rows.push(cells);
+        i++;
+      }
+      i--;
+      const width = Math.max(...rows.map((r) => r.length));
+      const pad = (r: string[]) => [...r, ...Array(width - r.length).fill("")];
+      const [head, ...body] = rows.map(pad);
+      out.push({ kind: "table", head, rows: body.map((cells) => ({ cells, group: width > 1 && !!cells[0] && cells.slice(1).every((c) => !c) })) });
+      continue;
+    }
+    if (BULLET.test(line)) {
+      flush();
+      const items: string[] = [];
+      while (i < lines.length && BULLET.test(lines[i].trim())) {
+        let item = lines[i].trim().replace(BULLET, "");
+        // vervolgregels (ingesprongen, geen nieuw opsommingsteken) horen bij hetzelfde punt
+        while (i + 1 < lines.length && /^\s{2,}\S/.test(lines[i + 1]) && !BULLET.test(lines[i + 1].trim())) item += ` ${lines[++i].trim()}`;
+        items.push(item);
+        i++;
+      }
+      i--;
+      out.push({ kind: "ul", items });
+      continue;
+    }
+    para.push(line);
+  }
+  flush();
+  return out;
+}
+
 // ── Teksten bij de cijfers ─────────────────────────────────────
+
+/**
+ * Energiebeoordeling: de emissiestromen die samen ten minste 80% van het energieverbruik vormen
+ * (grootste eerst, tot en met de stroom waarmee 80% wordt bereikt).
+ */
+export function majorEnergyStreams<T extends { name: string; gj: number }>(lines: T[], share = 0.8): (T & { pct: number; cumPct: number })[] {
+  const pos = lines.filter((l) => l.gj > 0).sort((a, b) => b.gj - a.gj);
+  const total = pos.reduce((n, l) => n + l.gj, 0);
+  if (!total) return [];
+  const out: (T & { pct: number; cumPct: number })[] = [];
+  let cum = 0;
+  for (const l of pos) {
+    cum += l.gj;
+    out.push({ ...l, pct: (l.gj / total) * 100, cumPct: (cum / total) * 100 });
+    if (cum / total >= share - 1e-9) break;
+  }
+  return out;
+}
 
 export type YearLines = { year: number; lines: { name: string; unit: string; scope: number; group: string; quantity: number; kg: number }[] };
 
