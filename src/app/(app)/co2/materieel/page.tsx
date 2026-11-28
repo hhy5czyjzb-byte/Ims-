@@ -10,6 +10,7 @@ import { Badge, Disclosure, EmptyState, Field, PageHeader } from "@/components/u
 import { Co2Nav } from "@/components/co2-nav";
 import { VehicleForm } from "@/components/vehicle-form";
 import { createVehicle } from "../wagenpark/actions";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "Voertuigen en materieel" };
 
@@ -89,37 +90,39 @@ export default async function EquipmentPage({
           </Disclosure>
         </div>
       )}
-      <form className="mb-4 flex flex-wrap items-end gap-2 print:hidden">
-        <Field label="Zoeken">
-          <input name="q" defaultValue={sp.q} className="input w-48" placeholder="kenteken, naam, merk" />
-        </Field>
-        <Field label="Soort">
-          <select name="soort" defaultValue={sp.soort ?? ""} className="input">
-            <option value="">Alle</option>
-            {opt(VEHICLE_TYPES)}
-          </select>
-        </Field>
-        <Field label="Brandstof">
-          <select name="brandstof" defaultValue={sp.brandstof ?? ""} className="input">
-            <option value="">Alle</option>
-            {opt(FUEL_TYPES)}
-          </select>
-        </Field>
-        <Field label="Euroklasse">
-          <select name="klasse" defaultValue={sp.klasse ?? ""} className="input">
-            <option value="">Alle</option>
-            {opt(EURO_CLASSES, euroLabel)}
-          </select>
-        </Field>
-        <Field label="Status">
-          <select name="status" defaultValue={sp.status ?? ""} className="input">
-            <option value="">Alle</option>
-            <option value="actief">In gebruik</option>
-            <option value="uit">Buiten gebruik</option>
-          </select>
-        </Field>
-        <button className="btn-secondary">Filteren</button>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2 print:hidden">
+          <Field label="Zoeken">
+            <input name="q" defaultValue={sp.q} className="input w-48" placeholder="kenteken, naam, merk" />
+          </Field>
+          <Field label="Soort">
+            <select name="soort" defaultValue={sp.soort ?? ""} className="input">
+              <option value="">Alle</option>
+              {opt(VEHICLE_TYPES)}
+            </select>
+          </Field>
+          <Field label="Brandstof">
+            <select name="brandstof" defaultValue={sp.brandstof ?? ""} className="input">
+              <option value="">Alle</option>
+              {opt(FUEL_TYPES)}
+            </select>
+          </Field>
+          <Field label="Euroklasse">
+            <select name="klasse" defaultValue={sp.klasse ?? ""} className="input">
+              <option value="">Alle</option>
+              {opt(EURO_CLASSES, euroLabel)}
+            </select>
+          </Field>
+          <Field label="Status">
+            <select name="status" defaultValue={sp.status ?? ""} className="input">
+              <option value="">Alle</option>
+              <option value="actief">In gebruik</option>
+              <option value="uit">Buiten gebruik</option>
+            </select>
+          </Field>
+          <button className="btn-secondary">Filteren</button>
+        </form>
+      </Filters>
       {equipment.length === 0 ? (
         <EmptyState>
           {total ? "Geen voertuigen gevonden met deze filters." : "Nog geen voertuigen of materieel vastgelegd. Voeg ze toe of lees een voertuigenlijst in."}

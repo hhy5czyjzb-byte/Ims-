@@ -27,9 +27,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       }
     : null;
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen lg:flex">
       <Sidebar user={{ name: user.name, roleLabel: ROLE_LABEL[user.role] }} viewAs={viewAs} />
-      <main className="min-w-0 flex-1 px-8 py-6" data-user-name={user.name}>
+      <main className="min-w-0 flex-1 px-4 py-4 sm:px-6 lg:px-8 lg:py-6" data-user-name={user.name}>
         <div className="mx-auto max-w-7xl">
           {/* Alleen bij afdrukken / PDF: logo en kenmerk bovenaan, zodat elke uitdraai herkenbaar van Rouwmaat Groep is. */}
           <div className="print-header hidden print:flex" aria-hidden>

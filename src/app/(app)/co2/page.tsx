@@ -111,7 +111,7 @@ export default async function Co2Page({ searchParams }: { searchParams: Promise<
         </EmptyState>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {([1, 2, 3] as const).map((s) => {
               const ch = change(fp.byScope[s], prev.byScope[s]);
               return (

@@ -13,6 +13,7 @@ import { ChartCard, SegmentBar } from "@/components/charts";
 import { ObjectiveForm } from "@/components/objective-form";
 import { SmartBadge } from "@/components/smart-badge";
 import { createObjective } from "./actions";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "Doelstellingen" };
 
@@ -154,43 +155,50 @@ export default async function ObjectivesPage({ searchParams }: { searchParams: P
         </ChartCard>
       </div>
 
-      <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
-        <Field label="Zoeken">
-          <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Doelstelling, indicator…" />
-        </Field>
-        <Field label="Categorie">
-          <Select name="categorie" options={options(OBJECTIVE_CATEGORY_LABEL)} defaultValue={sp.categorie} placeholder="Alle" />
-        </Field>
-        <Field label="Status">
-          <select name="status" defaultValue={sp.status ?? "lopend"} className="input">
-            <option value="lopend">Lopend</option>
-            <option value="aandacht">Aandacht nodig of achter</option>
-            <option value="afgerond">Afgerond (behaald / deels / niet)</option>
-            {options(OBJECTIVE_STATUS_LABEL).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-            <option value="alle">Alle</option>
-          </select>
-        </Field>
-        <Field label="Eigenaar">
-          <Select name="eigenaar" options={[{ value: "mij", label: "Mijn doelstellingen" }, ...lookups.users]} defaultValue={sp.eigenaar} placeholder="Alle" />
-        </Field>
-        <Field label="Bedrijfsonderdeel">
-          <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
-        </Field>
-        <Field label="Norm">
-          <Select name="norm" options={lookups.norms} defaultValue={sp.norm} placeholder="Alle" />
-        </Field>
-        <Field label="Deadline in jaar">
-          <input name="jaar" defaultValue={sp.jaar} inputMode="numeric" className="input w-24" placeholder="Alle" />
-        </Field>
-        <button className="btn-secondary">Filteren</button>
-        <Link href="/doelstellingen" className="btn-link self-center">
-          Wissen
-        </Link>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
+          <Field label="Zoeken">
+            <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Doelstelling, indicator…" />
+          </Field>
+          <Field label="Categorie">
+            <Select name="categorie" options={options(OBJECTIVE_CATEGORY_LABEL)} defaultValue={sp.categorie} placeholder="Alle" />
+          </Field>
+          <Field label="Status">
+            <select name="status" defaultValue={sp.status ?? "lopend"} className="input">
+              <option value="lopend">Lopend</option>
+              <option value="aandacht">Aandacht nodig of achter</option>
+              <option value="afgerond">Afgerond (behaald / deels / niet)</option>
+              {options(OBJECTIVE_STATUS_LABEL).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+              <option value="alle">Alle</option>
+            </select>
+          </Field>
+          <Field label="Eigenaar">
+            <Select
+              name="eigenaar"
+              options={[{ value: "mij", label: "Mijn doelstellingen" }, ...lookups.users]}
+              defaultValue={sp.eigenaar}
+              placeholder="Alle"
+            />
+          </Field>
+          <Field label="Bedrijfsonderdeel">
+            <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
+          </Field>
+          <Field label="Norm">
+            <Select name="norm" options={lookups.norms} defaultValue={sp.norm} placeholder="Alle" />
+          </Field>
+          <Field label="Deadline in jaar">
+            <input name="jaar" defaultValue={sp.jaar} inputMode="numeric" className="input w-24" placeholder="Alle" />
+          </Field>
+          <button className="btn-secondary">Filteren</button>
+          <Link href="/doelstellingen" className="btn-link self-center">
+            Wissen
+          </Link>
+        </form>
+      </Filters>
 
       {list.length === 0 ? (
         <EmptyState>Geen doelstellingen met deze filters.{canEdit && " Voeg er een toe of importeer je lijst uit Excel."}</EmptyState>

@@ -26,7 +26,7 @@ export function Co2Nav() {
   const pathname = usePathname();
   const active = (href: string) => (href === "/co2" ? pathname === "/co2" : pathname.startsWith(href));
   return (
-    <nav className="mb-6 flex flex-wrap gap-1 border-b border-neutral-200" aria-label="CO2-module">
+    <nav className="tabs mb-6 flex gap-1 border-b border-neutral-200" aria-label="CO2-module">
       {TABS.map((t, i) => (
         <span key={t.href} className="contents">
           {t.data && !TABS[i - 1]?.data && <span className="mx-2 my-2 w-px self-stretch bg-neutral-200" aria-hidden />}

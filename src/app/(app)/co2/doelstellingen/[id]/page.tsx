@@ -43,7 +43,7 @@ export default async function TargetDetailPage({ params }: { params: Promise<{ i
       />
       <Co2Nav />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label={`Basisjaar ${t.baseYear}`} value={formatTonnes(s.baseKg)} hint={s.baseFromData ? "berekend uit verbruik" : "handmatig ingevoerd"} />
         <Stat
           label={`Doel ${t.targetYear}`}

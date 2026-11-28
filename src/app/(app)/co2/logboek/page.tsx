@@ -6,6 +6,7 @@ import { readChanges } from "@/lib/audit-diff";
 import { AUDIT_ACTION_LABEL, CO2_ENTITY_LABEL, co2AuditWhere, type Co2AuditSearch } from "@/lib/co2-audit";
 import { Badge, Field, PageHeader } from "@/components/ui";
 import { Co2Nav } from "@/components/co2-nav";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "CO2-logboek" };
 
@@ -46,41 +47,43 @@ export default async function Co2LogPage({ searchParams }: { searchParams: Promi
         }
       />
       <Co2Nav />
-      <form className="mb-4 flex flex-wrap items-end gap-2 print:hidden" role="search">
-        <Field label="Onderdeel">
-          <select name="onderdeel" defaultValue={sp.onderdeel ?? ""} className="input">
-            <option value="">Alle</option>
-            {Object.entries(CO2_ENTITY_LABEL).map(([k, l]) => (
-              <option key={k} value={k}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Handeling">
-          <select name="actie" defaultValue={sp.actie ?? ""} className="input">
-            <option value="">Alle wijzigingen</option>
-            {["CREATE", "UPDATE", "DELETE", "VIEW"].map((a) => (
-              <option key={a} value={a}>
-                {AUDIT_ACTION_LABEL[a]}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Van">
-          <input type="date" name="van" defaultValue={sp.van} className="input" />
-        </Field>
-        <Field label="Tot en met">
-          <input type="date" name="tot" defaultValue={sp.tot} className="input" />
-        </Field>
-        <Field label="Zoeken">
-          <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Omschrijving of gebruiker" />
-        </Field>
-        <label className="flex items-center gap-1.5 pb-2 text-sm">
-          <input type="checkbox" name="bekeken" value="ja" defaultChecked={sp.bekeken === "ja"} /> Ook bekeken
-        </label>
-        <button className="btn-secondary">Filteren</button>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2 print:hidden" role="search">
+          <Field label="Onderdeel">
+            <select name="onderdeel" defaultValue={sp.onderdeel ?? ""} className="input">
+              <option value="">Alle</option>
+              {Object.entries(CO2_ENTITY_LABEL).map(([k, l]) => (
+                <option key={k} value={k}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Handeling">
+            <select name="actie" defaultValue={sp.actie ?? ""} className="input">
+              <option value="">Alle wijzigingen</option>
+              {["CREATE", "UPDATE", "DELETE", "VIEW"].map((a) => (
+                <option key={a} value={a}>
+                  {AUDIT_ACTION_LABEL[a]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Van">
+            <input type="date" name="van" defaultValue={sp.van} className="input" />
+          </Field>
+          <Field label="Tot en met">
+            <input type="date" name="tot" defaultValue={sp.tot} className="input" />
+          </Field>
+          <Field label="Zoeken">
+            <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Omschrijving of gebruiker" />
+          </Field>
+          <label className="flex items-center gap-1.5 pb-2 text-sm">
+            <input type="checkbox" name="bekeken" value="ja" defaultChecked={sp.bekeken === "ja"} /> Ook bekeken
+          </label>
+          <button className="btn-secondary">Filteren</button>
+        </form>
+      </Filters>
 
       <div className="card overflow-x-auto p-0">
         <table className="table">

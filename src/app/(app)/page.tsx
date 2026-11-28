@@ -219,7 +219,7 @@ export default async function DashboardPage() {
       <span hidden data-export-title="Dashboard IMS" />
       <PageHeader title={`Goedendag, ${user.name.split(" ")[0]}`} description="Stand van zaken van het integraal managementsysteem." />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard label="Lopende acties" value={openCount} href="/acties" />
         <StatCard label="Deadline verstreken" value={overdueCount} tone={overdueCount ? "alert" : "ok"} href="/acties?status=verlopen" />
         <StatCard label="Mijn acties" value={myCount} href="/acties?eigenaar=mij" />

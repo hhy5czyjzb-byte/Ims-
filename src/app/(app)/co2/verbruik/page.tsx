@@ -12,6 +12,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Co2Nav } from "@/components/co2-nav";
 import { ConsumptionFields } from "@/components/consumption-fields";
 import { createConsumption } from "../actions";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "Energieverbruik" };
 
@@ -69,28 +70,30 @@ export default async function ConsumptionPage({ searchParams }: { searchParams: 
         </div>
       )}
 
-      <form className="mb-4 flex flex-wrap items-end gap-2">
-        <Field label="Jaar">
-          <select name="jaar" defaultValue={String(year)} className="input">
-            {Array.from({ length: 8 }, (_, i) => currentYear - 6 + i).map((y) => (
-              <option key={y}>{y}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Energiedrager">
-          <Select name="drager" options={opts.carriers.map((c) => ({ value: c.id, label: c.name }))} defaultValue={sp.drager} placeholder="Alle" />
-        </Field>
-        <Field label="Discipline">
-          <Select name="discipline" options={opts.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
-        </Field>
-        <Field label="Locatie">
-          <Select name="locatie" options={opts.locations} defaultValue={sp.locatie} placeholder="Alle" />
-        </Field>
-        <Field label="Materieel">
-          <Select name="materieel" options={opts.equipment.map((e) => ({ value: e.id, label: e.label }))} defaultValue={sp.materieel} placeholder="Alle" />
-        </Field>
-        <button className="btn-secondary">Filteren</button>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2">
+          <Field label="Jaar">
+            <select name="jaar" defaultValue={String(year)} className="input">
+              {Array.from({ length: 8 }, (_, i) => currentYear - 6 + i).map((y) => (
+                <option key={y}>{y}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Energiedrager">
+            <Select name="drager" options={opts.carriers.map((c) => ({ value: c.id, label: c.name }))} defaultValue={sp.drager} placeholder="Alle" />
+          </Field>
+          <Field label="Discipline">
+            <Select name="discipline" options={opts.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
+          </Field>
+          <Field label="Locatie">
+            <Select name="locatie" options={opts.locations} defaultValue={sp.locatie} placeholder="Alle" />
+          </Field>
+          <Field label="Materieel">
+            <Select name="materieel" options={opts.equipment.map((e) => ({ value: e.id, label: e.label }))} defaultValue={sp.materieel} placeholder="Alle" />
+          </Field>
+          <button className="btn-secondary">Filteren</button>
+        </form>
+      </Filters>
 
       {rows.length === 0 ? (
         <EmptyState>Geen verbruik in {year} met deze filters.</EmptyState>

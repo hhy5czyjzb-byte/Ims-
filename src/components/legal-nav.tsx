@@ -18,7 +18,7 @@ export function LegalNav() {
     return pathname.startsWith(href);
   };
   return (
-    <nav className="mb-6 flex flex-wrap gap-1 border-b border-neutral-200" aria-label="Wet- en regelgeving">
+    <nav className="tabs mb-6 flex gap-1 border-b border-neutral-200" aria-label="Wet- en regelgeving">
       {TABS.map((t) => (
         <Link
           key={t.href}

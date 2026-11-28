@@ -6,6 +6,7 @@ import { findingCloseProblems } from "@/lib/corrective";
 import { AUDIT_TYPE_SHORT, FINDING_CLASS_CLASS, FINDING_CLASS_LABEL } from "@/lib/labels";
 import { Badge, EmptyState, Field } from "@/components/ui";
 import { BarList, ChartCard, Columns, SegmentBar, lastMonths, monthKey } from "@/components/charts";
+import { Filters } from "@/components/mobile-filters";
 
 const COLORS = { open: "#f2c12e", done: "#3fa34d", bad: "#e30613", none: "#a3a3a3" };
 
@@ -112,17 +113,19 @@ export async function FindingOverview({ status = "lopend" }: { status?: string }
         </ChartCard>
       </div>
 
-      <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
-        <input type="hidden" name="tab" value="audit" />
-        <Field label="Status">
-          <select name="status" defaultValue={status} className="input">
-            <option value="lopend">Open</option>
-            <option value="CLOSED">Afgehandeld</option>
-            <option value="alle">Alle</option>
-          </select>
-        </Field>
-        <button className="btn-secondary">Filteren</button>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
+          <input type="hidden" name="tab" value="audit" />
+          <Field label="Status">
+            <select name="status" defaultValue={status} className="input">
+              <option value="lopend">Open</option>
+              <option value="CLOSED">Afgehandeld</option>
+              <option value="alle">Alle</option>
+            </select>
+          </Field>
+          <button className="btn-secondary">Filteren</button>
+        </form>
+      </Filters>
 
       {findings.length === 0 ? (
         <EmptyState>Geen auditbevindingen met deze filters.</EmptyState>

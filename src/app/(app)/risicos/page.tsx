@@ -12,6 +12,7 @@ import { RiskMatrix, ScoreBadge } from "@/components/risk-matrix";
 import { RiskForm } from "@/components/risk-form";
 import { riskWhere, type RiskSearch } from "@/lib/risk-filters";
 import { createRisk } from "./actions";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "Risico's en kansen" };
 
@@ -123,77 +124,79 @@ export default async function RisksPage({ searchParams }: { searchParams: Promis
         </div>
       )}
 
-      <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
-        <Field label="Zoeken">
-          <input name="q" defaultValue={sp.q} className="input w-48" />
-        </Field>
-        <Field label="Soort">
-          <Select
-            name="soort"
-            options={[
-              { value: "RISK", label: "Risico's" },
-              { value: "OPPORTUNITY", label: "Kansen" },
-            ]}
-            defaultValue={sp.soort}
-            placeholder="Beide"
-          />
-        </Field>
-        <Field label="Categorie">
-          <Select name="categorie" options={options(RISK_CATEGORY_LABEL)} defaultValue={sp.categorie} placeholder="Alle" />
-        </Field>
-        <Field label="Status">
-          <select name="status" defaultValue={status} className="input">
-            <option value="actief">Open + beheerst</option>
-            {options(RISK_STATUS_LABEL).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-            <option value="alle">Alle</option>
-          </select>
-        </Field>
-        <Field label="Proces">
-          <Select
-            name="proces"
-            options={processes.map((p) => ({ value: p.id, label: p.name }))}
-            defaultValue={sp.proces}
-            placeholder="Alle"
-            className="max-w-56"
-          />
-        </Field>
-        <Field label="Norm">
-          <Select name="norm" options={norms.map((n) => ({ value: n.id, label: n.code }))} defaultValue={sp.norm} placeholder="Alle" />
-        </Field>
-        <Field label="Discipline">
-          <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
-        </Field>
-        <Field label="Locatie">
-          <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
-        </Field>
-        <Field label="Prioriteit">
-          <Select
-            name="prioriteit"
-            options={[
-              { value: "1", label: "★ 1 · Strategisch" },
-              { value: "2", label: "2 · Hoog" },
-              { value: "3", label: "3 · Regulier" },
-            ]}
-            defaultValue={sp.prioriteit}
-            placeholder="Alle"
-          />
-        </Field>
-        <Field label="Aanpak">
-          <Select name="aanpak" options={options(TREATMENT_STATUS_LABEL)} defaultValue={sp.aanpak} placeholder="Alle" />
-        </Field>
-        <Field label="Klasse">
-          <Select name="klasse" options={LEVELS.map((l) => ({ value: l, label: RISK_LEVEL_LABEL[l] }))} defaultValue={sp.klasse} placeholder="Alle" />
-        </Field>
-        <input type="hidden" name="basis" value={basis} />
-        <button className="btn-secondary">Filteren</button>
-        <Link href="/risicos" className="btn-link self-center">
-          Wissen
-        </Link>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
+          <Field label="Zoeken">
+            <input name="q" defaultValue={sp.q} className="input w-48" />
+          </Field>
+          <Field label="Soort">
+            <Select
+              name="soort"
+              options={[
+                { value: "RISK", label: "Risico's" },
+                { value: "OPPORTUNITY", label: "Kansen" },
+              ]}
+              defaultValue={sp.soort}
+              placeholder="Beide"
+            />
+          </Field>
+          <Field label="Categorie">
+            <Select name="categorie" options={options(RISK_CATEGORY_LABEL)} defaultValue={sp.categorie} placeholder="Alle" />
+          </Field>
+          <Field label="Status">
+            <select name="status" defaultValue={status} className="input">
+              <option value="actief">Open + beheerst</option>
+              {options(RISK_STATUS_LABEL).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+              <option value="alle">Alle</option>
+            </select>
+          </Field>
+          <Field label="Proces">
+            <Select
+              name="proces"
+              options={processes.map((p) => ({ value: p.id, label: p.name }))}
+              defaultValue={sp.proces}
+              placeholder="Alle"
+              className="max-w-56"
+            />
+          </Field>
+          <Field label="Norm">
+            <Select name="norm" options={norms.map((n) => ({ value: n.id, label: n.code }))} defaultValue={sp.norm} placeholder="Alle" />
+          </Field>
+          <Field label="Discipline">
+            <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
+          </Field>
+          <Field label="Locatie">
+            <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
+          </Field>
+          <Field label="Prioriteit">
+            <Select
+              name="prioriteit"
+              options={[
+                { value: "1", label: "★ 1 · Strategisch" },
+                { value: "2", label: "2 · Hoog" },
+                { value: "3", label: "3 · Regulier" },
+              ]}
+              defaultValue={sp.prioriteit}
+              placeholder="Alle"
+            />
+          </Field>
+          <Field label="Aanpak">
+            <Select name="aanpak" options={options(TREATMENT_STATUS_LABEL)} defaultValue={sp.aanpak} placeholder="Alle" />
+          </Field>
+          <Field label="Klasse">
+            <Select name="klasse" options={LEVELS.map((l) => ({ value: l, label: RISK_LEVEL_LABEL[l] }))} defaultValue={sp.klasse} placeholder="Alle" />
+          </Field>
+          <input type="hidden" name="basis" value={basis} />
+          <button className="btn-secondary">Filteren</button>
+          <Link href="/risicos" className="btn-link self-center">
+            Wissen
+          </Link>
+        </form>
+      </Filters>
 
       <section className="card mb-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">

@@ -15,7 +15,7 @@ export function ContextNav() {
   const pathname = usePathname();
   const active = (href: string) => (href === "/context" ? pathname === href : pathname.startsWith(href));
   return (
-    <nav className="mb-6 flex flex-wrap gap-1 border-b border-neutral-200 print:hidden" aria-label="Context en stakeholders">
+    <nav className="tabs mb-6 flex gap-1 border-b border-neutral-200 print:hidden" aria-label="Context en stakeholders">
       {TABS.map((t) => (
         <Link
           key={t.href}

@@ -13,7 +13,7 @@ export function AspectNav() {
   const pathname = usePathname();
   const active = (href: string) => (href === "/milieuaspecten" ? pathname === href : pathname.startsWith(href));
   return (
-    <nav className="mb-6 flex flex-wrap gap-1 border-b border-neutral-200" aria-label="Milieuaspecten">
+    <nav className="tabs mb-6 flex gap-1 border-b border-neutral-200" aria-label="Milieuaspecten">
       {TABS.map((t) => (
         <Link
           key={t.href}

@@ -24,6 +24,7 @@ import { AspectNav } from "@/components/aspect-nav";
 import { createAspect } from "./actions";
 import { getSignificanceRule } from "@/lib/aspect-settings";
 import { describeSignificanceRule } from "@/lib/aspects";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "Milieuaspecten" };
 
@@ -158,121 +159,123 @@ export default async function AspectsPage({ searchParams }: { searchParams: Prom
         </div>
       )}
 
-      <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
-        <Field label="Zoeken">
-          <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Nr., aspect, maatregel…" />
-        </Field>
-        <Field label="Bedrijfsonderdeel">
-          <Select name="bu" options={list(suggestions.businessUnits)} defaultValue={sp.bu} placeholder="Alle" />
-        </Field>
-        <Field label="Locatie">
-          <Select name="locatie" options={list(suggestions.locations)} defaultValue={sp.locatie} placeholder="Alle" className="max-w-56" />
-        </Field>
-        <Field label="Activiteit">
-          <Select name="activiteit" options={list(suggestions.activities)} defaultValue={sp.activiteit} placeholder="Alle" className="max-w-56" />
-        </Field>
-        <Field label="Thema">
-          <Select name="thema" options={list(suggestions.themes)} defaultValue={sp.thema} placeholder="Alle" />
-        </Field>
-        <Field label="Contextfactor">
-          <Select name="context" options={list(suggestions.contextFactors)} defaultValue={sp.context} placeholder="Alle" className="max-w-56" />
-        </Field>
-        <Field label="Prio">
-          <Select
-            name="prio"
-            options={[...options(ASPECT_PRIORITY_LABEL), { value: "geen", label: "Nog geen prio" }]}
-            defaultValue={sp.prio}
-            placeholder="Alle"
-          />
-        </Field>
-        <Field label="Significant">
-          <Select
-            name="significant"
-            options={[
-              { value: "ja", label: "Significant" },
-              { value: "nee", label: "Niet significant" },
-            ]}
-            defaultValue={sp.significant}
-            placeholder="Alle"
-          />
-        </Field>
-        <Field label="Risiconiveau">
-          <Select
-            name="niveau"
-            options={[
-              { value: "hoog+", label: "Hoog of zeer hoog" },
-              ...(["veryHigh", "high", "medium", "low"] as const).map((l) => ({ value: l, label: ASPECT_RISK_LEVEL_LABEL[l] })),
-              { value: "geen", label: "Nog niet gescoord" },
-            ]}
-            defaultValue={sp.niveau}
-            placeholder="Alle"
-          />
-        </Field>
-        <Field label="Signaal">
-          <Select
-            name="signaal"
-            options={[
-              { value: "ja", label: "Prio ≠ risico" },
-              { value: "lower", label: PRIORITY_SIGNAL_LABEL.lower },
-              { value: "higher", label: PRIORITY_SIGNAL_LABEL.higher },
-            ]}
-            defaultValue={sp.signaal}
-            placeholder="Alle"
-          />
-        </Field>
-        <Field label="Kans / bedreiging">
-          <Select
-            name="soort"
-            options={[
-              { value: "bedreiging", label: "Bedreiging" },
-              { value: "kans", label: "Kans" },
-            ]}
-            defaultValue={sp.soort}
-            placeholder="Alle"
-          />
-        </Field>
-        <Field label="Type">
-          <Select name="type" options={options(ASPECT_SITE_TYPE_LABEL)} defaultValue={sp.type} placeholder="Alle" />
-        </Field>
-        <Field label="Locatie in werking">
-          <Select
-            name="werking"
-            options={[
-              { value: "ja", label: "In werking" },
-              { value: "nee", label: "Tijdelijk niet in werking" },
-            ]}
-            defaultValue={sp.werking}
-            placeholder="Alle"
-          />
-        </Field>
-        <Field label="Eigenaar">
-          <Select
-            name="eigenaar"
-            options={[{ value: "mij", label: "Mijn aspecten" }, ...list(suggestions.owners)]}
-            defaultValue={sp.eigenaar}
-            placeholder="Iedereen"
-          />
-        </Field>
-        <Field label="Herkomst">
-          <Select name="herkomst" options={list(origins)} defaultValue={sp.herkomst} placeholder="Alle" />
-        </Field>
-        <Field label="Proces">
-          <Select
-            name="proces"
-            options={processes.map((p) => ({ value: p.id, label: p.name }))}
-            defaultValue={sp.proces}
-            placeholder="Alle"
-            className="max-w-48"
-          />
-        </Field>
-        <Field label="CO2">
-          <Select name="co2" options={[{ value: "ja", label: "CO2-relevant" }]} defaultValue={sp.co2} placeholder="Alle" />
-        </Field>
-        <button className="btn-secondary">Filteren</button>
-        <Link href="/milieuaspecten" className="btn-link self-center">
-          Wissen
-        </Link>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
+          <Field label="Zoeken">
+            <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Nr., aspect, maatregel…" />
+          </Field>
+          <Field label="Bedrijfsonderdeel">
+            <Select name="bu" options={list(suggestions.businessUnits)} defaultValue={sp.bu} placeholder="Alle" />
+          </Field>
+          <Field label="Locatie">
+            <Select name="locatie" options={list(suggestions.locations)} defaultValue={sp.locatie} placeholder="Alle" className="max-w-56" />
+          </Field>
+          <Field label="Activiteit">
+            <Select name="activiteit" options={list(suggestions.activities)} defaultValue={sp.activiteit} placeholder="Alle" className="max-w-56" />
+          </Field>
+          <Field label="Thema">
+            <Select name="thema" options={list(suggestions.themes)} defaultValue={sp.thema} placeholder="Alle" />
+          </Field>
+          <Field label="Contextfactor">
+            <Select name="context" options={list(suggestions.contextFactors)} defaultValue={sp.context} placeholder="Alle" className="max-w-56" />
+          </Field>
+          <Field label="Prio">
+            <Select
+              name="prio"
+              options={[...options(ASPECT_PRIORITY_LABEL), { value: "geen", label: "Nog geen prio" }]}
+              defaultValue={sp.prio}
+              placeholder="Alle"
+            />
+          </Field>
+          <Field label="Significant">
+            <Select
+              name="significant"
+              options={[
+                { value: "ja", label: "Significant" },
+                { value: "nee", label: "Niet significant" },
+              ]}
+              defaultValue={sp.significant}
+              placeholder="Alle"
+            />
+          </Field>
+          <Field label="Risiconiveau">
+            <Select
+              name="niveau"
+              options={[
+                { value: "hoog+", label: "Hoog of zeer hoog" },
+                ...(["veryHigh", "high", "medium", "low"] as const).map((l) => ({ value: l, label: ASPECT_RISK_LEVEL_LABEL[l] })),
+                { value: "geen", label: "Nog niet gescoord" },
+              ]}
+              defaultValue={sp.niveau}
+              placeholder="Alle"
+            />
+          </Field>
+          <Field label="Signaal">
+            <Select
+              name="signaal"
+              options={[
+                { value: "ja", label: "Prio ≠ risico" },
+                { value: "lower", label: PRIORITY_SIGNAL_LABEL.lower },
+                { value: "higher", label: PRIORITY_SIGNAL_LABEL.higher },
+              ]}
+              defaultValue={sp.signaal}
+              placeholder="Alle"
+            />
+          </Field>
+          <Field label="Kans / bedreiging">
+            <Select
+              name="soort"
+              options={[
+                { value: "bedreiging", label: "Bedreiging" },
+                { value: "kans", label: "Kans" },
+              ]}
+              defaultValue={sp.soort}
+              placeholder="Alle"
+            />
+          </Field>
+          <Field label="Type">
+            <Select name="type" options={options(ASPECT_SITE_TYPE_LABEL)} defaultValue={sp.type} placeholder="Alle" />
+          </Field>
+          <Field label="Locatie in werking">
+            <Select
+              name="werking"
+              options={[
+                { value: "ja", label: "In werking" },
+                { value: "nee", label: "Tijdelijk niet in werking" },
+              ]}
+              defaultValue={sp.werking}
+              placeholder="Alle"
+            />
+          </Field>
+          <Field label="Eigenaar">
+            <Select
+              name="eigenaar"
+              options={[{ value: "mij", label: "Mijn aspecten" }, ...list(suggestions.owners)]}
+              defaultValue={sp.eigenaar}
+              placeholder="Iedereen"
+            />
+          </Field>
+          <Field label="Herkomst">
+            <Select name="herkomst" options={list(origins)} defaultValue={sp.herkomst} placeholder="Alle" />
+          </Field>
+          <Field label="Proces">
+            <Select
+              name="proces"
+              options={processes.map((p) => ({ value: p.id, label: p.name }))}
+              defaultValue={sp.proces}
+              placeholder="Alle"
+              className="max-w-48"
+            />
+          </Field>
+          <Field label="CO2">
+            <Select name="co2" options={[{ value: "ja", label: "CO2-relevant" }]} defaultValue={sp.co2} placeholder="Alle" />
+          </Field>
+          <button className="btn-secondary">Filteren</button>
+          <Link href="/milieuaspecten" className="btn-link self-center">
+            Wissen
+          </Link>
+        </form>
+      </Filters>
 
       {aspects.length === 0 ? (
         <EmptyState>

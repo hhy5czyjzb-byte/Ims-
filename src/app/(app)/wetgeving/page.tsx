@@ -22,6 +22,7 @@ import { Badge, Disclosure, EmptyState, Field, PageHeader, ProgressBar, Select }
 import { LegalForm } from "@/components/legal-form";
 import { LegalNav } from "@/components/legal-nav";
 import { createLegal } from "./actions";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "Wet- en regelgeving" };
 
@@ -107,73 +108,75 @@ export default async function LegalRegisterPage({ searchParams }: { searchParams
         </div>
       )}
 
-      <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
-        <Field label="Zoeken">
-          <input name="q" defaultValue={sp.q} className="input w-52" placeholder="Wet, artikel, onderwerp…" />
-        </Field>
-        <Field label="Status">
-          <Select
-            name="status"
-            options={[{ value: "actie", label: "Actie nodig (niet / deels)" }, ...options(COMPLIANCE_STATUS_LABEL)]}
-            defaultValue={sp.status}
-            placeholder="Alle"
-          />
-        </Field>
-        <Field label="Toetsing">
-          <Select
-            name="toetsing"
-            options={[
-              { value: "verlopen", label: "Verlopen" },
-              { value: "30dagen", label: "Binnen 30 dagen" },
-              { value: "nooit", label: "Nog nooit getoetst" },
-            ]}
-            defaultValue={sp.toetsing}
-            placeholder="Alle"
-          />
-        </Field>
-        <Field label="Thema">
-          <Select name="thema" options={themes.map((t) => ({ value: t.theme!, label: t.theme! }))} defaultValue={sp.thema} placeholder="Alle" />
-        </Field>
-        <Field label="Geldt voor">
-          <Select name="geldtvoor" options={normList.map((n) => ({ value: n.id, label: n.code }))} defaultValue={sp.geldtvoor} placeholder="Alle" />
-        </Field>
-        <Field label="Van toepassing">
-          <Select name="toepassing" options={options(APPLICABILITY_LABEL)} defaultValue={sp.toepassing} placeholder="Alle" />
-        </Field>
-        <Field label="Uitvoering">
-          <Select name="uitvoering" options={options(IMPLEMENTATION_STATUS_LABEL)} defaultValue={sp.uitvoering} placeholder="Alle" />
-        </Field>
-        <Field label="Impact">
-          <Select name="impact" options={options(IMPACT_LEVEL_LABEL)} defaultValue={sp.impact} placeholder="Alle" />
-        </Field>
-        <Field label="Categorie">
-          <Select name="categorie" options={options(LEGAL_CATEGORY_LABEL)} defaultValue={sp.categorie} placeholder="Alle" />
-        </Field>
-        <Field label="Discipline">
-          <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
-        </Field>
-        <Field label="Locatie">
-          <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
-        </Field>
-        <Field label="Eigenaar">
-          <Select name="eigenaar" options={[{ value: "mij", label: "Mijn eisen" }, ...lookups.users]} defaultValue={sp.eigenaar} placeholder="Iedereen" />
-        </Field>
-        <Field label="Actief">
-          <Select
-            name="actief"
-            options={[
-              { value: "nee", label: "Vervallen" },
-              { value: "alle", label: "Alle" },
-            ]}
-            defaultValue={sp.actief}
-            placeholder="Actief"
-          />
-        </Field>
-        <button className="btn-secondary">Filteren</button>
-        <Link href="/wetgeving" className="btn-link self-center">
-          Wissen
-        </Link>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
+          <Field label="Zoeken">
+            <input name="q" defaultValue={sp.q} className="input w-52" placeholder="Wet, artikel, onderwerp…" />
+          </Field>
+          <Field label="Status">
+            <Select
+              name="status"
+              options={[{ value: "actie", label: "Actie nodig (niet / deels)" }, ...options(COMPLIANCE_STATUS_LABEL)]}
+              defaultValue={sp.status}
+              placeholder="Alle"
+            />
+          </Field>
+          <Field label="Toetsing">
+            <Select
+              name="toetsing"
+              options={[
+                { value: "verlopen", label: "Verlopen" },
+                { value: "30dagen", label: "Binnen 30 dagen" },
+                { value: "nooit", label: "Nog nooit getoetst" },
+              ]}
+              defaultValue={sp.toetsing}
+              placeholder="Alle"
+            />
+          </Field>
+          <Field label="Thema">
+            <Select name="thema" options={themes.map((t) => ({ value: t.theme!, label: t.theme! }))} defaultValue={sp.thema} placeholder="Alle" />
+          </Field>
+          <Field label="Geldt voor">
+            <Select name="geldtvoor" options={normList.map((n) => ({ value: n.id, label: n.code }))} defaultValue={sp.geldtvoor} placeholder="Alle" />
+          </Field>
+          <Field label="Van toepassing">
+            <Select name="toepassing" options={options(APPLICABILITY_LABEL)} defaultValue={sp.toepassing} placeholder="Alle" />
+          </Field>
+          <Field label="Uitvoering">
+            <Select name="uitvoering" options={options(IMPLEMENTATION_STATUS_LABEL)} defaultValue={sp.uitvoering} placeholder="Alle" />
+          </Field>
+          <Field label="Impact">
+            <Select name="impact" options={options(IMPACT_LEVEL_LABEL)} defaultValue={sp.impact} placeholder="Alle" />
+          </Field>
+          <Field label="Categorie">
+            <Select name="categorie" options={options(LEGAL_CATEGORY_LABEL)} defaultValue={sp.categorie} placeholder="Alle" />
+          </Field>
+          <Field label="Discipline">
+            <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
+          </Field>
+          <Field label="Locatie">
+            <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
+          </Field>
+          <Field label="Eigenaar">
+            <Select name="eigenaar" options={[{ value: "mij", label: "Mijn eisen" }, ...lookups.users]} defaultValue={sp.eigenaar} placeholder="Iedereen" />
+          </Field>
+          <Field label="Actief">
+            <Select
+              name="actief"
+              options={[
+                { value: "nee", label: "Vervallen" },
+                { value: "alle", label: "Alle" },
+              ]}
+              defaultValue={sp.actief}
+              placeholder="Actief"
+            />
+          </Field>
+          <button className="btn-secondary">Filteren</button>
+          <Link href="/wetgeving" className="btn-link self-center">
+            Wissen
+          </Link>
+        </form>
+      </Filters>
 
       {reqs.length === 0 ? (
         <EmptyState>

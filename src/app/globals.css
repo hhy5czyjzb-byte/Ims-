@@ -21,7 +21,7 @@
     @apply bg-neutral-50 text-neutral-900 antialiased;
   }
   h1 {
-    @apply text-2xl font-bold tracking-tight;
+    @apply text-xl font-bold tracking-tight sm:text-2xl;
   }
   h2 {
     @apply text-lg font-bold;
@@ -124,6 +124,66 @@
 }
 
 /* Afdrukken / PDF: rustige opmaak zonder kaders, kopjes niet los onderaan een pagina, afbeeldingen en tabellen niet splitsen. */
+/* Tabbladen: op een breed scherm over meerdere regels, op een telefoon één rij om opzij te vegen. */
+.tabs {
+  flex-wrap: wrap;
+}
+.tabs a {
+  white-space: nowrap;
+}
+
+/* Rasterkolommen mogen smaller worden dan hun inhoud (brede tabellen scrollen dan binnen de kaart). */
+main .grid > * {
+  min-width: 0;
+}
+
+/* Telefoon (smaller dan 768 px) */
+@media (max-width: 767px) {
+  .doc table {
+    display: block;
+    overflow-x: auto;
+  }
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding: 0 1rem;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  /* Brede tabellen: zelf horizontaal scrollen in plaats van de hele pagina. */
+  main table.table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  main table.table th,
+  main table.table td {
+    min-width: 6.5rem;
+  }
+  main table.table th:first-child,
+  main table.table td:first-child {
+    min-width: 4rem;
+  }
+  .btn,
+  .btn-secondary {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.8125rem;
+  }
+  .card {
+    padding: 1rem;
+  }
+  /* Invoervelden 16 px, anders zoomt iOS in bij aantikken. */
+  .input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 @media print {
   @page {
     size: A4;

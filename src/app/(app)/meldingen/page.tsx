@@ -23,6 +23,7 @@ import { Badge, Disclosure, EmptyState, Field, PageHeader, Select } from "@/comp
 import { BarList, ChartCard, Columns, SegmentBar, lastMonths, monthKey } from "@/components/charts";
 import { ReportForm } from "@/components/report-form";
 import { createReport } from "./actions";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "Meldingen" };
 
@@ -96,7 +97,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </Disclosure>
         </div>
       )}
-      <nav className="mb-6 flex flex-wrap gap-1 border-b border-neutral-200 print:hidden" aria-label="Soort meldingen">
+      <nav className="tabs mb-6 flex gap-1 border-b border-neutral-200 print:hidden" aria-label="Soort meldingen">
         {REPORT_GROUPS.map((g) => {
           const n = openIn(g.types);
           return (
@@ -374,65 +375,67 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <section className={`mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 ${group.key === "incidenten" ? "" : "lg:grid-cols-6"}`}>{tiles}</section>
       {charts}
 
-      <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
-        <input type="hidden" name="groep" value={group.key} />
-        <Field label="Zoeken">
-          <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Omschrijving, nr., project…" />
-        </Field>
-        {types.length > 1 && (
-          <Field label="Soort">
-            <Select name="soort" options={types.map((t) => ({ value: t, label: REPORT_TYPE_LABEL[t] }))} defaultValue={sp.soort} placeholder="Alle" />
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
+          <input type="hidden" name="groep" value={group.key} />
+          <Field label="Zoeken">
+            <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Omschrijving, nr., project…" />
           </Field>
-        )}
-        {isIncident && (
-          <>
-            <Field label="Verzuim">
-              <select name="verzuim" defaultValue={sp.verzuim ?? ""} className="input">
-                <option value="">Alle</option>
-                <option value="ja">Met verzuim</option>
-                <option value="kort">1–15 dagen</option>
-                <option value="lang">Meer dan 15 dagen</option>
-              </select>
+          {types.length > 1 && (
+            <Field label="Soort">
+              <Select name="soort" options={types.map((t) => ({ value: t, label: REPORT_TYPE_LABEL[t] }))} defaultValue={sp.soort} placeholder="Alle" />
             </Field>
-            <Field label="Categorie ongeval">
-              <Select name="categorie" options={ACCIDENT_CATEGORIES.map((c) => ({ value: c, label: c }))} defaultValue={sp.categorie} placeholder="Alle" />
-            </Field>
-            <label className="flex items-center gap-1.5 self-end pb-2 text-sm">
-              <input type="checkbox" name="meldplichtig" value="ja" defaultChecked={sp.meldplichtig === "ja"} /> Meldplichtig
-            </label>
-            <label className="flex items-center gap-1.5 self-end pb-2 text-sm">
-              <input type="checkbox" name="fataal" value="ja" defaultChecked={sp.fataal === "ja"} /> Fataal
-            </label>
-          </>
-        )}
-        <Field label="Status">
-          <select name="status" defaultValue={sp.status ?? "lopend"} className="input">
-            <option value="lopend">Open (nieuw + in behandeling)</option>
-            {options(REPORT_STATUS_LABEL).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-            <option value="alle">Alle</option>
-          </select>
-        </Field>
-        <Field label="Herkomst">
-          <Select name="herkomst" options={options(REPORT_ORIGIN_LABEL)} defaultValue={sp.herkomst} placeholder="Alle" />
-        </Field>
-        <Field label="Bedrijfsonderdeel">
-          <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
-        </Field>
-        <Field label="Vestiging">
-          <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
-        </Field>
-        <Field label="Jaar">
-          <input name="jaar" defaultValue={sp.jaar} inputMode="numeric" className="input w-24" placeholder="Alle" />
-        </Field>
-        <button className="btn-secondary">Filteren</button>
-        <Link href={`/meldingen?groep=${group.key}`} className="btn-link self-center">
-          Wissen
-        </Link>
-      </form>
+          )}
+          {isIncident && (
+            <>
+              <Field label="Verzuim">
+                <select name="verzuim" defaultValue={sp.verzuim ?? ""} className="input">
+                  <option value="">Alle</option>
+                  <option value="ja">Met verzuim</option>
+                  <option value="kort">1–15 dagen</option>
+                  <option value="lang">Meer dan 15 dagen</option>
+                </select>
+              </Field>
+              <Field label="Categorie ongeval">
+                <Select name="categorie" options={ACCIDENT_CATEGORIES.map((c) => ({ value: c, label: c }))} defaultValue={sp.categorie} placeholder="Alle" />
+              </Field>
+              <label className="flex items-center gap-1.5 self-end pb-2 text-sm">
+                <input type="checkbox" name="meldplichtig" value="ja" defaultChecked={sp.meldplichtig === "ja"} /> Meldplichtig
+              </label>
+              <label className="flex items-center gap-1.5 self-end pb-2 text-sm">
+                <input type="checkbox" name="fataal" value="ja" defaultChecked={sp.fataal === "ja"} /> Fataal
+              </label>
+            </>
+          )}
+          <Field label="Status">
+            <select name="status" defaultValue={sp.status ?? "lopend"} className="input">
+              <option value="lopend">Open (nieuw + in behandeling)</option>
+              {options(REPORT_STATUS_LABEL).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+              <option value="alle">Alle</option>
+            </select>
+          </Field>
+          <Field label="Herkomst">
+            <Select name="herkomst" options={options(REPORT_ORIGIN_LABEL)} defaultValue={sp.herkomst} placeholder="Alle" />
+          </Field>
+          <Field label="Bedrijfsonderdeel">
+            <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
+          </Field>
+          <Field label="Vestiging">
+            <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
+          </Field>
+          <Field label="Jaar">
+            <input name="jaar" defaultValue={sp.jaar} inputMode="numeric" className="input w-24" placeholder="Alle" />
+          </Field>
+          <button className="btn-secondary">Filteren</button>
+          <Link href={`/meldingen?groep=${group.key}`} className="btn-link self-center">
+            Wissen
+          </Link>
+        </form>
+      </Filters>
 
       {reports.length === 0 ? (
         <EmptyState>Geen meldingen met deze filters.</EmptyState>

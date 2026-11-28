@@ -12,7 +12,7 @@ const TABS = [
 /** Tabbladen bovenaan de stamgegevens. */
 export function BeheerNav({ active }: { active: string }) {
   return (
-    <nav className="mb-6 flex flex-wrap gap-1 border-b border-neutral-200 print:hidden" aria-label="Stamgegevens">
+    <nav className="tabs mb-6 flex gap-1 border-b border-neutral-200 print:hidden" aria-label="Stamgegevens">
       {TABS.map((t) => (
         <Link
           key={t.href}

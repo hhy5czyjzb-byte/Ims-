@@ -11,6 +11,7 @@ import { AUDIT_STATUS_CLASS, AUDIT_STATUS_LABEL, AUDIT_TYPE_CLASS, AUDIT_TYPE_LA
 import { Badge, Disclosure, EmptyState, Field, PageHeader, Select, StatCard } from "@/components/ui";
 import { AuditForm } from "@/components/audit-form";
 import { createAudit } from "./actions";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "Audits" };
 
@@ -74,7 +75,7 @@ export default async function AuditsPage({ searchParams }: { searchParams: Promi
       />
       <AuditCharts />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <StatCard label={`Gepland ${year}`} value={planned} />
         <StatCard label={`Afgerond ${year}`} value={completed} tone="ok" />
         <StatCard label="Open majors" value={openOf("MAJOR")} tone={openOf("MAJOR") ? "alert" : "ok"} hint="alle jaren" />
@@ -90,31 +91,33 @@ export default async function AuditsPage({ searchParams }: { searchParams: Promi
         </div>
       )}
 
-      <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
-        <Field label="Jaar">
-          <select name="jaar" defaultValue={String(year)} className="input">
-            {Array.from({ length: 7 }, (_, i) => thisYear - 3 + i).map((y) => (
-              <option key={y}>{y}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Soort">
-          <Select name="soort" options={options(AUDIT_TYPE_LABEL)} defaultValue={sp.soort} placeholder="Alle" />
-        </Field>
-        <Field label="Status">
-          <Select name="status" options={options(AUDIT_STATUS_LABEL)} defaultValue={sp.status} placeholder="Alle" />
-        </Field>
-        <Field label="Norm">
-          <Select name="norm" options={normOptions} defaultValue={sp.norm} placeholder="Alle" />
-        </Field>
-        <Field label="Locatie">
-          <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
-        </Field>
-        <Field label="Discipline">
-          <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
-        </Field>
-        <button className="btn-secondary">Filteren</button>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
+          <Field label="Jaar">
+            <select name="jaar" defaultValue={String(year)} className="input">
+              {Array.from({ length: 7 }, (_, i) => thisYear - 3 + i).map((y) => (
+                <option key={y}>{y}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Soort">
+            <Select name="soort" options={options(AUDIT_TYPE_LABEL)} defaultValue={sp.soort} placeholder="Alle" />
+          </Field>
+          <Field label="Status">
+            <Select name="status" options={options(AUDIT_STATUS_LABEL)} defaultValue={sp.status} placeholder="Alle" />
+          </Field>
+          <Field label="Norm">
+            <Select name="norm" options={normOptions} defaultValue={sp.norm} placeholder="Alle" />
+          </Field>
+          <Field label="Locatie">
+            <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
+          </Field>
+          <Field label="Discipline">
+            <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
+          </Field>
+          <button className="btn-secondary">Filteren</button>
+        </form>
+      </Filters>
 
       {byMonth.length === 0 ? (
         <EmptyState>Geen audits in {year} met deze filters.</EmptyState>

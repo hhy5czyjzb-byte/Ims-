@@ -13,6 +13,7 @@ import { FindingOverview } from "@/components/finding-overview";
 import { BarList, ChartCard, Columns, lastMonths, monthKey, SegmentBar } from "@/components/charts";
 import { ActionForm } from "@/components/action-form";
 import { createAction } from "./actions";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "Acties" };
 
@@ -22,7 +23,7 @@ export default async function ActionsPage({ searchParams }: { searchParams: Prom
   const tab = (sp as { tab?: string }).tab === "audit" ? "audit" : "acties";
   const openFindings = await prisma.auditFinding.count({ where: { status: "OPEN" } });
   const tabs = (
-    <nav className="mb-6 flex flex-wrap gap-1 border-b border-neutral-200 print:hidden" aria-label="Acties en maatregelen">
+    <nav className="tabs mb-6 flex gap-1 border-b border-neutral-200 print:hidden" aria-label="Acties en maatregelen">
       {[
         { key: "acties", href: "/acties", label: "Acties en maatregelen" },
         { key: "audit", href: "/acties?tab=audit", label: "Auditbevindingen", n: openFindings },
@@ -158,51 +159,53 @@ export default async function ActionsPage({ searchParams }: { searchParams: Prom
         </div>
       )}
 
-      <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
-        <Field label="Zoeken">
-          <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Actie, nr., eigenaar…" />
-        </Field>
-        <Field label="Status">
-          <select name="status" defaultValue={status} className="input">
-            <option value="lopend">Lopend (open + in uitvoering)</option>
-            <option value="verlopen">Deadline verstreken</option>
-            <option value="week">Deadline binnen 7 dagen</option>
-            {options(ACTION_STATUS_LABEL).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-            <option value="alle">Alle</option>
-          </select>
-        </Field>
-        <Field label="Bron">
-          <Select name="bron" options={options(ACTION_SOURCE_LABEL)} defaultValue={sp.bron} placeholder="Alle" />
-        </Field>
-        <Field label="Soort">
-          <Select name="soort" options={options(ACTION_KIND_LABEL)} defaultValue={sp.soort} placeholder="Alle" />
-        </Field>
-        <Field label="Prioriteit">
-          <Select name="prio" options={options(ACTION_PRIORITY_LABEL)} defaultValue={sp.prio} placeholder="Alle" />
-        </Field>
-        <Field label="Eigenaar">
-          <Select
-            name="eigenaar"
-            options={[{ value: "mij", label: "Mijn acties" }, { value: "geen", label: "Zonder eigenaar" }, ...lookups.users]}
-            defaultValue={sp.eigenaar}
-            placeholder="Iedereen"
-          />
-        </Field>
-        <Field label="Bedrijfsonderdeel">
-          <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
-        </Field>
-        <Field label="Vestiging">
-          <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
-        </Field>
-        <button className="btn-secondary">Filteren</button>
-        <Link href="/acties" className="btn-link self-center">
-          Wissen
-        </Link>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2" role="search">
+          <Field label="Zoeken">
+            <input name="q" defaultValue={sp.q} className="input w-48" placeholder="Actie, nr., eigenaar…" />
+          </Field>
+          <Field label="Status">
+            <select name="status" defaultValue={status} className="input">
+              <option value="lopend">Lopend (open + in uitvoering)</option>
+              <option value="verlopen">Deadline verstreken</option>
+              <option value="week">Deadline binnen 7 dagen</option>
+              {options(ACTION_STATUS_LABEL).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+              <option value="alle">Alle</option>
+            </select>
+          </Field>
+          <Field label="Bron">
+            <Select name="bron" options={options(ACTION_SOURCE_LABEL)} defaultValue={sp.bron} placeholder="Alle" />
+          </Field>
+          <Field label="Soort">
+            <Select name="soort" options={options(ACTION_KIND_LABEL)} defaultValue={sp.soort} placeholder="Alle" />
+          </Field>
+          <Field label="Prioriteit">
+            <Select name="prio" options={options(ACTION_PRIORITY_LABEL)} defaultValue={sp.prio} placeholder="Alle" />
+          </Field>
+          <Field label="Eigenaar">
+            <Select
+              name="eigenaar"
+              options={[{ value: "mij", label: "Mijn acties" }, { value: "geen", label: "Zonder eigenaar" }, ...lookups.users]}
+              defaultValue={sp.eigenaar}
+              placeholder="Iedereen"
+            />
+          </Field>
+          <Field label="Bedrijfsonderdeel">
+            <Select name="discipline" options={lookups.disciplines} defaultValue={sp.discipline} placeholder="Alle" />
+          </Field>
+          <Field label="Vestiging">
+            <Select name="locatie" options={lookups.locations} defaultValue={sp.locatie} placeholder="Alle" />
+          </Field>
+          <button className="btn-secondary">Filteren</button>
+          <Link href="/acties" className="btn-link self-center">
+            Wissen
+          </Link>
+        </form>
+      </Filters>
 
       {actions.length === 0 ? (
         <EmptyState>Geen acties gevonden met deze filters.</EmptyState>

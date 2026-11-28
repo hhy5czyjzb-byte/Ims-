@@ -4,6 +4,7 @@ import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { Badge, Field, PageHeader } from "@/components/ui";
+import { Filters } from "@/components/mobile-filters";
 
 export const metadata = { title: "Logboek" };
 
@@ -36,25 +37,27 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
         title="Logboek"
         description="Audit trail: wie heeft wat wanneer bekeken of gewijzigd (laatste 300 regels)."
       />
-      <form className="mb-4 flex flex-wrap items-end gap-2">
-        <Field label="Handeling">
-          <select name="actie" defaultValue={actie ?? ""} className="input">
-            <option value="">Alle</option>
-            {ACTIONS.map((a) => (
-              <option key={a}>{a}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Onderdeel">
-          <select name="type" defaultValue={type ?? ""} className="input">
-            <option value="">Alle</option>
-            {types.map((t) => (
-              <option key={t.entityType}>{t.entityType}</option>
-            ))}
-          </select>
-        </Field>
-        <button className="btn-secondary">Filteren</button>
-      </form>
+      <Filters>
+        <form className="mb-4 flex flex-wrap items-end gap-2">
+          <Field label="Handeling">
+            <select name="actie" defaultValue={actie ?? ""} className="input">
+              <option value="">Alle</option>
+              {ACTIONS.map((a) => (
+                <option key={a}>{a}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Onderdeel">
+            <select name="type" defaultValue={type ?? ""} className="input">
+              <option value="">Alle</option>
+              {types.map((t) => (
+                <option key={t.entityType}>{t.entityType}</option>
+              ))}
+            </select>
+          </Field>
+          <button className="btn-secondary">Filteren</button>
+        </form>
+      </Filters>
       <div className="card overflow-x-auto p-0">
         <table className="table">
           <thead>
