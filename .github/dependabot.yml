@@ -8,6 +8,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    # Nieuwe hoofdversies (bijv. Next 16, Prisma 7) vragen aanpassingen in de code; die doen we bewust en getest, niet automatisch.
+    # Beveiligingsupdates komen wel altijd door (Dependabot security updates staan los van deze regel).
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
