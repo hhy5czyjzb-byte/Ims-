@@ -9,6 +9,7 @@
  * in via Normenbeheer (de normteksten zelf zijn auteursrechtelijk beschermd).
  */
 import { PrismaClient, type NormCategory } from "@prisma/client";
+import { determineAspectSignificance, parseSignificanceRule, SIGNIFICANCE_RULE_KEY } from "../src/lib/aspects";
 
 const prisma = new PrismaClient();
 
@@ -301,7 +302,29 @@ async function main() {
     await seedDemoAspects();
     await seedDemoCo2();
   }
+  await recalcAspectSignificance();
   console.log("Seed klaar.");
+}
+
+/**
+ * Significantie van alle milieuaspecten opnieuw bepalen met de geldende regel (ingesteld door QHSE, anders de standaard).
+ * Draait bij elke deploy, zodat een gewijzigde standaardregel ook bestaande aspecten bijwerkt. Alleen gewijzigde regels worden opgeslagen.
+ */
+async function recalcAspectSignificance() {
+  const setting = await prisma.appSetting.findUnique({ where: { key: SIGNIFICANCE_RULE_KEY } });
+  const rule = parseSignificanceRule(setting?.value);
+  const aspects = await prisma.environmentalAspect.findMany({
+    select: { id: true, priority: true, effectScore: true, exposure: true, probability: true, legalApplies: true, complaints: true, significant: true },
+  });
+  const toTrue: string[] = [];
+  const toFalse: string[] = [];
+  for (const a of aspects) {
+    const sig = determineAspectSignificance(a, rule).significant;
+    if (sig !== a.significant) (sig ? toTrue : toFalse).push(a.id);
+  }
+  if (toTrue.length) await prisma.environmentalAspect.updateMany({ where: { id: { in: toTrue } }, data: { significant: true } });
+  if (toFalse.length) await prisma.environmentalAspect.updateMany({ where: { id: { in: toFalse } }, data: { significant: false } });
+  console.log(`Seed: significantie milieuaspecten bijgewerkt (${toTrue.length} nu significant, ${toFalse.length} niet meer).`);
 }
 
 /** Voorbeelddata om de app te verkennen. Niet gebruiken in productie. */

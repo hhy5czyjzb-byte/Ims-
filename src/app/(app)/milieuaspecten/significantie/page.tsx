@@ -41,8 +41,8 @@ export default async function SignificancePage() {
         <section className="card max-w-3xl">
           <Form key={JSON.stringify(rule)} action={setSignificanceRule} className="space-y-3 text-sm">
             <p className="text-xs text-neutral-600">
-              Een aspect is significant als het aan minstens één aangevinkt criterium voldoet. Standaard volgens het MAR: prio H of M. Bij opslaan wordt de
-              significantie van alle aspecten opnieuw bepaald.
+              Een aspect is significant als het aan minstens één aangevinkt criterium voldoet. Standaard: prio H, risico hoog of hoger, of een wettelijke eis
+              (wetgeving is altijd significant). Bij opslaan wordt de significantie van alle aspecten opnieuw bepaald.
             </p>
             <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <legend className="mb-1 text-xs font-medium text-neutral-700">Prio (eigen weging)</legend>

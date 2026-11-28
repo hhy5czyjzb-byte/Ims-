@@ -5,8 +5,8 @@ import { normText } from "@/lib/spreadsheet-import";
  * Milieuaspecten (ISO 14001 6.1.2) volgens het milieuaspectenregister (MAR) van Rouwmaat.
  * - Risico = effect (E) × voorkomen (B) × waarschijnlijkheid (W) — Fine & Kinney.
  *   Niveau: ≤ 20 laag, 21–70 middel, 71–200 hoog, > 200 zeer hoog.
- * - Prio (H/M/L) is de eigen weging (risico, levenscyclus, wetgeving, stakeholders). Standaard: prio H of M = significant
- *   (instelbaar, zie SignificanceRule).
+ * - Prio (H/M/L) is de eigen weging (risico, levenscyclus, wetgeving, stakeholders). Wanneer een aspect significant is,
+ *   is instelbaar (SignificanceRule); standaard bij prio H, risico hoog of een wettelijke eis.
  * - Signaal: prio wijkt af van het risiconiveau (kansen tellen niet mee).
  */
 
@@ -91,7 +91,7 @@ export function isSignificant(priority: AspectPriority | null | undefined): bool
 
 /**
  * Wanneer is een aspect significant? Instelbaar door QHSE (AppSetting `aspects.significanceRule`).
- * Standaard volgens het MAR: prio hoog of middel. Optioneel ook bij een minimaal risiconiveau, een wettelijke eis of klachten.
+ * Standaard: prio hoog, risico hoog of hoger, of een wettelijke eis. Ook instelbaar: prio middel/laag en klachten.
  */
 export type SignificanceRule = {
   priorities: AspectPriority[];
@@ -100,7 +100,8 @@ export type SignificanceRule = {
   complaints: boolean;
 };
 export const SIGNIFICANCE_RULE_KEY = "aspects.significanceRule";
-export const DEFAULT_SIGNIFICANCE_RULE: SignificanceRule = { priorities: ["HIGH", "MEDIUM"], minRiskLevel: null, legal: false, complaints: false };
+/** Standaard (keuze Rouwmaat): significant bij prio hoog, risico hoog of hoger, of een wettelijke eis (wetgeving is altijd significant). */
+export const DEFAULT_SIGNIFICANCE_RULE: SignificanceRule = { priorities: ["HIGH"], minRiskLevel: "high", legal: true, complaints: false };
 
 const PRIOS: AspectPriority[] = ["HIGH", "MEDIUM", "LOW"];
 const LEVELS: AspectRiskLevel[] = ["low", "medium", "high", "veryHigh"];

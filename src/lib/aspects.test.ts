@@ -69,12 +69,17 @@ test("type, situatie en CO2 uit het thema", () => {
 test("instelbare significantie", async () => {
   const { DEFAULT_SIGNIFICANCE_RULE, determineAspectSignificance, describeSignificanceRule, parseSignificanceRule } = await import("./aspects");
   const base = { priority: "LOW" as const, effectScore: 15, exposure: 6, probability: 1, legalApplies: true, complaints: false }; // risico 90 = hoog
-  assert.equal(determineAspectSignificance(base, DEFAULT_SIGNIFICANCE_RULE).significant, false);
-  assert.deepEqual(determineAspectSignificance({ ...base, priority: "MEDIUM" }, DEFAULT_SIGNIFICANCE_RULE).reasons, ["Prio M"]);
+  // standaard: prio H, risico hoog of hoger, of een wettelijke eis
+  assert.deepEqual(determineAspectSignificance(base, DEFAULT_SIGNIFICANCE_RULE).reasons, ["Risico hoog", "Wettelijke eis"]);
+  assert.equal(determineAspectSignificance({ ...base, effectScore: 3, legalApplies: false }, DEFAULT_SIGNIFICANCE_RULE).significant, false);
+  assert.deepEqual(determineAspectSignificance({ ...base, priority: "HIGH", effectScore: 1, legalApplies: false }, DEFAULT_SIGNIFICANCE_RULE).reasons, [
+    "Prio H",
+  ]);
+  assert.equal(determineAspectSignificance({ ...base, priority: "MEDIUM", effectScore: 1, legalApplies: false }, DEFAULT_SIGNIFICANCE_RULE).significant, false);
   const rule = { priorities: ["HIGH" as const], minRiskLevel: "high" as const, legal: true, complaints: true };
   assert.deepEqual(determineAspectSignificance(base, rule).reasons, ["Risico hoog", "Wettelijke eis"]);
   assert.equal(determineAspectSignificance({ ...base, effectScore: 3, legalApplies: false }, rule).significant, false);
-  assert.equal(describeSignificanceRule(DEFAULT_SIGNIFICANCE_RULE), "prio H of M");
+  assert.equal(describeSignificanceRule(DEFAULT_SIGNIFICANCE_RULE), "prio H, of risico hoog of hoger, of een wettelijke eis");
   assert.equal(describeSignificanceRule(rule), "prio H, of risico hoog of hoger, of een wettelijke eis, of klachten");
   assert.deepEqual(parseSignificanceRule("kapot"), DEFAULT_SIGNIFICANCE_RULE);
   assert.deepEqual(parseSignificanceRule(JSON.stringify({ priorities: ["HIGH", "X"], minRiskLevel: "medium", legal: true })), {
