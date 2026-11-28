@@ -17,6 +17,7 @@ import {
   FINDING_CLASS_SHORT,
 } from "@/lib/labels";
 import { Badge, PageHeader, ProgressBar, StatCard } from "@/components/ui";
+import { ChartCard, Columns, lastMonths, monthKey, SegmentBar } from "@/components/charts";
 import { RiskMatrix } from "@/components/risk-matrix";
 import { residual } from "@/lib/risk";
 import { auditCode } from "@/lib/audit-plan";
@@ -135,6 +136,20 @@ export default async function DashboardPage() {
 
   // CO2: lopend jaar (t/m vandaag) en vorig jaar, plus status van de doelstellingen.
   const co2Factors = await loadFactors();
+  // Meldingen voor de grafiek op het dashboard
+  const months = lastMonths(12);
+  const recentReports = await prisma.report.findMany({
+    where: { occurredAt: { gte: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 11, 1)) } },
+    select: { type: true, occurredAt: true, status: true },
+  });
+  const safetyTypes = ["ACCIDENT", "NEAR_MISS", "UNSAFE_SITUATION"];
+  const reportSeries = [
+    { name: "Veiligheid", values: months.map((m) => recentReports.filter((r) => safetyTypes.includes(r.type) && monthKey(r.occurredAt) === m.key).length) },
+    { name: "Overig", values: months.map((m) => recentReports.filter((r) => !safetyTypes.includes(r.type) && monthKey(r.occurredAt) === m.key).length) },
+  ];
+  const openReports = await prisma.report.count({ where: { status: { in: ["NEW", "IN_PROGRESS"] } } });
+  const accidents12 = recentReports.filter((r) => r.type === "ACCIDENT").length;
+
   const [co2Now, co2Prev, co2Targets] = await Promise.all([
     loadFootprint(today.getFullYear(), "jaar", {}, co2Factors),
     loadFootprint(today.getFullYear() - 1, "jaar", {}, co2Factors),
@@ -211,6 +226,26 @@ export default async function DashboardPage() {
         />
       </div>
 
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <ChartCard title="Meldingen per maand" subtitle="Laatste 12 maanden" className="lg:col-span-2">
+          <Columns periods={months.map((m) => ({ label: m.label, title: m.title }))} series={reportSeries} height={110} />
+          <p className="mt-2 text-xs">
+            <Link href="/meldingen">Naar de meldingen →</Link>
+          </p>
+        </ChartCard>
+        <ChartCard title="Lopende acties">
+          <SegmentBar
+            parts={[
+              { label: "Te laat", value: overdueCount, color: "#ec4647", href: "/acties?status=verlopen" },
+              { label: "Op schema", value: Math.max(openCount - overdueCount, 0), color: "#257de0", href: "/acties" },
+            ]}
+          />
+          <p className="mt-3 text-xs text-neutral-500">
+            {openReports} open melding{openReports === 1 ? "" : "en"}
+            {accidents12 > 0 && `, ${accidents12} ongeval${accidents12 === 1 ? "" : "len"} in 12 maanden`}.
+          </p>
+        </ChartCard>
+      </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <section className="card lg:col-span-2">
           <div className="mb-3 flex items-baseline justify-between">

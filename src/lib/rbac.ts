@@ -19,6 +19,8 @@ export const PERMISSIONS = {
   "co2.manage": ["QHSE"],
   "co2.enter": ["QHSE", "MIDDENKADER"],
   "context.edit": ["QHSE"],
+  "reports.create": ["QHSE", "MIDDENKADER", "DIRECTIE"],
+  "reports.manage": ["QHSE"],
   "context.approve": ["QHSE", "DIRECTIE"],
   "backup.manage": ["QHSE"],
   "auditlog.view": ["QHSE"],
@@ -48,6 +50,13 @@ export function canEditRisk(user: { id: string; role: Role }, risk: { ownerId: s
 export function canAssessLegal(user: { id: string; role: Role }, req: { ownerId: string | null }): boolean {
   if (can(user.role, "legal.edit")) return true;
   return user.role === "MIDDENKADER" && req.ownerId === user.id;
+}
+
+/** Mag deze gebruiker een melding wijzigen? QHSE altijd; anderen alleen als melder of behandelaar, zolang die niet is afgesloten. */
+export function canEditReport(user: { id: string; role: Role }, report: { reportedById: string | null; ownerId: string | null; status: string }): boolean {
+  if (can(user.role, "reports.manage")) return true;
+  if (report.status === "CLOSED" || report.status === "REJECTED") return false;
+  return report.reportedById === user.id || report.ownerId === user.id;
 }
 
 /** Mag deze gebruiker een verbruiksregel wijzigen? QHSE altijd; middenkader alleen eigen invoer. */

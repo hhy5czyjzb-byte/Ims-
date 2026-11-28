@@ -3,7 +3,7 @@ import type { ActionResult } from "@/lib/action-result";
 import { Field, Select } from "@/components/ui";
 import { CheckboxPicker } from "@/components/checkbox-picker";
 import { SubmitButton } from "@/components/submit-button";
-import { ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_LABEL, options } from "@/lib/labels";
+import { ACTION_KIND_LABEL, ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_LABEL, options } from "@/lib/labels";
 import { toDateInput } from "@/lib/format";
 import { Form } from "@/components/form";
 
@@ -30,8 +30,14 @@ export function ActionForm({
       <Field label="Omschrijving" className="md:col-span-4">
         <textarea name="description" rows={3} defaultValue={action?.description ?? ""} className="input" />
       </Field>
-      <Field label="Eigenaar">
+      <Field label="Eigenaar (gebruiker)">
         <Select name="ownerId" options={lookups.users} defaultValue={action?.ownerId} placeholder="— Kies —" />
+      </Field>
+      <Field label="Of eigenaar (naam / functie)">
+        <input name="ownerText" maxLength={200} defaultValue={action?.ownerText ?? ""} className="input" placeholder="Bijv. Manager Beton" />
+      </Field>
+      <Field label="Soort">
+        <Select name="kind" options={options(ACTION_KIND_LABEL)} defaultValue={action?.kind ?? "TASK"} />
       </Field>
       <Field label="Deadline">
         <input name="deadline" type="date" defaultValue={toDateInput(action?.deadline)} className="input" />
@@ -55,6 +61,18 @@ export function ActionForm({
           </Field>
           <Field label="Resultaat / evaluatie" className="md:col-span-4">
             <textarea name="result" rows={3} defaultValue={action.result ?? ""} className="input" />
+          </Field>
+          <Field label="Effectiviteit gecontroleerd op">
+            <input name="verifiedAt" type="date" defaultValue={toDateInput(action.verifiedAt)} className="input" />
+          </Field>
+          <Field label="Uitkomst controle effectiviteit" className="md:col-span-3">
+            <input
+              name="verificationNote"
+              maxLength={2000}
+              defaultValue={action.verificationNote ?? ""}
+              className="input"
+              placeholder="Heeft de maatregel gewerkt?"
+            />
           </Field>
         </>
       )}

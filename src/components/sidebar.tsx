@@ -24,7 +24,8 @@ const NAV: { title?: string; items: NavItem[] }[] = [
       { href: "/wetgeving", label: "Wet- en regelgeving" },
       { href: "/milieuaspecten", label: "Milieuaspecten" },
       { href: "/co2", label: "CO2-prestatieladder" },
-      { href: "/acties", label: "Acties" },
+      { href: "/meldingen", label: "Meldingen" },
+      { href: "/acties", label: "Actielijst" },
     ],
   },
   {

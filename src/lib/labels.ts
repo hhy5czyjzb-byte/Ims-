@@ -1,4 +1,5 @@
 import type {
+  ActionKind,
   ActionPriority,
   ActionSource,
   ActionStatus,
@@ -17,11 +18,16 @@ import type {
   FindingStatus,
   ImpactLevel,
   ImplementationStatus,
+  InjuryLevel,
   LegalCategory,
   NormCategory,
   ObligationCharacter,
   OperatingSituation,
   RaciType,
+  ReportOrigin,
+  ReportSeverity,
+  ReportStatus,
+  ReportType,
   RiskCategory,
   RiskStatus,
   RiskType,
@@ -74,10 +80,72 @@ export const ACTION_SOURCE_LABEL: Record<ActionSource, string> = {
   ENVIRONMENTAL_ASPECT: "Milieuaspect",
   CO2_REDUCTION: "CO2-reductie",
   LOCATION_AUDIT: "Compliance-audit vestiging",
-  NONCONFORMITY: "Afwijking",
+  INCIDENT: "Ongeval / incident",
+  NONCONFORMITY: "Afwijking / NC",
   MANAGEMENT_REVIEW: "Directiebeoordeling",
   COMPLAINT: "Klacht",
   OTHER: "Overig",
+};
+
+export const ACTION_KIND_LABEL: Record<ActionKind, string> = {
+  TASK: "Taak",
+  CORRECTION: "Directe correctie",
+  CORRECTIVE: "Corrigerende maatregel",
+  IMPROVEMENT: "Verbetering / preventief",
+};
+
+export const REPORT_TYPE_LABEL: Record<ReportType, string> = {
+  NONCONFORMITY: "Afwijking / NC",
+  COMPLAINT: "Klacht",
+  ACCIDENT: "Ongeval",
+  NEAR_MISS: "Bijna-ongeval",
+  UNSAFE_SITUATION: "Onveilige situatie / handeling",
+  ENVIRONMENTAL_INCIDENT: "Milieu-incident",
+  DAMAGE: "Schade",
+  IMPROVEMENT: "Verbetervoorstel",
+  OTHER: "Overig",
+};
+export const REPORT_TYPE_CLASS: Record<ReportType, string> = {
+  NONCONFORMITY: "bg-amber-100 text-amber-800",
+  COMPLAINT: "bg-sky-100 text-sky-800",
+  ACCIDENT: "bg-brand-red text-white",
+  NEAR_MISS: "bg-red-100 text-brand-red-dark",
+  UNSAFE_SITUATION: "bg-orange-100 text-orange-800",
+  ENVIRONMENTAL_INCIDENT: "bg-green-100 text-green-800",
+  DAMAGE: "bg-neutral-200 text-neutral-800",
+  IMPROVEMENT: "bg-violet-100 text-violet-800",
+  OTHER: "bg-neutral-100 text-neutral-700",
+};
+export const REPORT_ORIGIN_LABEL: Record<ReportOrigin, string> = {
+  INTERNAL: "Intern",
+  CUSTOMER: "Klant / opdrachtgever",
+  SUPPLIER: "Leverancier / onderaannemer",
+  EXTERNAL_AUDIT: "Externe audit / certificatie-instelling",
+  AUTHORITY: "Bevoegd gezag / inspectie",
+  NEIGHBOUR: "Omwonenden / omgeving",
+  OTHER: "Overig",
+};
+export const REPORT_SEVERITY_LABEL: Record<ReportSeverity, string> = { LOW: "Laag", MEDIUM: "Middel", HIGH: "Hoog", SEVERE: "Ernstig" };
+export const REPORT_SEVERITY_CLASS: Record<ReportSeverity, string> = {
+  LOW: "bg-neutral-100 text-neutral-700",
+  MEDIUM: "bg-amber-100 text-amber-800",
+  HIGH: "bg-red-100 text-brand-red-dark",
+  SEVERE: "bg-brand-red text-white",
+};
+export const REPORT_STATUS_LABEL: Record<ReportStatus, string> = { NEW: "Nieuw", IN_PROGRESS: "In behandeling", CLOSED: "Afgesloten", REJECTED: "Afgewezen" };
+export const REPORT_STATUS_CLASS: Record<ReportStatus, string> = {
+  NEW: "bg-sky-100 text-sky-800",
+  IN_PROGRESS: "bg-amber-100 text-amber-800",
+  CLOSED: "bg-green-100 text-green-800",
+  REJECTED: "bg-neutral-100 text-neutral-600",
+};
+export const INJURY_LEVEL_LABEL: Record<InjuryLevel, string> = {
+  NONE: "Geen letsel",
+  FIRST_AID: "EHBO",
+  MEDICAL: "Medische behandeling",
+  LOST_TIME: "Verzuim",
+  PERMANENT: "Blijvend letsel",
+  FATAL: "Dodelijk",
 };
 
 export const RACI_LABEL: Record<RaciType, string> = {

@@ -13,7 +13,8 @@ import { legalDisplayCode } from "@/lib/compliance";
 import { aspectDisplayCode } from "@/lib/aspects";
 import { formatKg } from "@/lib/co2";
 import { findingCode } from "@/lib/audit-plan";
-import { ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_CLASS, ACTION_STATUS_LABEL } from "@/lib/labels";
+import { ACTION_KIND_LABEL, ACTION_PRIORITY_LABEL, ACTION_SOURCE_LABEL, ACTION_STATUS_CLASS, ACTION_STATUS_LABEL, REPORT_TYPE_LABEL } from "@/lib/labels";
+import { reportDisplayCode } from "@/lib/reports";
 import { Badge, Disclosure, PageHeader } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { ActionForm } from "@/components/action-form";
@@ -47,6 +48,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
       reductionTarget: true,
       finding: { include: { audit: true } },
       locationAuditAnswer: { include: { audit: { include: { location: { select: { name: true } } } } } },
+      report: { select: { id: true, number: true, externalRef: true, title: true, type: true } },
     },
   });
   if (!action) notFound();
@@ -65,12 +67,13 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/acties", label: "Acties" }]}
+        breadcrumb={[{ href: "/acties", label: "Actielijst" }]}
         title={`#${action.number} ${action.title}`}
         description={
           <span className="flex flex-wrap items-center gap-2">
             <Badge className={ACTION_STATUS_CLASS[action.status]}>{ACTION_STATUS_LABEL[action.status]}</Badge>
             <span>Prioriteit {ACTION_PRIORITY_LABEL[action.priority].toLowerCase()}</span>
+            <span>· {ACTION_KIND_LABEL[action.kind]}</span>
             <span>· Bron: {ACTION_SOURCE_LABEL[action.source]}</span>
           </span>
         }
@@ -113,7 +116,16 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
         <div className="card text-sm">
           <dl className="grid grid-cols-[7rem_1fr] gap-y-1.5">
             <dt className="text-neutral-500">Eigenaar</dt>
-            <dd>{action.owner?.name ?? <span className="text-brand-red">Geen</span>}</dd>
+            <dd>{action.owner?.name ?? action.ownerText ?? <span className="text-brand-red">Geen</span>}</dd>
+            {(action.verifiedAt || action.verificationNote) && (
+              <>
+                <dt className="text-neutral-500">Effectiviteit</dt>
+                <dd>
+                  {action.verificationNote ?? "Gecontroleerd"}
+                  {action.verifiedAt && ` (${formatDate(action.verifiedAt)})`}
+                </dd>
+              </>
+            )}
             <dt className="text-neutral-500">Deadline</dt>
             <dd className={overdue ? "font-semibold text-brand-red" : ""}>
               {formatDate(action.deadline)}
@@ -163,6 +175,17 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
                   <Link href={`/milieuaspecten/${action.environmentalAspect.id}`}>
                     {aspectDisplayCode(action.environmentalAspect)} {action.environmentalAspect.aspect}
                   </Link>
+                </dd>
+              </>
+            )}
+            {action.report && (
+              <>
+                <dt className="text-neutral-500">Melding</dt>
+                <dd>
+                  <Link href={`/meldingen/${action.report.id}`}>
+                    {reportDisplayCode(action.report)} {action.report.title}
+                  </Link>
+                  <div className="text-xs text-neutral-500">{REPORT_TYPE_LABEL[action.report.type]}</div>
                 </dd>
               </>
             )}
